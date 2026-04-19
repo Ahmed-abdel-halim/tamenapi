@@ -606,6 +606,13 @@
                 qrContainer.innerHTML = '<img src="' + qrApiUrl + '" alt="QR Code" style="width: 85px; height: 85px; display: block;" />';
             }
         })();
+
+        // التفعيل التلقائي للطباعة عند التحميل
+        window.onload = function() {
+            setTimeout(function() {
+                window.print();
+            }, 500);
+        };
     </script>
 </body>
 </html>

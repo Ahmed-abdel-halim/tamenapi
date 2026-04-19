@@ -8,15 +8,21 @@ use App\Models\InsuranceDocument;
 use App\Models\TravelInsuranceDocument;
 use App\Models\ResidentInsuranceDocument;
 use App\Models\MarineStructureInsuranceDocument;
-use App\Services\InsuranceTypeService;
 use App\Models\ProfessionalLiabilityInsuranceDocument;
 use App\Models\PersonalAccidentInsuranceDocument;
 use App\Models\InternationalInsuranceDocument;
+use App\Models\SchoolStudentInsuranceDocument;
+use App\Models\CargoInsuranceDocument;
+use App\Models\CashInTransitInsuranceDocument;
 use App\Models\MonthlyAccountClosure;
+use App\Models\PaymentVoucher;
+use App\Services\InsuranceTypeService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\View;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 
 class BranchAgentController extends Controller
 {
@@ -472,67 +478,93 @@ class BranchAgentController extends Controller
     {
         try {
             $branchAgent = BranchAgent::with('user')->findOrFail($id);
-            $type = $request->get('type', 'full'); // 'monthly' or 'full'
+            $type = $request->get('type', 'full'); // 'range' or 'full'
             $year = $request->get('year');
             $month = $request->get('month');
+            $fromDate = $request->get('from_date');
+            $toDate = $request->get('to_date');
+
+            $applyCreatedAtFilter = function ($query) use ($type, $year, $month, $fromDate, $toDate) {
+                if ($type === 'range' && $fromDate && $toDate) {
+                    return $query->whereDate('created_at', '>=', $fromDate)
+                        ->whereDate('created_at', '<=', $toDate);
+                }
+                if ($type === 'monthly' && $year && $month) {
+                    return $query->whereYear('created_at', $year)
+                        ->whereMonth('created_at', $month);
+                }
+                return $query;
+            };
+
+            $applyPaymentDateFilter = function ($query) use ($type, $year, $month, $fromDate, $toDate) {
+                if ($type === 'range' && $fromDate && $toDate) {
+                    return $query->whereDate('payment_date', '>=', $fromDate)
+                        ->whereDate('payment_date', '<=', $toDate);
+                }
+                if ($type === 'monthly' && $year && $month) {
+                    return $query->whereYear('payment_date', $year)
+                        ->whereMonth('payment_date', $month);
+                }
+                return $query;
+            };
 
             // جلب جميع وثائق التأمين المرتبطة بالوكيل
             $insuranceDocuments = DB::table('insurance_documents')
                 ->select('id', 'insurance_type', 'insurance_number', 'premium', 'total', 'phone', 'insured_name', 'created_at')
                 ->where('branch_agent_id', $id)
-                ->when($type === 'monthly' && $year && $month, function ($query) use ($year, $month) {
-                    return $query->whereYear('created_at', $year)
-                                 ->whereMonth('created_at', $month);
-                })
+                ->when($type === 'monthly' || $type === 'range', $applyCreatedAtFilter)
                 ->get();
 
             $internationalInsuranceDocuments = DB::table('international_insurance_documents')
                 ->where('branch_agent_id', $id)
-                ->when($type === 'monthly' && $year && $month, function ($query) use ($year, $month) {
-                    return $query->whereYear('created_at', $year)
-                                 ->whereMonth('created_at', $month);
-                })
+                ->when($type === 'monthly' || $type === 'range', $applyCreatedAtFilter)
                 ->get();
 
             $travelInsuranceDocuments = DB::table('travel_insurance_documents')
                 ->where('branch_agent_id', $id)
-                ->when($type === 'monthly' && $year && $month, function ($query) use ($year, $month) {
-                    return $query->whereYear('created_at', $year)
-                                 ->whereMonth('created_at', $month);
-                })
+                ->when($type === 'monthly' || $type === 'range', $applyCreatedAtFilter)
                 ->get();
 
             $residentInsuranceDocuments = DB::table('resident_insurance_documents')
                 ->where('branch_agent_id', $id)
-                ->when($type === 'monthly' && $year && $month, function ($query) use ($year, $month) {
-                    return $query->whereYear('created_at', $year)
-                                 ->whereMonth('created_at', $month);
-                })
+                ->when($type === 'monthly' || $type === 'range', $applyCreatedAtFilter)
                 ->get();
 
             $marineStructureInsuranceDocuments = DB::table('marine_structure_insurance_documents')
                 ->where('branch_agent_id', $id)
-                ->when($type === 'monthly' && $year && $month, function ($query) use ($year, $month) {
-                    return $query->whereYear('created_at', $year)
-                                 ->whereMonth('created_at', $month);
-                })
+                ->when($type === 'monthly' || $type === 'range', $applyCreatedAtFilter)
                 ->get();
 
             $professionalLiabilityInsuranceDocuments = DB::table('professional_liability_insurance_documents')
                 ->where('branch_agent_id', $id)
-                ->when($type === 'monthly' && $year && $month, function ($query) use ($year, $month) {
-                    return $query->whereYear('created_at', $year)
-                                 ->whereMonth('created_at', $month);
-                })
+                ->when($type === 'monthly' || $type === 'range', $applyCreatedAtFilter)
                 ->get();
 
             $personalAccidentInsuranceDocuments = DB::table('personal_accident_insurance_documents')
                 ->select('id', 'insurance_number', 'premium', 'total', 'phone', 'name', 'created_at')
                 ->where('branch_agent_id', $id)
-                ->when($type === 'monthly' && $year && $month, function ($query) use ($year, $month) {
-                    return $query->whereYear('created_at', $year)
-                                 ->whereMonth('created_at', $month);
-                })
+                ->when($type === 'monthly' || $type === 'range', $applyCreatedAtFilter)
+                ->get();
+
+            $schoolStudentInsuranceDocuments = DB::table('school_student_insurance_documents')
+                ->where('branch_agent_id', $id)
+                ->when($type === 'monthly' || $type === 'range', $applyCreatedAtFilter)
+                ->get();
+
+            $cargoInsuranceDocuments = DB::table('cargo_insurance_documents')
+                ->where('branch_agent_id', $id)
+                ->when($type === 'monthly' || $type === 'range', $applyCreatedAtFilter)
+                ->get();
+
+            $cashInTransitInsuranceDocuments = DB::table('cash_in_transit_insurance_documents')
+                ->where('branch_agent_id', $id)
+                ->when($type === 'monthly' || $type === 'range', $applyCreatedAtFilter)
+                ->get();
+
+            // جلب إيصالات القبض (Payment Vouchers) لخصمها من الرصيد
+            $paymentVouchers = DB::table('payment_vouchers')
+                ->where('branch_agent_id', $id)
+                ->when($type === 'monthly' || $type === 'range', $applyPaymentDateFilter)
                 ->get();
 
             // حساب النسب من document_percentages
@@ -786,6 +818,87 @@ class BranchAgentController extends Controller
                 ];
             }
 
+            foreach ($schoolStudentInsuranceDocuments as $doc) {
+                $percentage = $documentPercentages['تأمين طلبة المدارس'] ?? 0;
+                $premium = $doc->premium ?? 0;
+                $total = $doc->total ?? 0;
+                $agentAmount = $premium * ($percentage / 100);
+                $companyAmount = $total - $agentAmount;
+                $totalAmount += $agentAmount;
+                $totalCompanyAmount += $companyAmount;
+                
+                $category = 'تأمين طلبة المدارس';
+                if (!isset($documentsByCategory[$category])) {
+                    $documentsByCategory[$category] = [];
+                }
+                
+                $documentsByCategory[$category][] = [
+                    'category' => 'تأمين طلبة المدارس',
+                    'document_number' => $doc->insurance_number ?? '-',
+                    'total' => $total,
+                    'company_amount' => $companyAmount,
+                    'agent_amount' => $agentAmount,
+                    'percentage' => $percentage,
+                    'phone' => $doc->phone ?? '-',
+                    'insured_name' => $doc->insured_name ?? '-',
+                    'date' => $doc->created_at ?? null,
+                ];
+            }
+
+            foreach ($cargoInsuranceDocuments as $doc) {
+                $percentage = $documentPercentages['تأمين البضائع'] ?? 0;
+                $premium = $doc->premium ?? 0;
+                $total = $doc->total ?? 0;
+                $agentAmount = $premium * ($percentage / 100);
+                $companyAmount = $total - $agentAmount;
+                $totalAmount += $agentAmount;
+                $totalCompanyAmount += $companyAmount;
+                
+                $category = 'تأمين البضائع';
+                if (!isset($documentsByCategory[$category])) {
+                    $documentsByCategory[$category] = [];
+                }
+                
+                $documentsByCategory[$category][] = [
+                    'category' => 'تأمين البضائع',
+                    'document_number' => $doc->insurance_number ?? '-',
+                    'total' => $total,
+                    'company_amount' => $companyAmount,
+                    'agent_amount' => $agentAmount,
+                    'percentage' => $percentage,
+                    'phone' => $doc->phone ?? '-',
+                    'insured_name' => $doc->insured_name ?? '-',
+                    'date' => $doc->created_at ?? null,
+                ];
+            }
+
+            foreach ($cashInTransitInsuranceDocuments as $doc) {
+                $percentage = $documentPercentages['تأمين نقل النقدية'] ?? 0;
+                $premium = $doc->premium ?? 0;
+                $total = $doc->total ?? 0;
+                $agentAmount = $premium * ($percentage / 100);
+                $companyAmount = $total - $agentAmount;
+                $totalAmount += $agentAmount;
+                $totalCompanyAmount += $companyAmount;
+                
+                $category = 'تأمين نقل النقدية';
+                if (!isset($documentsByCategory[$category])) {
+                    $documentsByCategory[$category] = [];
+                }
+                
+                $documentsByCategory[$category][] = [
+                    'category' => 'تأمين نقل النقدية',
+                    'document_number' => $doc->insurance_number ?? '-',
+                    'total' => $total,
+                    'company_amount' => $companyAmount,
+                    'agent_amount' => $agentAmount,
+                    'percentage' => $percentage,
+                    'phone' => $doc->phone ?? '-',
+                    'insured_name' => $doc->insured_name ?? '-',
+                    'date' => $doc->created_at ?? null,
+                ];
+            }
+
             // ترتيب الوثائق داخل كل فئة حسب التاريخ
             foreach ($documentsByCategory as $category => $docs) {
                 usort($documentsByCategory[$category], function ($a, $b) {
@@ -819,31 +932,41 @@ class BranchAgentController extends Controller
             $remainingAmount = $totalCompanyAmount; // المتبقي = القيمة للشركة (افتراضي)
             $paidAmount = 0; // المدفوع (افتراضي)
             
-            if ($type === 'monthly' && $year && $month) {
-                // كشف حساب شهري: البحث عن إغلاق محفوظ للشهر المختار
-                $closure = MonthlyAccountClosure::where('branch_agent_id', $id)
-                    ->where('year', $year)
-                    ->where('month', $month)
-                    ->first();
+            if (($type === 'monthly' && $year && $month) || ($type === 'range' && $fromDate && $toDate)) {
+                // مجموع الإيصالات للشهر الحالي
+                $paidVouchersTotal = $paymentVouchers->sum('amount');
+                $paidAmount = $paidVouchersTotal;
                 
-                if ($closure) {
-                    // استخدام القيم المحفوظة من الإغلاق (المدفوع والمتبقي فقط)
-                    // القيمة المستحقة تبقى كما هي (المبلغ الأصلي)
-                    $paidAmount = $closure->paid_amount;
-                    $remainingAmount = $closure->remaining_amount;
-                }
-            } elseif ($type === 'full') {
-                // كشف حساب كامل: جمع جميع الإغلاقات المحفوظة للوكيل
-                $closures = MonthlyAccountClosure::where('branch_agent_id', $id)->get();
-                
-                if ($closures->count() > 0) {
-                    // مجموع المبالغ المدفوعة من جميع الإغلاقات
-                    $totalPaidAmount = $closures->sum('paid_amount');
-                    $paidAmount = $totalPaidAmount;
+                if ($type === 'monthly' && $year && $month) {
+                    // كشف حساب شهري: البحث عن إغلاق محفوظ للشهر المختار
+                    $closure = MonthlyAccountClosure::where('branch_agent_id', $id)
+                        ->where('year', $year)
+                        ->where('month', $month)
+                        ->first();
                     
-                    // المتبقي = القيمة المستحقة - المدفوع
+                    if ($closure) {
+                        // إذا كان هناك إغلاق يدوي، نجمع قيمته مع الإيصالات
+                        $paidAmount += $closure->paid_amount;
+                        $remainingAmount = max(0, $dueAmount - $paidAmount);
+                    } else {
+                        $remainingAmount = max(0, $dueAmount - $paidAmount);
+                    }
+                } else {
+                    // كشف بفترة مخصصة: نعتمد مجموع الإيصالات داخل الفترة
                     $remainingAmount = max(0, $dueAmount - $paidAmount);
                 }
+            } elseif ($type === 'full') {
+                // مجموع كل الإيصالات الصادرة للوكيل
+                $totalPaidVouchers = $paymentVouchers->sum('amount');
+                
+                // مجموع كل الإغلاقات المحفوظة
+                $closures = MonthlyAccountClosure::where('branch_agent_id', $id)->get();
+                $totalPaidClosures = $closures->sum('paid_amount');
+                
+                $paidAmount = $totalPaidVouchers + $totalPaidClosures;
+                
+                // المتبقي = القيمة المستحقة - الإجمالي المدفوع
+                $remainingAmount = max(0, $dueAmount - $paidAmount);
             }
 
             $reportData = [
@@ -851,6 +974,8 @@ class BranchAgentController extends Controller
                 'type' => $type,
                 'year' => $year,
                 'month' => $month,
+                'fromDate' => $fromDate,
+                'toDate' => $toDate,
                 'documentsByCategory' => $documentsByCategory,
                 'totalAmount' => $totalAmount,
                 'totalCompanyAmount' => $totalCompanyAmount,
@@ -879,14 +1004,21 @@ class BranchAgentController extends Controller
     {
         try {
             $branchAgentId = $request->get('branch_agent_id');
+            $type = $request->get('type', 'monthly');
             $year = $request->get('year');
             $month = $request->get('month');
+            $fromDate = $request->get('from_date');
+            $toDate = $request->get('to_date');
             $insuranceTypeFilter = $request->get('insurance_type'); // نوع التأمين المحدد للفلترة
 
-            if (!$branchAgentId || !$year || !$month) {
+            if (
+                !$branchAgentId ||
+                ($type === 'monthly' && (!$year || !$month)) ||
+                ($type === 'range' && (!$fromDate || !$toDate))
+            ) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'يجب تحديد الوكيل والسنة والشهر',
+                    'message' => 'يجب تحديد الوكيل وفترة البحث',
                     'error' => 'Missing required parameters'
                 ], 400);
             }
@@ -903,12 +1035,20 @@ class BranchAgentController extends Controller
                 return InsuranceTypeService::matchesFilter($docInsuranceTypeLabel, $insuranceTypeFilter ?? 'all');
             };
 
+            $applyCreatedAtFilter = function ($query) use ($type, $year, $month, $fromDate, $toDate) {
+                if ($type === 'range' && $fromDate && $toDate) {
+                    return $query->whereDate('created_at', '>=', $fromDate)
+                        ->whereDate('created_at', '<=', $toDate);
+                }
+                return $query->whereYear('created_at', $year)
+                    ->whereMonth('created_at', $month);
+            };
+
             // جلب جميع وثائق التأمين للشهر المحدد
             $insuranceDocuments = DB::table('insurance_documents')
                 ->select('id', 'insurance_type', 'insurance_number', 'premium', 'total', 'phone', 'insured_name', 'created_at', 'issue_date')
                 ->where('branch_agent_id', $branchAgentId)
-                ->whereYear('created_at', $year)
-                ->whereMonth('created_at', $month)
+                ->where($applyCreatedAtFilter)
                 ->get();
 
             foreach ($insuranceDocuments as $doc) {
@@ -964,8 +1104,7 @@ class BranchAgentController extends Controller
             // International Insurance
             $internationalDocs = DB::table('international_insurance_documents')
                 ->where('branch_agent_id', $branchAgentId)
-                ->whereYear('created_at', $year)
-                ->whereMonth('created_at', $month)
+                ->where($applyCreatedAtFilter)
                 ->get();
 
             foreach ($internationalDocs as $doc) {
@@ -999,8 +1138,7 @@ class BranchAgentController extends Controller
             // Travel Insurance
             $travelDocs = DB::table('travel_insurance_documents')
                 ->where('branch_agent_id', $branchAgentId)
-                ->whereYear('created_at', $year)
-                ->whereMonth('created_at', $month)
+                ->where($applyCreatedAtFilter)
                 ->get();
 
             foreach ($travelDocs as $doc) {
@@ -1040,8 +1178,7 @@ class BranchAgentController extends Controller
             // Resident Insurance
             $residentDocs = DB::table('resident_insurance_documents')
                 ->where('branch_agent_id', $branchAgentId)
-                ->whereYear('created_at', $year)
-                ->whereMonth('created_at', $month)
+                ->where($applyCreatedAtFilter)
                 ->get();
 
             foreach ($residentDocs as $doc) {
@@ -1080,8 +1217,7 @@ class BranchAgentController extends Controller
             // Marine Structure Insurance
             $marineDocs = DB::table('marine_structure_insurance_documents')
                 ->where('branch_agent_id', $branchAgentId)
-                ->whereYear('created_at', $year)
-                ->whereMonth('created_at', $month)
+                ->where($applyCreatedAtFilter)
                 ->get();
 
             foreach ($marineDocs as $doc) {
@@ -1115,8 +1251,7 @@ class BranchAgentController extends Controller
             // Professional Liability Insurance
             $professionalDocs = DB::table('professional_liability_insurance_documents')
                 ->where('branch_agent_id', $branchAgentId)
-                ->whereYear('created_at', $year)
-                ->whereMonth('created_at', $month)
+                ->where($applyCreatedAtFilter)
                 ->get();
 
             foreach ($professionalDocs as $doc) {
@@ -1150,8 +1285,7 @@ class BranchAgentController extends Controller
             // Personal Accident Insurance
             $personalAccidentDocs = DB::table('personal_accident_insurance_documents')
                 ->where('branch_agent_id', $branchAgentId)
-                ->whereYear('created_at', $year)
-                ->whereMonth('created_at', $month)
+                ->where($applyCreatedAtFilter)
                 ->get();
 
             foreach ($personalAccidentDocs as $doc) {
@@ -1184,6 +1318,105 @@ class BranchAgentController extends Controller
                 ];
             }
 
+            // School Student Insurance
+            $schoolStudentDocs = DB::table('school_student_insurance_documents')
+                ->where('branch_agent_id', $branchAgentId)
+                ->where($applyCreatedAtFilter)
+                ->get();
+
+            foreach ($schoolStudentDocs as $doc) {
+                if (!$shouldIncludeDocument('تأمين طلبة المدارس')) {
+                    continue;
+                }
+                
+                $percentage = $documentPercentages['تأمين طلبة المدارس'] ?? 0;
+                $premium = $doc->premium ?? 0;
+                $total = $doc->total ?? 0;
+                $agentAmount = $premium * ($percentage / 100);
+                $companyAmount = $total - $agentAmount;
+                $totalAmount += $agentAmount;
+                $totalCompanyAmount += $companyAmount;
+                
+                $documents[] = [
+                    'insurance_type' => 'تأمين طلبة المدارس',
+                    'category' => 'تأمين طلبة المدارس',
+                    'insured_name' => $doc->insured_name ?? '-',
+                    'phone' => $doc->phone ?? '-',
+                    'insurance_code' => $doc->insurance_number ?? '-',
+                    'insurance_value' => $total,
+                    'agent_percentage' => $percentage,
+                    'agent_amount' => $agentAmount,
+                    'company_amount' => $companyAmount,
+                    'date' => $doc->issue_date ?? $doc->created_at ?? null,
+                ];
+            }
+
+            // Cargo Insurance
+            $cargoDocs = DB::table('cargo_insurance_documents')
+                ->where('branch_agent_id', $branchAgentId)
+                ->where($applyCreatedAtFilter)
+                ->get();
+
+            foreach ($cargoDocs as $doc) {
+                if (!$shouldIncludeDocument('تأمين البضائع')) {
+                    continue;
+                }
+                
+                $percentage = $documentPercentages['تأمين البضائع'] ?? 0;
+                $premium = $doc->premium ?? 0;
+                $total = $doc->total ?? 0;
+                $agentAmount = $premium * ($percentage / 100);
+                $companyAmount = $total - $agentAmount;
+                $totalAmount += $agentAmount;
+                $totalCompanyAmount += $companyAmount;
+                
+                $documents[] = [
+                    'insurance_type' => 'تأمين البضائع',
+                    'category' => 'تأمين البضائع',
+                    'insured_name' => $doc->insured_name ?? '-',
+                    'phone' => $doc->phone ?? '-',
+                    'insurance_code' => $doc->insurance_number ?? '-',
+                    'insurance_value' => $total,
+                    'agent_percentage' => $percentage,
+                    'agent_amount' => $agentAmount,
+                    'company_amount' => $companyAmount,
+                    'date' => $doc->issue_date ?? $doc->created_at ?? null,
+                ];
+            }
+
+            // Cash In Transit Insurance
+            $cashInTransitDocs = DB::table('cash_in_transit_insurance_documents')
+                ->where('branch_agent_id', $branchAgentId)
+                ->where($applyCreatedAtFilter)
+                ->get();
+
+            foreach ($cashInTransitDocs as $doc) {
+                if (!$shouldIncludeDocument('تأمين نقل النقدية')) {
+                    continue;
+                }
+                
+                $percentage = $documentPercentages['تأمين نقل النقدية'] ?? 0;
+                $premium = $doc->premium ?? 0;
+                $total = $doc->total ?? 0;
+                $agentAmount = $premium * ($percentage / 100);
+                $companyAmount = $total - $agentAmount;
+                $totalAmount += $agentAmount;
+                $totalCompanyAmount += $companyAmount;
+                
+                $documents[] = [
+                    'insurance_type' => 'تأمين نقل النقدية',
+                    'category' => 'تأمين نقل النقدية',
+                    'insured_name' => $doc->insured_name ?? '-',
+                    'phone' => $doc->phone ?? '-',
+                    'insurance_code' => $doc->insurance_number ?? '-',
+                    'insurance_value' => $total,
+                    'agent_percentage' => $percentage,
+                    'agent_amount' => $agentAmount,
+                    'company_amount' => $companyAmount,
+                    'date' => $doc->issue_date ?? $doc->created_at ?? null,
+                ];
+            }
+
             // ترتيب الوثائق حسب التاريخ
             usort($documents, function ($a, $b) {
                 $dateA = $a['date'] ? strtotime($a['date']) : 0;
@@ -1192,10 +1425,32 @@ class BranchAgentController extends Controller
             });
 
             // التحقق من وجود إغلاق محفوظ مسبقاً
-            $existingClosure = MonthlyAccountClosure::where('branch_agent_id', $branchAgentId)
-                ->where('year', $year)
-                ->where('month', $month)
-                ->first();
+            $existingClosure = null;
+            if ($type === 'monthly') {
+                $existingClosure = MonthlyAccountClosure::where('branch_agent_id', $branchAgentId)
+                    ->where('year', $year)
+                    ->where('month', $month)
+                    ->first();
+            }
+
+            // جلب إيصالات القبض (Payment Vouchers) الصادرة في هذا الشهر
+            $paymentVouchersMonthQuery = DB::table('payment_vouchers')
+                ->where('branch_agent_id', $branchAgentId);
+            if ($type === 'range' && $fromDate && $toDate) {
+                $paymentVouchersMonthQuery
+                    ->whereDate('payment_date', '>=', $fromDate)
+                    ->whereDate('payment_date', '<=', $toDate);
+            } else {
+                $paymentVouchersMonthQuery
+                    ->whereYear('payment_date', $year)
+                    ->whereMonth('payment_date', $month);
+            }
+            $paymentVouchersMonth = $paymentVouchersMonthQuery->sum('amount');
+            
+            // جلب إجمالي إيصالات القبض (Payment Vouchers) للوكيل عبر كل الزمن
+            $paymentVouchersAllTime = DB::table('payment_vouchers')
+                ->where('branch_agent_id', $branchAgentId)
+                ->sum('amount');
 
             return response()->json([
                 'success' => true,
@@ -1210,6 +1465,8 @@ class BranchAgentController extends Controller
                     'total_agent_amount' => $totalAmount,
                     'total_company_amount' => $totalCompanyAmount,
                     'due_amount' => $totalCompanyAmount, // القيمة المستحقة = القيمة للشركة
+                    'paid_vouchers_amount' => $paymentVouchersMonth, // إجمالي الإيصالات الصادرة في هذا الشهر
+                    'total_vouchers_all_time' => $paymentVouchersAllTime, // إجمالي الإيصالات عبر كل الزمن
                 ],
                 'closure' => $existingClosure ? [
                     'paid_amount' => $existingClosure->paid_amount,
@@ -1267,6 +1524,9 @@ class BranchAgentController extends Controller
                 'professional_liability_insurance_documents' => 0,
                 'personal_accident_insurance_documents' => 0,
                 'international_insurance_documents' => 0,
+                'school_student_insurance_documents' => 0,
+                'cargo_insurance_documents' => 0,
+                'cash_in_transit_insurance_documents' => 0,
             ];
 
             // Insurance Documents (Car Insurance)
@@ -1274,49 +1534,70 @@ class BranchAgentController extends Controller
             if (!$isAdmin && $branchAgentId) {
                 $insuranceQuery->where('branch_agent_id', $branchAgentId);
             }
-            $statistics['insurance_documents'] = $insuranceQuery->count();
+            $statistics['insurance_documents'] = $insuranceQuery->active()->count();
 
             // Travel Insurance Documents
             $travelQuery = TravelInsuranceDocument::query();
             if (!$isAdmin && $branchAgentId) {
                 $travelQuery->where('branch_agent_id', $branchAgentId);
             }
-            $statistics['travel_insurance_documents'] = $travelQuery->count();
+            $statistics['travel_insurance_documents'] = $travelQuery->active()->count();
 
             // Resident Insurance Documents
             $residentQuery = ResidentInsuranceDocument::query();
             if (!$isAdmin && $branchAgentId) {
                 $residentQuery->where('branch_agent_id', $branchAgentId);
             }
-            $statistics['resident_insurance_documents'] = $residentQuery->count();
+            $statistics['resident_insurance_documents'] = $residentQuery->active()->count();
 
             // Marine Structure Insurance Documents
             $marineQuery = MarineStructureInsuranceDocument::query();
             if (!$isAdmin && $branchAgentId) {
                 $marineQuery->where('branch_agent_id', $branchAgentId);
             }
-            $statistics['marine_structure_insurance_documents'] = $marineQuery->count();
+            $statistics['marine_structure_insurance_documents'] = $marineQuery->active()->count();
 
             // Professional Liability Insurance Documents
             $professionalQuery = ProfessionalLiabilityInsuranceDocument::query();
             if (!$isAdmin && $branchAgentId) {
                 $professionalQuery->where('branch_agent_id', $branchAgentId);
             }
-            $statistics['professional_liability_insurance_documents'] = $professionalQuery->count();
+            $statistics['professional_liability_insurance_documents'] = $professionalQuery->active()->count();
 
             // Personal Accident Insurance Documents
             $personalQuery = PersonalAccidentInsuranceDocument::query();
             if (!$isAdmin && $branchAgentId) {
                 $personalQuery->where('branch_agent_id', $branchAgentId);
             }
-            $statistics['personal_accident_insurance_documents'] = $personalQuery->count();
+            $statistics['personal_accident_insurance_documents'] = $personalQuery->active()->count();
 
             // International Insurance Documents
             $internationalQuery = InternationalInsuranceDocument::query();
             if (!$isAdmin && $branchAgentId) {
                 $internationalQuery->where('branch_agent_id', $branchAgentId);
             }
-            $statistics['international_insurance_documents'] = $internationalQuery->count();
+            $statistics['international_insurance_documents'] = $internationalQuery->active()->count();
+
+            // School Student Insurance Documents
+            $schoolQuery = SchoolStudentInsuranceDocument::query();
+            if (!$isAdmin && $branchAgentId) {
+                $schoolQuery->where('branch_agent_id', $branchAgentId);
+            }
+            $statistics['school_student_insurance_documents'] = $schoolQuery->count();
+
+            // Cargo Insurance Documents
+            $cargoStatQuery = CargoInsuranceDocument::query();
+            if (!$isAdmin && $branchAgentId) {
+                $cargoStatQuery->where('branch_agent_id', $branchAgentId);
+            }
+            $statistics['cargo_insurance_documents'] = $cargoStatQuery->count();
+
+            // Cash In Transit Insurance Documents
+            $cashStatQuery = CashInTransitInsuranceDocument::query();
+            if (!$isAdmin && $branchAgentId) {
+                $cashStatQuery->where('branch_agent_id', $branchAgentId);
+            }
+            $statistics['cash_in_transit_insurance_documents'] = $cashStatQuery->count();
 
             return response()->json($statistics);
         } catch (\Exception $e) {
@@ -1549,6 +1830,81 @@ class BranchAgentController extends Controller
                     ];
                 });
             $allDocuments = $allDocuments->concat($internationalDocs);
+
+            // School Student Insurance Documents
+            $schoolLatestQuery = SchoolStudentInsuranceDocument::with('branchAgent');
+            if (!$isAdmin && $branchAgentId) {
+                $schoolLatestQuery->where('branch_agent_id', $branchAgentId);
+            }
+            $schoolLatestDocs = $schoolLatestQuery->orderBy('created_at', 'desc')
+                ->limit(5)
+                ->get()
+                ->map(function ($doc) use ($isAdmin) {
+                    return [
+                        'id' => $doc->id,
+                        'insurance_number' => $doc->insurance_number ?? '-',
+                        'insured_name' => $doc->insured_name ?? '-',
+                        'phone' => $doc->phone ?? '-',
+                        'total' => $doc->total ?? 0,
+                        'premium' => $doc->premium ?? 0,
+                        'insurance_type' => 'تأمين طلبة المدارس',
+                        'agency_name' => $isAdmin && $doc->branchAgent ? ($doc->branchAgent->agency_name ?? '-') : null,
+                        'created_at' => $doc->created_at,
+                        'issue_date' => $doc->issue_date ?? $doc->created_at,
+                        'type' => 'school',
+                    ];
+                });
+            $allDocuments = $allDocuments->concat($schoolLatestDocs);
+
+            // Cargo Insurance Documents
+            $cargoLatestQuery = CargoInsuranceDocument::with('branchAgent');
+            if (!$isAdmin && $branchAgentId) {
+                $cargoLatestQuery->where('branch_agent_id', $branchAgentId);
+            }
+            $cargoLatestDocs = $cargoLatestQuery->orderBy('created_at', 'desc')
+                ->limit(5)
+                ->get()
+                ->map(function ($doc) use ($isAdmin) {
+                    return [
+                        'id' => $doc->id,
+                        'insurance_number' => $doc->insurance_number ?? '-',
+                        'insured_name' => $doc->insured_name ?? '-',
+                        'phone' => $doc->phone ?? '-',
+                        'total' => $doc->total ?? 0,
+                        'premium' => $doc->premium ?? 0,
+                        'insurance_type' => 'تأمين البضائع',
+                        'agency_name' => $isAdmin && $doc->branchAgent ? ($doc->branchAgent->agency_name ?? '-') : null,
+                        'created_at' => $doc->created_at,
+                        'issue_date' => $doc->issue_date ?? $doc->created_at,
+                        'type' => 'cargo',
+                    ];
+                });
+            $allDocuments = $allDocuments->concat($cargoLatestDocs);
+
+            // Cash In Transit Insurance Documents
+            $cashLatestQuery = CashInTransitInsuranceDocument::with('branchAgent');
+            if (!$isAdmin && $branchAgentId) {
+                $cashLatestQuery->where('branch_agent_id', $branchAgentId);
+            }
+            $cashLatestDocs = $cashLatestQuery->orderBy('created_at', 'desc')
+                ->limit(5)
+                ->get()
+                ->map(function ($doc) use ($isAdmin) {
+                    return [
+                        'id' => $doc->id,
+                        'insurance_number' => $doc->insurance_number ?? '-',
+                        'insured_name' => $doc->insured_name ?? '-',
+                        'phone' => $doc->phone ?? '-',
+                        'total' => $doc->total ?? 0,
+                        'premium' => $doc->premium ?? 0,
+                        'insurance_type' => 'تأمين نقل النقدية',
+                        'agency_name' => $isAdmin && $doc->branchAgent ? ($doc->branchAgent->agency_name ?? '-') : null,
+                        'created_at' => $doc->created_at,
+                        'issue_date' => $doc->issue_date ?? $doc->created_at,
+                        'type' => 'cash',
+                    ];
+                });
+            $allDocuments = $allDocuments->concat($cashLatestDocs);
 
             // ترتيب جميع الوثائق حسب التاريخ (الأحدث أولاً) وأخذ آخر 5
             $latestDocuments = $allDocuments
@@ -1991,8 +2347,16 @@ class BranchAgentController extends Controller
 
             // حساب المبالغ المتبقية والمدفوعة والمستحقة
             $dueAmount = $totalCompanyAmount;
-            $remainingAmount = $totalCompanyAmount;
-            $paidAmount = 0;
+            
+            // جلب إيصالات القبض (Payment Vouchers) لخصمها من الرصيد
+            $paymentVouchersTotal = DB::table('payment_vouchers')
+                ->where('branch_agent_id', $id)
+                ->whereYear('payment_date', $year)
+                ->whereMonth('payment_date', $month)
+                ->sum('amount');
+
+            $paidAmount = $paymentVouchersTotal;
+            $remainingAmount = max(0, $dueAmount - $paidAmount);
             
             // التحقق من وجود إغلاق محفوظ
             $closure = MonthlyAccountClosure::where('branch_agent_id', $id)
@@ -2001,8 +2365,9 @@ class BranchAgentController extends Controller
                 ->first();
             
             if ($closure) {
-                $paidAmount = $closure->paid_amount;
-                $remainingAmount = $closure->remaining_amount;
+                // نجمع المبالغ المدفوعة في الإغلاق مع الإيصالات
+                $paidAmount += $closure->paid_amount;
+                $remainingAmount = max(0, $dueAmount - $paidAmount);
             }
 
             return view('branches-agents.monthly-account-closure-print', [
@@ -2030,20 +2395,41 @@ class BranchAgentController extends Controller
     public function getMonthlyAccountClosuresReport(Request $request)
     {
         try {
+            $type = $request->get('type', 'monthly');
             $year = $request->get('year');
             $month = $request->get('month');
+            $fromDate = $request->get('from_date');
+            $toDate = $request->get('to_date');
 
             $query = MonthlyAccountClosure::with('branchAgent:id,code,agency_name,agent_name');
 
-            if ($year) {
-                $query->where('year', $year);
+            if ($type === 'range' && $fromDate && $toDate) {
+                $query->whereDate('created_at', '>=', $fromDate)
+                    ->whereDate('created_at', '<=', $toDate);
+            } else {
+                if ($year) {
+                    $query->where('year', $year);
+                }
+
+                if ($month) {
+                    $query->where('month', $month);
+                }
             }
 
-            if ($month) {
-                $query->where('month', $month);
-            }
-
-            $closures = $query->orderBy('created_at', 'desc')->get();
+            $closures = $query->orderBy('created_at', 'desc')->get()->map(function($closure) {
+                // جلب إجمالي إيصالات القبض لهذا الوكيل في هذا الشهر والسنة
+                $vouchersTotal = DB::table('payment_vouchers')
+                    ->where('branch_agent_id', $closure->branch_agent_id)
+                    ->whereYear('payment_date', $closure->year)
+                    ->whereMonth('payment_date', $closure->month)
+                    ->sum('amount');
+                
+                // القيمة المدفوعة الكلية = المسجلة يدوياً + إجمالي الإيصالات
+                $closure->paid_amount = (float)$closure->paid_amount + (float)$vouchersTotal;
+                $closure->remaining_amount = max(0, (float)$closure->due_amount - (float)$closure->paid_amount);
+                
+                return $closure;
+            });
 
             return response()->json([
                 'success' => true,

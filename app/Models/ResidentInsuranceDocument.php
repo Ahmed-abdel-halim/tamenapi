@@ -50,4 +50,18 @@ class ResidentInsuranceDocument extends Model
     {
         return $this->belongsTo(BranchAgent::class);
     }
+
+    public function scopeActive($query)
+    {
+        return $query->where(function($q) {
+            $q->whereNull('end_date')
+              ->orWhereDate('end_date', '>=', \Carbon\Carbon::now()->toDateString());
+        });
+    }
+
+    public function scopeArchived($query)
+    {
+        return $query->whereNotNull('end_date')
+                     ->whereDate('end_date', '<', \Carbon\Carbon::now()->toDateString());
+    }
 }

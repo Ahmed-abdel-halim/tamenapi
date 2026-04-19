@@ -42,6 +42,11 @@ class MarineStructureInsuranceDocumentController extends Controller
 
             // بناء الاستعلام
             $query = MarineStructureInsuranceDocument::with(['registrationAuthority.city', 'engines', 'branchAgent']);
+            if ($request->boolean('archived')) {
+                $query->archived();
+            } else {
+                $query->active();
+            }
 
             // إذا لم يكن admin، قم بتصفية الوثائق حسب branch_agent_id
             if (!$isAdmin && $branchAgentId) {

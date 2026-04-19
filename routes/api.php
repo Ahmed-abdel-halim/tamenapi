@@ -2,6 +2,9 @@
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Artisan;
+
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\BranchAgentController;
 use App\Http\Controllers\CityController;
@@ -10,6 +13,10 @@ use App\Http\Controllers\VehicleTypeController;
 use App\Http\Controllers\InsuranceDocumentController;
 use App\Http\Controllers\InternationalInsuranceDocumentController;
 use App\Http\Controllers\TravelInsuranceDocumentController;
+use App\Http\Controllers\InventoryController;
+use App\Http\Controllers\FinancialArchiveController;
+use App\Http\Controllers\CommissionController;
+use App\Http\Controllers\BankTransactionController;
 use App\Http\Controllers\ResidentInsuranceDocumentController;
 use App\Http\Controllers\MarineStructureInsuranceDocumentController;
 use App\Http\Controllers\MarineEngineModelController;
@@ -17,6 +24,8 @@ use App\Http\Controllers\ProfessionalLiabilityInsuranceDocumentController;
 use App\Http\Controllers\PersonalAccidentInsuranceDocumentController;
 use App\Http\Controllers\ProfessionController;
 use App\Http\Controllers\ColorController;
+use App\Http\Controllers\FinancialStatisticsController;
+use App\Http\Controllers\EmployeePayrollController;
 use Illuminate\Support\Facades\Hash;
 use App\Models\User;
 
@@ -45,11 +54,11 @@ Route::post('/login', function (Request $request) {
     if (!$user || !Hash::check($request->password, $user->password)) {
         return response()->json(['message' => 'بيانات الدخول غير صحيحة'], 401);
     }
-    
+
     // جلب معلومات الوكيل/الفرع المرتبط بالمستخدم (إذا كان موجوداً)
     $branchAgent = $user->branchAgent;
     $authorizedDocuments = $user->authorized_documents ?? ($branchAgent ? ($branchAgent->authorized_documents ?? []) : []);
-    
+
     // إذا أردت العودة بتوكن Sanctum/Api بسهولة يمكن ذلك لاحقاً
     return response()->json([
         'success' => true,
@@ -68,11 +77,11 @@ Route::post('/login', function (Request $request) {
 Route::get('/user/{id}/refresh', function (Request $request, $id) {
     try {
         $user = User::findOrFail($id);
-        
+
         // جلب معلومات الوكيل/الفرع المرتبط بالمستخدم (إذا كان موجوداً)
         $branchAgent = $user->branchAgent;
         $authorizedDocuments = $user->authorized_documents ?? ($branchAgent ? ($branchAgent->authorized_documents ?? []) : []);
-        
+
         return response()->json([
             'success' => true,
             'user' => [
@@ -91,14 +100,20 @@ Route::get('/user/{id}/refresh', function (Request $request, $id) {
     }
 });
 
+Route::post('/users/{user}/employee-files', [UserController::class, 'uploadEmployeeFile']);
 Route::apiResource('users', UserController::class);
+Route::get('/users/{user}/salary-history', [UserController::class, 'salaryHistory']);
+Route::get('/employee-payrolls/employees', [EmployeePayrollController::class, 'employees']);
+Route::get('/employee-payrolls', [EmployeePayrollController::class, 'index']);
+Route::post('/employee-payrolls/bulk-pay', [EmployeePayrollController::class, 'bulkPay']);
+Route::post('/employee-payrolls', [EmployeePayrollController::class, 'upsert']);
 
 // Endpoint لتحديث authorized_documents في users من branches_agents
 Route::post('/sync-user-permissions', function (Request $request) {
     try {
         $branchAgents = \App\Models\BranchAgent::whereNotNull('user_id')->get();
         $updated = 0;
-        
+
         foreach ($branchAgents as $agent) {
             if ($agent->user_id && $agent->authorized_documents) {
                 $user = \App\Models\User::find($agent->user_id);
@@ -109,7 +124,7 @@ Route::post('/sync-user-permissions', function (Request $request) {
                 }
             }
         }
-        
+
         return response()->json([
             'message' => "تم تحديث $updated مستخدم بنجاح",
             'updated_count' => $updated,
@@ -128,10 +143,30 @@ Route::post('/branches-agents/monthly-account-closure', [BranchAgentController::
 Route::get('/branches-agents/{id}/monthly-account-closure-print', [BranchAgentController::class, 'printMonthlyAccountClosure']);
 Route::get('/branches-agents/monthly-account-closures-report', [BranchAgentController::class, 'getMonthlyAccountClosuresReport']);
 Route::apiResource('branches-agents', BranchAgentController::class);
+Route::apiResource('payment-vouchers', 'App\Http\Controllers\PaymentVoucherController');
+Route::apiResource('expenses', 'App\Http\Controllers\ExpenseController');
+Route::apiResource('school-student-insurance', 'App\Http\Controllers\SchoolStudentInsuranceDocumentController');
+Route::get('/school-student-insurance/{id}/print', ['App\Http\Controllers\SchoolStudentInsuranceDocumentController', 'print']);
+Route::apiResource('cash-in-transit-insurance', 'App\Http\Controllers\CashInTransitInsuranceDocumentController');
+Route::get('/cash-in-transit-insurance/{id}/print', ['App\Http\Controllers\CashInTransitInsuranceDocumentController', 'print']);
+Route::apiResource('cargo-insurance', 'App\Http\Controllers\CargoInsuranceDocumentController');
+Route::get('/cargo-insurance/{id}/print', ['App\Http\Controllers\CargoInsuranceDocumentController', 'print']);
 Route::get('/branches-agents/{id}/print', [BranchAgentController::class, 'print']);
 Route::get('/branches-agents/{id}/account-report', [BranchAgentController::class, 'accountReport']);
+Route::get('/reports/outstanding-debts', [\App\Http\Controllers\DebtReportController::class, 'getOutstandingDebts']);
+
+// Financial Management Routes
+Route::apiResource('commissions', \App\Http\Controllers\CommissionController::class);
+Route::post('/commissions/{id}/pay', [\App\Http\Controllers\CommissionController::class, 'markAsPaid']);
+Route::apiResource('bank-transactions', \App\Http\Controllers\BankTransactionController::class);
+Route::post('/bank-transactions/{id}/reconcile', [\App\Http\Controllers\BankTransactionController::class, 'toggleReconcile']);
+Route::apiResource('financial-archive', \App\Http\Controllers\FinancialArchiveController::class);
 Route::get('/dashboard/statistics', [BranchAgentController::class, 'getStatistics']);
 Route::get('/dashboard/latest-documents', [BranchAgentController::class, 'getLatestDocuments']);
+Route::get('/union-balances', [App\Http\Controllers\UnionBalancePurchaseController::class, 'index']);
+Route::post('/union-balances', [App\Http\Controllers\UnionBalancePurchaseController::class, 'store']);
+Route::delete('/union-balances/{id}', [App\Http\Controllers\UnionBalancePurchaseController::class, 'destroy']);
+Route::get('/financial-statistics', [FinancialStatisticsController::class, 'getStatistics']);
 Route::apiResource('cities', CityController::class);
 Route::apiResource('plates', PlateController::class);
 Route::apiResource('vehicle-types', VehicleTypeController::class);
@@ -172,3 +207,58 @@ Route::apiResource('personal-accident-insurance-documents', PersonalAccidentInsu
     'personal-accident-insurance-documents' => 'document'
 ]);
 Route::get('/personal-accident-insurance-documents/{document}/print', [PersonalAccidentInsuranceDocumentController::class, 'print']);
+
+// Database Fix Route (Temporary)
+Route::get('/fix-database-manually', function () {
+    try {
+        // 1. Drop tables if they happen to exist
+        \Illuminate\Support\Facades\Schema::dropIfExists('financial_archives');
+        \Illuminate\Support\Facades\Schema::dropIfExists('commissions');
+        \Illuminate\Support\Facades\Schema::dropIfExists('bank_transactions');
+        \Illuminate\Support\Facades\Schema::dropIfExists('custody_movements');
+        \Illuminate\Support\Facades\Schema::dropIfExists('fixed_custodies');
+        \Illuminate\Support\Facades\Schema::dropIfExists('inventory_stocks');
+        \Illuminate\Support\Facades\Schema::dropIfExists('store_items');
+
+        // 2. FORCE clear the migration records from the 'migrations' table
+        \Illuminate\Support\Facades\DB::table('migrations')
+            ->whereIn('migration', [
+                '2026_04_07_000000_create_financial_management_tables',
+                '2026_04_07_100000_create_stores_and_custody_tables'
+            ])
+            ->delete();
+
+        // 3. Run the migrations again
+        \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
+
+        $output = \Illuminate\Support\Facades\Artisan::output();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'All professional financial tables FORCED to recreate successfully.',
+            'output' => $output,
+            'tables_checked' => [
+                'store_items' => \Illuminate\Support\Facades\Schema::hasTable('store_items'),
+                'fixed_custodies' => \Illuminate\Support\Facades\Schema::hasTable('fixed_custodies'),
+            ]
+        ]);
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'error' => $e->getMessage()
+        ], 500);
+    }
+});
+
+// Inventory & Stores Routes
+Route::prefix('inventory')->group(function () {
+    Route::get('/items', [InventoryController::class, 'itemsIndex']);
+    Route::post('/items', [InventoryController::class, 'storeItem']);
+    Route::put('/items/{id}', [InventoryController::class, 'updateItem']);
+    Route::delete('/items/{id}', [InventoryController::class, 'destroyItem']);
+    Route::post('/update-stock', [InventoryController::class, 'updateStock']);
+    Route::get('/custody', [InventoryController::class, 'custodyIndex']);
+    Route::get('/movements', [InventoryController::class, 'movementsIndex']);
+    Route::post('/assign-custody', [InventoryController::class, 'assignCustody']);
+    Route::post('/return-custody/{id}', [InventoryController::class, 'returnCustody']);
+});

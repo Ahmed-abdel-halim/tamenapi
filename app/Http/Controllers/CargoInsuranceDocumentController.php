@@ -1,0 +1,98 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\CargoInsuranceDocument;
+use App\Models\BranchAgent;
+use App\Models\User;
+use Illuminate\Http\Request;
+use Carbon\Carbon;
+
+class CargoInsuranceDocumentController extends Controller
+{
+    public function index(Request $request)
+    {
+        try {
+            $userId = $request->header('X-User-Id') ?? $request->query('user_id');
+            $isAdmin = false;
+            $branchAgentId = null;
+
+            if ($userId) {
+                $user = User::find($userId);
+                if ($user) {
+                    $isAdmin = $user->is_admin ?? false;
+                    if (!$isAdmin) {
+                        $branchAgent = BranchAgent::where('user_id', $userId)->first();
+                        $branchAgentId = $branchAgent->id ?? null;
+                    }
+                }
+            }
+
+            $query = CargoInsuranceDocument::with('branchAgent');
+            
+            if (!$isAdmin && $branchAgentId) {
+                $query->where('branch_agent_id', $branchAgentId);
+            }
+
+            return response()->json($query->orderBy('created_at', 'desc')->get());
+        } catch (\Exception $e) {
+            return response()->json(['message' => 'Error: ' . $e->getMessage()], 500);
+        }
+    }
+
+    public function store(Request $request)
+    {
+        $validated = $request->validate([
+            'insured_name' => 'required|string',
+            'cargo_description' => 'required|string',
+            'transport_type' => 'nullable|string',
+            'voyage_from' => 'nullable|string',
+            'voyage_to' => 'nullable|string',
+            'sum_insured' => 'required|numeric',
+            'premium_amount' => 'required|numeric',
+        ]);
+
+        try {
+            $userId = $request->header('X-User-Id') ?? $request->input('user_id');
+            $branchAgentId = null;
+            if ($userId) {
+                $branchAgent = BranchAgent::where('user_id', $userId)->first();
+                $branchAgentId = $branchAgent->id ?? null;
+            }
+
+            // Generate Policy Number
+            $last = CargoInsuranceDocument::latest()->first();
+            $nextId = ($last->id ?? 0) + 1;
+            $policyNumber = 'ML-CRG-' . str_pad($nextId, 5, '0', STR_PAD_LEFT);
+
+            $document = CargoInsuranceDocument::create(array_merge($validated, [
+                'policy_number' => $policyNumber,
+                'branch_agent_id' => $branchAgentId,
+                'status' => 'active'
+            ]));
+
+            return response()->json($document, 201);
+        } catch (\Exception $e) {
+            return response()->json(['message' => $e->getMessage()], 500);
+        }
+    }
+
+    public function show($id)
+    {
+        return response()->json(CargoInsuranceDocument::with('branchAgent')->findOrFail($id));
+    }
+
+    public function update(Request $request, $id)
+    {
+        $document = CargoInsuranceDocument::findOrFail($id);
+        $document->update($request->all());
+        return response()->json($document);
+    }
+
+    public function destroy($id)
+    {
+        $document = CargoInsuranceDocument::findOrFail($id);
+        $document->delete();
+        return response()->json(['status' => 'deleted']);
+    }
+}

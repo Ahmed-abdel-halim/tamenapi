@@ -12,29 +12,31 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('colors', function (Blueprint $table) {
-            $table->id();
-            $table->string('name')->unique();
-            $table->timestamps();
-        });
+        if (!Schema::hasTable('colors')) {
+            Schema::create('colors', function (Blueprint $table) {
+                $table->id();
+                $table->string('name')->unique();
+                $table->timestamps();
+            });
 
-        DB::table('colors')->insert([
-            ['name' => 'أبيض - White'],
-            ['name' => 'أسود - Black'],
-            ['name' => 'رمادي - Gray'],
-            ['name' => 'فضي - Silver'],
-            ['name' => 'أحمر - Red'],
-            ['name' => 'أزرق - Blue'],
-            ['name' => 'أخضر - Green'],
-            ['name' => 'أصفر - Yellow'],
-            ['name' => 'برتقالي - Orange'],
-            ['name' => 'بني - Brown'],
-            ['name' => 'بيج - Beige'],
-            ['name' => 'ذهبي - Gold'],
-            ['name' => 'زهري - Pink'],
-            ['name' => 'بنفسجي - Purple'],
-            ['name' => 'تركوازي - Turquoise'],
-        ]);
+            DB::table('colors')->insert([
+                ['name' => 'أبيض - White'],
+                ['name' => 'أسود - Black'],
+                ['name' => 'رمادي - Gray'],
+                ['name' => 'فضي - Silver'],
+                ['name' => 'أحمر - Red'],
+                ['name' => 'أزرق - Blue'],
+                ['name' => 'أخضر - Green'],
+                ['name' => 'أصفر - Yellow'],
+                ['name' => 'برتقالي - Orange'],
+                ['name' => 'بني - Brown'],
+                ['name' => 'بيج - Beige'],
+                ['name' => 'ذهبي - Gold'],
+                ['name' => 'زهري - Pink'],
+                ['name' => 'بنفسجي - Purple'],
+                ['name' => 'تركوازي - Turquoise'],
+            ]);
+        }
     }
 
     /**

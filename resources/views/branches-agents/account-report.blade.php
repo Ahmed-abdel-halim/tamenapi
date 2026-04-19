@@ -215,6 +215,8 @@
                             $monthName = $monthNames[$month] ?? $month;
                         @endphp
                         إغلاق حساب شهري للوكيل - {{ $monthName }} - {{ $month }}
+                    @elseif($type === 'range' && !empty($fromDate) && !empty($toDate))
+                        كشف حساب الوكيل من {{ \Carbon\Carbon::parse($fromDate)->format('d/m/Y') }} إلى {{ \Carbon\Carbon::parse($toDate)->format('d/m/Y') }}
                     @else
                         إغلاق حساب كامل للوكيل
                     @endif

@@ -19,7 +19,7 @@ return [
 
     'allowed_methods' => ['*'],
 
-    'allowed_origins' => ['*'],
+    'allowed_origins' => ['https://mli.mli.ly'],
 
     'allowed_origins_patterns' => [],
 

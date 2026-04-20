@@ -12,18 +12,37 @@ class UserController extends Controller
 {
     public function index(Request $request)
     {
-        $perPage = $request->get('per_page', 10);
-        
+        $perPage = $request->get('per_page', 50);
+
         $query = User::with('branchAgent:id,user_id,type,agency_name,agent_name');
 
         // استبعاد أي مستخدم مرتبط ببيانات وكيل أو فرع من قائمة الموظفين
         $query->whereDoesntHave('branchAgent');
 
+        // الفلترة حسب درجة الوصول (الكل، مدير، موظف عادي)
+        if ($request->has('role') && $request->role !== 'all') {
+            if ($request->role === 'admin') {
+                $query->where('is_admin', true);
+            } else {
+                $query->where('is_admin', false);
+            }
+        }
+
+        // الفلترة حسب المسمى الوظيفي
+        if ($request->has('job_title') && $request->job_title !== 'all') {
+            $query->where('job_title', 'like', "%{$request->job_title}%");
+        }
+
+        // الفلترة حسب الصلاحية (Authorized Documents)
+        if ($request->has('permission') && $request->permission !== 'all') {
+            $query->whereJsonContains('authorized_documents', $request->permission);
+        }
+
         if ($request->has('search')) {
             $search = $request->get('search');
-            $query->where(function($q) use ($search) {
+            $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('username', 'like', "%{$search}%");
+                    ->orWhere('username', 'like', "%{$search}%");
             });
         }
 
@@ -111,7 +130,7 @@ class UserController extends Controller
         $data = $validated;
         $data['password'] = Hash::make($request->password);
         $data['is_admin'] = $request->is_admin ?? false;
-        
+
         if ($data['is_admin']) {
             $data['authorized_documents'] = null;
         }
@@ -128,13 +147,50 @@ class UserController extends Controller
                 'notes' => 'تحديد المرتب عند إنشاء الموظف',
             ]);
         }
-        
+
         return response()->json($user, 201);
     }
 
     public function show(User $user)
     {
-        return response()->json($user->load('branchAgent'));
+        $userData = $user->load('branchAgent');
+        
+        // جلب العهد من نظام المخازن الجديد
+        $inventoryCustodies = \App\Models\FixedCustody::with('item')
+            ->where('recipient_id', $user->id)
+            ->where('recipient_type', User::class)
+            ->where('status', 'active')
+            ->get();
+        
+        $newFixed = [];
+        $newConsumed = [];
+        
+        foreach ($inventoryCustodies as $c) {
+            $item = $c->item;
+            $formatted = [
+                'description' => $item ? $item->name : 'صنف غير معروف',
+                'quantity' => $c->quantity,
+                'is_inventory' => true
+            ];
+            
+            if ($item && $item->inventory_type === 'fixed') {
+                $newFixed[] = $formatted;
+            } else {
+                $newConsumed[] = $formatted;
+            }
+        }
+        
+        // تحويل الموديل إلى array لتمكين التعديل على البيانات المرسلة
+        $response = $userData->toArray();
+        
+        // دمج العهد القديمة مع العهد الجديدة
+        $currentFixed = isset($response['fixed_custodies']) && is_array($response['fixed_custodies']) ? $response['fixed_custodies'] : [];
+        $currentConsumed = isset($response['consumed_custodies']) && is_array($response['consumed_custodies']) ? $response['consumed_custodies'] : [];
+        
+        $response['fixed_custodies'] = array_merge($currentFixed, $newFixed);
+        $response['consumed_custodies'] = array_merge($currentConsumed, $newConsumed);
+        
+        return response()->json($response);
     }
 
     public function update(Request $request, User $user)
@@ -182,9 +238,9 @@ class UserController extends Controller
             'hourly_leave_deduction' => 'nullable|numeric',
             'daily_leave_deduction' => 'nullable|numeric',
         ]);
-        
+
         $oldSalary = $user->salary;
-        
+
         if ($request->filled('password')) {
             $validated['password'] = Hash::make($request->password);
         } else {
@@ -226,7 +282,7 @@ class UserController extends Controller
 
     public function destroy(User $user)
     {
-        Storage::disk('public')->deleteDirectory('users/'.$user->id);
+        Storage::disk('public')->deleteDirectory('users/' . $user->id);
         $user->delete();
 
         return response()->json(['status' => 'deleted']);
@@ -238,10 +294,17 @@ class UserController extends Controller
     public function uploadEmployeeFile(Request $request, User $user)
     {
         $allowedTypes = [
-            'profile_photo', 'personal_id_proof', 'employment_contract', 
-            'national_id_photo', 'identity_proof', 'certified_stamp', 
-            'approved_signature', 'educational_certificate', 'health_certificate', 
-            'contract_conditions_photo', 'other'
+            'profile_photo',
+            'personal_id_proof',
+            'employment_contract',
+            'national_id_photo',
+            'identity_proof',
+            'certified_stamp',
+            'approved_signature',
+            'educational_certificate',
+            'health_certificate',
+            'contract_conditions_photo',
+            'other'
         ];
 
         $request->validate([
@@ -257,16 +320,16 @@ class UserController extends Controller
 
         // الصور فقط لبعض الأنواع
         $imageOnlyTypes = ['profile_photo', 'certified_stamp', 'approved_signature'];
-        if (in_array($type, $imageOnlyTypes) && ! in_array($mime, $allowedImages, true)) {
+        if (in_array($type, $imageOnlyTypes) && !in_array($mime, $allowedImages, true)) {
             return response()->json(['message' => 'هذا الملف يجب أن يكون صورة بصيغة JPEG أو PNG أو WEBP'], 422);
         }
 
         // الصور والـ PDF للبقية
-        if (! in_array($type, $imageOnlyTypes) && ! in_array($mime, array_merge($allowedImages, ['application/pdf']), true)) {
+        if (!in_array($type, $imageOnlyTypes) && !in_array($mime, array_merge($allowedImages, ['application/pdf']), true)) {
             return response()->json(['message' => 'الملف يجب أن يكون صورة (JPEG/PNG/WEBP) أو PDF'], 422);
         }
 
-        $dir = 'users/'.$user->id;
+        $dir = 'users/' . $user->id;
         Storage::disk('public')->makeDirectory($dir);
 
         $attr = match ($type) {
@@ -285,7 +348,7 @@ class UserController extends Controller
 
         // If 'other', we might need a different handling or it's just saved without an attribute for now
         if (!$attr) {
-           return response()->json(['message' => 'نوع الملف غير مدعوم للحفظ في الحساب حالياً'], 422);
+            return response()->json(['message' => 'نوع الملف غير مدعوم للحفظ في الحساب حالياً'], 422);
         }
 
         $oldPath = $user->{$attr};
@@ -303,7 +366,7 @@ class UserController extends Controller
         return response()->json([
             'message' => 'تم رفع الملف بنجاح',
             'type' => $type,
-            'url' => $user->{$type . '_url'} ?? '/storage/'.$storedPath,
+            'url' => $user->{$type . '_url'} ?? '/storage/' . $storedPath,
         ]);
     }
 

@@ -219,33 +219,16 @@ Route::get('/personal-accident-insurance-documents/{document}/print', [PersonalA
 // Database Fix Route (Temporary)
 Route::get('/fix-database-manually', function () {
     try {
-        // 1. Drop tables if they happen to exist
-        \Illuminate\Support\Facades\Schema::dropIfExists('financial_archives');
-        \Illuminate\Support\Facades\Schema::dropIfExists('commissions');
-        \Illuminate\Support\Facades\Schema::dropIfExists('bank_transactions');
-        \Illuminate\Support\Facades\Schema::dropIfExists('custody_movements');
-        \Illuminate\Support\Facades\Schema::dropIfExists('fixed_custodies');
-        \Illuminate\Support\Facades\Schema::dropIfExists('inventory_stocks');
-        \Illuminate\Support\Facades\Schema::dropIfExists('store_items');
-
-        // 2. FORCE clear the migration records from the 'migrations' table
-        \Illuminate\Support\Facades\DB::table('migrations')
-            ->whereIn('migration', [
-                '2026_04_07_000000_create_financial_management_tables',
-                '2026_04_07_100000_create_stores_and_custody_tables'
-            ])
-            ->delete();
-
-        // 3. Run the migrations again
+        // Run any pending migrations
         \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
-
         $output = \Illuminate\Support\Facades\Artisan::output();
 
         return response()->json([
             'success' => true,
-            'message' => 'All professional financial tables FORCED to recreate successfully.',
+            'message' => 'Migrations executed successfully.',
             'output' => $output,
             'tables_checked' => [
+                'union_balance_purchases' => \Illuminate\Support\Facades\Schema::hasTable('union_balance_purchases'),
                 'store_items' => \Illuminate\Support\Facades\Schema::hasTable('store_items'),
                 'fixed_custodies' => \Illuminate\Support\Facades\Schema::hasTable('fixed_custodies'),
             ]
@@ -253,6 +236,7 @@ Route::get('/fix-database-manually', function () {
     } catch (\Exception $e) {
         return response()->json([
             'success' => false,
+            'message' => 'Migration failed',
             'error' => $e->getMessage()
         ], 500);
     }

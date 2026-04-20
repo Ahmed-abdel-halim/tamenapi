@@ -207,6 +207,39 @@ class BranchAgentController extends Controller
     {
         try {
             $branchAgent = BranchAgent::with('user')->findOrFail($id);
+            
+            // جلب العهد من نظام المخازن الجديد
+            $inventoryCustodies = \App\Models\FixedCustody::with('item')
+                ->where('recipient_id', $id)
+                ->where('recipient_type', BranchAgent::class)
+                ->where('status', 'active')
+                ->get();
+            
+            $newFixed = [];
+            $newConsumed = [];
+            
+            foreach ($inventoryCustodies as $c) {
+                $item = $c->item;
+                $formatted = [
+                    'description' => $item ? $item->name : 'صنف غير معروف',
+                    'quantity' => $c->quantity,
+                    'is_inventory' => true // لتمييزها عن العهد اليدوية
+                ];
+                
+                if ($item && $item->inventory_type === 'fixed') {
+                    $newFixed[] = $formatted;
+                } else {
+                    $newConsumed[] = $formatted;
+                }
+            }
+            
+            // دمج العهد القديمة (المخزنة كـ JSON) مع العهد الجديدة من نظام المخازن
+            $currentFixed = is_array($branchAgent->fixed_custodies) ? $branchAgent->fixed_custodies : [];
+            $currentConsumed = is_array($branchAgent->consumed_custodies) ? $branchAgent->consumed_custodies : [];
+            
+            $branchAgent->fixed_custodies = array_merge($currentFixed, $newFixed);
+            $branchAgent->consumed_custodies = array_merge($currentConsumed, $newConsumed);
+            
             return response()->json($branchAgent);
         } catch (\Exception $e) {
             return response()->json([

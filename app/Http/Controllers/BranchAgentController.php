@@ -71,6 +71,7 @@ class BranchAgentController extends Controller
                 'fixed_custodies' => 'nullable|string',
                 'personal_photo' => 'nullable|file|mimes:jpg,jpeg,png|max:5120',
                 'identity_photo' => 'nullable|file|mimes:jpg,jpeg,png|max:5120',
+                'national_id_photo' => 'nullable|file|mimes:jpg,jpeg,png|max:5120',
                 'contract_photo' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:10240',
                 'username' => 'required|string|unique:users,username',
                 'password' => 'required|string|min:6',
@@ -125,6 +126,7 @@ class BranchAgentController extends Controller
             // رفع الصور
             $personalPhoto = null;
             $identityPhoto = null;
+            $nationalIdPhoto = null;
             $contractPhoto = null;
 
             if ($request->hasFile('personal_photo')) {
@@ -132,6 +134,9 @@ class BranchAgentController extends Controller
             }
             if ($request->hasFile('identity_photo')) {
                 $identityPhoto = $request->file('identity_photo')->store('branches_agents/identity_photos', 'public');
+            }
+            if ($request->hasFile('national_id_photo')) {
+                $nationalIdPhoto = $request->file('national_id_photo')->store('branches_agents/national_id_photos', 'public');
             }
             if ($request->hasFile('contract_photo')) {
                 $contractPhoto = $request->file('contract_photo')->store('branches_agents/contract_photos', 'public');
@@ -174,6 +179,7 @@ class BranchAgentController extends Controller
                 'fixed_custodies' => $fixedCustodies,
                 'personal_photo' => $personalPhoto,
                 'identity_photo' => $identityPhoto,
+                'national_id_photo' => $nationalIdPhoto,
                 'contract_photo' => $contractPhoto,
                 'user_id' => $user->id,
                 'notes' => $request->notes,
@@ -274,6 +280,7 @@ class BranchAgentController extends Controller
             'fixed_custodies.*.quantity' => 'required_with:fixed_custodies|integer|min:1',
             'personal_photo' => 'nullable|file|mimes:jpg,jpeg,png|max:5120',
             'identity_photo' => 'nullable|file|mimes:jpg,jpeg,png|max:5120',
+            'national_id_photo' => 'nullable|file|mimes:jpg,jpeg,png|max:5120',
             'contract_photo' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:10240',
             'username' => 'nullable|string|unique:users,username,' . $branchAgent->user_id,
             'password' => 'nullable|string|min:6',
@@ -334,6 +341,12 @@ class BranchAgentController extends Controller
                     Storage::disk('public')->delete($branchAgent->identity_photo);
                 }
                 $branchAgent->identity_photo = $request->file('identity_photo')->store('branches_agents/identity_photos', 'public');
+            }
+            if ($request->hasFile('national_id_photo')) {
+                if ($branchAgent->national_id_photo && Storage::disk('public')->exists($branchAgent->national_id_photo)) {
+                    Storage::disk('public')->delete($branchAgent->national_id_photo);
+                }
+                $branchAgent->national_id_photo = $request->file('national_id_photo')->store('branches_agents/national_id_photos', 'public');
             }
             if ($request->hasFile('contract_photo')) {
                 if ($branchAgent->contract_photo && Storage::disk('public')->exists($branchAgent->contract_photo)) {
@@ -434,6 +447,9 @@ class BranchAgentController extends Controller
             }
             if ($branchAgent->identity_photo && Storage::disk('public')->exists($branchAgent->identity_photo)) {
                 Storage::disk('public')->delete($branchAgent->identity_photo);
+            }
+            if ($branchAgent->national_id_photo && Storage::disk('public')->exists($branchAgent->national_id_photo)) {
+                Storage::disk('public')->delete($branchAgent->national_id_photo);
             }
             if ($branchAgent->contract_photo && Storage::disk('public')->exists($branchAgent->contract_photo)) {
                 Storage::disk('public')->delete($branchAgent->contract_photo);

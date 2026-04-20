@@ -14,41 +14,27 @@ class UserController extends Controller
     {
         $perPage = $request->get('per_page', 10);
         
-        $query = User::with('branchAgent:id,user_id,type,agency_name,agent_name')
-            ->select(
-                'id',
-                'username',
-                'name',
-                'email',
-                'is_admin',
-                'authorized_documents',
-                'salary',
-                'national_id_number',
-                'job_title',
-                'profile_photo_path',
-                'personal_id_proof_path',
-                'employment_contract_path'
-            );
+        $query = User::with('branchAgent:id,user_id,type,agency_name,agent_name');
+
+        // استبعاد أي مستخدم مرتبط ببيانات وكيل أو فرع من قائمة الموظفين
+        $query->whereDoesntHave('branchAgent');
+
+        if ($request->has('search')) {
+            $search = $request->get('search');
+            $query->where(function($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('username', 'like', "%{$search}%");
+            });
+        }
 
         $users = $query->paginate($perPage);
 
         $users->getCollection()->transform(function ($user) {
-            $userData = [
-                'id' => $user->id,
-                'username' => $user->username,
-                'name' => $user->name,
-                'email' => $user->email,
-                'is_admin' => $user->is_admin ?? false,
-                'authorized_documents' => $user->authorized_documents ?? [],
-                'salary' => $user->salary,
-                'national_id_number' => $user->national_id_number,
-                'job_title' => $user->job_title,
-                'profile_photo_url' => $user->profile_photo_url,
-                'personal_id_proof_url' => $user->personal_id_proof_url,
-                'employment_contract_url' => $user->employment_contract_url,
-                'user_type' => 'مستخدم عادي',
-                'branch_agent_info' => null,
-            ];
+            $userData = $user->toArray();
+            $userData['is_admin'] = $user->is_admin ?? false;
+            $userData['authorized_documents'] = $user->authorized_documents ?? [];
+            $userData['user_type'] = 'مستخدم عادي';
+            $userData['branch_agent_info'] = null;
 
             if ($user->is_admin) {
                 $userData['user_type'] = 'مدير';
@@ -78,7 +64,7 @@ class UserController extends Controller
 
     public function store(Request $request)
     {
-        $request->validate([
+        $validated = $request->validate([
             'username' => 'required|string|unique:users,username',
             'name' => 'required|string',
             'email' => 'nullable|email',
@@ -88,23 +74,49 @@ class UserController extends Controller
             'salary' => 'nullable|numeric',
             'national_id_number' => 'nullable|string|max:64',
             'job_title' => 'nullable|string|max:191',
+            // الموظفين
+            'full_name_quad' => 'nullable|string',
+            'mother_name' => 'nullable|string',
+            'gender' => 'nullable|string',
+            'birth_date' => 'nullable|date',
+            'birth_place' => 'nullable|string',
+            'nationality' => 'nullable|string',
+            'social_status' => 'nullable|string',
+            'qualification' => 'nullable|string',
+            'blood_type' => 'nullable|string',
+            'personal_phone' => 'nullable|string',
+            'guardian_phone' => 'nullable|string',
+            'address' => 'nullable|string',
+            'financial_number' => 'nullable|string',
+            'job_number' => 'nullable|string',
+            'bank_name' => 'nullable|string',
+            'bank_branch' => 'nullable|string',
+            'account_number' => 'nullable|string',
+            'start_date' => 'nullable|date',
+            'working_hours_from' => 'nullable|string',
+            'working_hours_to' => 'nullable|string',
+            'working_days_from' => 'nullable|string',
+            'working_days_to' => 'nullable|string',
+            'contract_type' => 'nullable|string',
+            'contract_conditions' => 'nullable|string',
+            'housing_allowance' => 'nullable|numeric',
+            'transportation_allowance' => 'nullable|numeric',
+            'communication_allowance' => 'nullable|numeric',
+            'fixed_bonuses' => 'nullable|numeric',
+            'fixed_fines' => 'nullable|numeric',
+            'hourly_leave_deduction' => 'nullable|numeric',
+            'daily_leave_deduction' => 'nullable|numeric',
         ]);
 
-        $authorizedDocuments = $request->has('authorized_documents') 
-            ? $request->authorized_documents 
-            : [];
+        $data = $validated;
+        $data['password'] = Hash::make($request->password);
+        $data['is_admin'] = $request->is_admin ?? false;
+        
+        if ($data['is_admin']) {
+            $data['authorized_documents'] = null;
+        }
 
-        $user = User::create([
-            'username' => $request->username,
-            'name' => $request->name,
-            'email' => $request->email,
-            'password' => Hash::make($request->password),
-            'is_admin' => $request->is_admin ?? false,
-            'authorized_documents' => $request->is_admin ? null : $authorizedDocuments,
-            'salary' => $request->salary,
-            'national_id_number' => $request->national_id_number,
-            'job_title' => $request->job_title,
-        ]);
+        $user = User::create($data);
 
         if ($request->filled('salary')) {
             EmployeeSalaryHistory::create([
@@ -122,25 +134,12 @@ class UserController extends Controller
 
     public function show(User $user)
     {
-        return response()->json([
-            'id' => $user->id,
-            'username' => $user->username,
-            'name' => $user->name,
-            'email' => $user->email,
-            'is_admin' => $user->is_admin ?? false,
-            'authorized_documents' => $user->authorized_documents ?? [],
-            'salary' => $user->salary,
-            'national_id_number' => $user->national_id_number,
-            'job_title' => $user->job_title,
-            'profile_photo_url' => $user->profile_photo_url,
-            'personal_id_proof_url' => $user->personal_id_proof_url,
-            'employment_contract_url' => $user->employment_contract_url,
-        ]);
+        return response()->json($user->load('branchAgent'));
     }
 
     public function update(Request $request, User $user)
     {
-        $request->validate([
+        $validated = $request->validate([
             'username' => 'required|string|unique:users,username,' . $user->id,
             'name' => 'required|string',
             'email' => 'nullable|email',
@@ -150,34 +149,55 @@ class UserController extends Controller
             'salary' => 'nullable|numeric',
             'national_id_number' => 'nullable|string|max:64',
             'job_title' => 'nullable|string|max:191',
+            // الموظفين
+            'full_name_quad' => 'nullable|string',
+            'mother_name' => 'nullable|string',
+            'gender' => 'nullable|string',
+            'birth_date' => 'nullable|date',
+            'birth_place' => 'nullable|string',
+            'nationality' => 'nullable|string',
+            'social_status' => 'nullable|string',
+            'qualification' => 'nullable|string',
+            'blood_type' => 'nullable|string',
+            'personal_phone' => 'nullable|string',
+            'guardian_phone' => 'nullable|string',
+            'address' => 'nullable|string',
+            'financial_number' => 'nullable|string',
+            'job_number' => 'nullable|string',
+            'bank_name' => 'nullable|string',
+            'bank_branch' => 'nullable|string',
+            'account_number' => 'nullable|string',
+            'start_date' => 'nullable|date',
+            'working_hours_from' => 'nullable|string',
+            'working_hours_to' => 'nullable|string',
+            'working_days_from' => 'nullable|string',
+            'working_days_to' => 'nullable|string',
+            'contract_type' => 'nullable|string',
+            'contract_conditions' => 'nullable|string',
+            'housing_allowance' => 'nullable|numeric',
+            'transportation_allowance' => 'nullable|numeric',
+            'communication_allowance' => 'nullable|numeric',
+            'fixed_bonuses' => 'nullable|numeric',
+            'fixed_fines' => 'nullable|numeric',
+            'hourly_leave_deduction' => 'nullable|numeric',
+            'daily_leave_deduction' => 'nullable|numeric',
         ]);
         
-        $user->username = $request->username;
-        $user->name = $request->name;
-        $user->email = $request->email;
         $oldSalary = $user->salary;
-        $user->salary = $request->salary;
-        $user->national_id_number = $request->national_id_number;
-        $user->job_title = $request->job_title;
         
+        if ($request->filled('password')) {
+            $validated['password'] = Hash::make($request->password);
+        } else {
+            unset($validated['password']);
+        }
+
         if ($request->has('is_admin')) {
-            $user->is_admin = $request->is_admin;
-            // إذا أصبح المستخدم admin، احذف الصلاحيات
             if ($request->is_admin) {
-                $user->authorized_documents = null;
+                $validated['authorized_documents'] = null;
             }
         }
-        
-        // تحديث الصلاحيات فقط إذا لم يكن admin
-        if ($request->has('authorized_documents') && !($request->is_admin ?? $user->is_admin)) {
-            $user->authorized_documents = $request->authorized_documents;
-        }
-        
-        if ($request->password) {
-            $user->password = Hash::make($request->password);
-        }
-        
-        $user->save();
+
+        $user->update($validated);
 
         if ((string) ($oldSalary ?? '') !== (string) ($user->salary ?? '')) {
             EmployeeSalaryHistory::create([
@@ -217,8 +237,15 @@ class UserController extends Controller
      */
     public function uploadEmployeeFile(Request $request, User $user)
     {
+        $allowedTypes = [
+            'profile_photo', 'personal_id_proof', 'employment_contract', 
+            'national_id_photo', 'identity_proof', 'certified_stamp', 
+            'approved_signature', 'educational_certificate', 'health_certificate', 
+            'contract_conditions_photo', 'other'
+        ];
+
         $request->validate([
-            'type' => 'required|in:profile_photo,personal_id_proof,employment_contract',
+            'type' => 'required|in:' . implode(',', $allowedTypes),
             'file' => 'required|file|max:10240',
         ]);
 
@@ -228,11 +255,14 @@ class UserController extends Controller
         $allowedImages = ['image/jpeg', 'image/png', 'image/webp'];
         $mime = $file->getMimeType();
 
-        if ($type === 'profile_photo' && ! in_array($mime, $allowedImages, true)) {
-            return response()->json(['message' => 'الصورة الشخصية يجب أن تكون بصيغة JPEG أو PNG أو WEBP'], 422);
+        // الصور فقط لبعض الأنواع
+        $imageOnlyTypes = ['profile_photo', 'certified_stamp', 'approved_signature'];
+        if (in_array($type, $imageOnlyTypes) && ! in_array($mime, $allowedImages, true)) {
+            return response()->json(['message' => 'هذا الملف يجب أن يكون صورة بصيغة JPEG أو PNG أو WEBP'], 422);
         }
 
-        if ($type !== 'profile_photo' && ! in_array($mime, array_merge($allowedImages, ['application/pdf']), true)) {
+        // الصور والـ PDF للبقية
+        if (! in_array($type, $imageOnlyTypes) && ! in_array($mime, array_merge($allowedImages, ['application/pdf']), true)) {
             return response()->json(['message' => 'الملف يجب أن يكون صورة (JPEG/PNG/WEBP) أو PDF'], 422);
         }
 
@@ -242,8 +272,21 @@ class UserController extends Controller
         $attr = match ($type) {
             'profile_photo' => 'profile_photo_path',
             'personal_id_proof' => 'personal_id_proof_path',
-            default => 'employment_contract_path',
+            'employment_contract' => 'employment_contract_path',
+            'national_id_photo' => 'national_id_photo_path',
+            'identity_proof' => 'identity_proof_path',
+            'certified_stamp' => 'certified_stamp_path',
+            'approved_signature' => 'approved_signature_path',
+            'educational_certificate' => 'educational_certificate_path',
+            'health_certificate' => 'health_certificate_path',
+            'contract_conditions_photo' => 'contract_conditions_photo_path',
+            default => null,
         };
+
+        // If 'other', we might need a different handling or it's just saved without an attribute for now
+        if (!$attr) {
+           return response()->json(['message' => 'نوع الملف غير مدعوم للحفظ في الحساب حالياً'], 422);
+        }
 
         $oldPath = $user->{$attr};
         if ($oldPath) {
@@ -251,23 +294,16 @@ class UserController extends Controller
         }
 
         $ext = strtolower($file->getClientOriginalExtension() ?: 'bin');
-        $basename = match ($type) {
-            'profile_photo' => 'profile_photo',
-            'personal_id_proof' => 'personal_id_proof',
-            default => 'employment_contract',
-        };
-        $filename = $basename.'.'.$ext;
+        $filename = $type . '_' . time() . '.' . $ext;
 
         $storedPath = $file->storeAs($dir, $filename, 'public');
         $user->{$attr} = $storedPath;
         $user->save();
 
-        $publicUrl = '/storage/'.str_replace('\\', '/', ltrim($storedPath, '/'));
-
         return response()->json([
             'message' => 'تم رفع الملف بنجاح',
             'type' => $type,
-            'url' => $publicUrl,
+            'url' => $user->{$type . '_url'} ?? '/storage/'.$storedPath,
         ]);
     }
 

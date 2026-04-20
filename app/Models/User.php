@@ -30,6 +30,44 @@ class User extends Authenticatable
         'profile_photo_path',
         'personal_id_proof_path',
         'employment_contract_path',
+        'full_name_quad',
+        'mother_name',
+        'gender',
+        'birth_date',
+        'birth_place',
+        'nationality',
+        'social_status',
+        'qualification',
+        'blood_type',
+        'personal_phone',
+        'guardian_phone',
+        'address',
+        'financial_number',
+        'job_number',
+        'bank_name',
+        'bank_branch',
+        'account_number',
+        'start_date',
+        'working_hours_from',
+        'working_hours_to',
+        'working_days_from',
+        'working_days_to',
+        'contract_type',
+        'contract_conditions',
+        'housing_allowance',
+        'transportation_allowance',
+        'communication_allowance',
+        'fixed_bonuses',
+        'fixed_fines',
+        'hourly_leave_deduction',
+        'daily_leave_deduction',
+        'national_id_photo_path',
+        'identity_proof_path',
+        'certified_stamp_path',
+        'approved_signature_path',
+        'educational_certificate_path',
+        'health_certificate_path',
+        'contract_conditions_photo_path',
     ];
 
     /**
@@ -43,12 +81,26 @@ class User extends Authenticatable
         'profile_photo_path',
         'personal_id_proof_path',
         'employment_contract_path',
+        'national_id_photo_path',
+        'identity_proof_path',
+        'certified_stamp_path',
+        'approved_signature_path',
+        'educational_certificate_path',
+        'health_certificate_path',
+        'contract_conditions_photo_path',
     ];
 
     protected $appends = [
         'profile_photo_url',
         'personal_id_proof_url',
         'employment_contract_url',
+        'national_id_photo_url',
+        'identity_proof_url',
+        'certified_stamp_url',
+        'approved_signature_url',
+        'educational_certificate_url',
+        'health_certificate_url',
+        'contract_conditions_photo_url',
     ];
 
     /**
@@ -60,6 +112,16 @@ class User extends Authenticatable
         'email_verified_at' => 'datetime',
         'is_admin' => 'boolean',
         'authorized_documents' => 'array',
+        'birth_date' => 'date',
+        'start_date' => 'date',
+        'salary' => 'decimal:2',
+        'housing_allowance' => 'decimal:2',
+        'transportation_allowance' => 'decimal:2',
+        'communication_allowance' => 'decimal:2',
+        'fixed_bonuses' => 'decimal:2',
+        'fixed_fines' => 'decimal:2',
+        'hourly_leave_deduction' => 'decimal:2',
+        'daily_leave_deduction' => 'decimal:2',
     ];
 
     /**
@@ -68,6 +130,11 @@ class User extends Authenticatable
     public function branchAgent()
     {
         return $this->hasOne(BranchAgent::class, 'user_id');
+    }
+
+    public function employeeRequests()
+    {
+        return $this->hasMany(EmployeeRequest::class, 'user_id');
     }
 
     public function custodies()
@@ -112,5 +179,40 @@ class User extends Authenticatable
     public function getEmploymentContractUrlAttribute(): ?string
     {
         return $this->storagePublicUrl($this->employment_contract_path);
+    }
+
+    public function getNationalIdPhotoUrlAttribute(): ?string
+    {
+        return $this->storagePublicUrl($this->national_id_photo_path);
+    }
+
+    public function getIdentityProofUrlAttribute(): ?string
+    {
+        return $this->storagePublicUrl($this->identity_proof_path);
+    }
+
+    public function getCertifiedStampUrlAttribute(): ?string
+    {
+        return $this->storagePublicUrl($this->certified_stamp_path);
+    }
+
+    public function getApprovedSignatureUrlAttribute(): ?string
+    {
+        return $this->storagePublicUrl($this->approved_signature_path);
+    }
+
+    public function getEducationalCertificateUrlAttribute(): ?string
+    {
+        return $this->storagePublicUrl($this->educational_certificate_path);
+    }
+
+    public function getHealthCertificateUrlAttribute(): ?string
+    {
+        return $this->storagePublicUrl($this->health_certificate_path);
+    }
+
+    public function getContractConditionsPhotoUrlAttribute(): ?string
+    {
+        return $this->storagePublicUrl($this->contract_conditions_photo_path);
     }
 }

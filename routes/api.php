@@ -59,7 +59,9 @@ Route::post('/login', function (Request $request) {
     $branchAgent = $user->branchAgent;
     $authorizedDocuments = $user->authorized_documents ?? ($branchAgent ? ($branchAgent->authorized_documents ?? []) : []);
 
-    // إذا أردت العودة بتوكن Sanctum/Api بسهولة يمكن ذلك لاحقاً
+    // إنشاء توكن Sanctum
+    $token = $user->createToken('auth_token')->plainTextToken;
+
     return response()->json([
         'success' => true,
         'user' => [
@@ -70,6 +72,7 @@ Route::post('/login', function (Request $request) {
             'authorized_documents' => $authorizedDocuments,
             'branch_agent_id' => $branchAgent ? $branchAgent->id : null,
         ],
+        'token' => $token,
     ]);
 });
 
@@ -100,13 +103,18 @@ Route::get('/user/{id}/refresh', function (Request $request, $id) {
     }
 });
 
-Route::post('/users/{user}/employee-files', [UserController::class, 'uploadEmployeeFile']);
-Route::apiResource('users', UserController::class);
-Route::get('/users/{user}/salary-history', [UserController::class, 'salaryHistory']);
-Route::get('/employee-payrolls/employees', [EmployeePayrollController::class, 'employees']);
-Route::get('/employee-payrolls', [EmployeePayrollController::class, 'index']);
-Route::post('/employee-payrolls/bulk-pay', [EmployeePayrollController::class, 'bulkPay']);
-Route::post('/employee-payrolls', [EmployeePayrollController::class, 'upsert']);
+use App\Http\Controllers\EmployeeRequestController;
+
+Route::middleware('auth:sanctum')->group(function () {
+    Route::post('/users/{user}/employee-files', [UserController::class, 'uploadEmployeeFile']);
+    Route::apiResource('users', UserController::class);
+    Route::get('/users/{user}/salary-history', [UserController::class, 'salaryHistory']);
+    Route::apiResource('employee-requests', EmployeeRequestController::class);
+    Route::get('/employee-payrolls/employees', [EmployeePayrollController::class, 'employees']);
+    Route::get('/employee-payrolls', [EmployeePayrollController::class, 'index']);
+    Route::post('/employee-payrolls/bulk-pay', [EmployeePayrollController::class, 'bulkPay']);
+    Route::post('/employee-payrolls', [EmployeePayrollController::class, 'upsert']);
+});
 
 // Endpoint لتحديث authorized_documents في users من branches_agents
 Route::post('/sync-user-permissions', function (Request $request) {

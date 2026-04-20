@@ -32,6 +32,7 @@ class BranchAgent extends Model
         'fixed_custodies',
         'personal_photo',
         'identity_photo',
+        'national_id_photo',
         'contract_photo',
         'user_id',
         'notes',

@@ -68,6 +68,7 @@ class User extends Authenticatable
         'educational_certificate_path',
         'health_certificate_path',
         'contract_conditions_photo_path',
+        'is_active',
     ];
 
     /**
@@ -122,6 +123,7 @@ class User extends Authenticatable
         'fixed_fines' => 'decimal:2',
         'hourly_leave_deduction' => 'decimal:2',
         'daily_leave_deduction' => 'decimal:2',
+        'is_active' => 'boolean',
     ];
 
     /**

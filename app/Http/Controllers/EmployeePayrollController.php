@@ -83,7 +83,14 @@ class EmployeePayrollController extends Controller
             }
         }
 
-        $net = $base + $housing + $transport + $communication + $bonus + $other_additions + $misc_allowance + $extra_total - $deduction - $advance - $penalty;
+        $user = User::findOrFail($validated['user_id']);
+        $tax_pct = (float) ($user->tax_percentage ?? 10.0);
+        $ss_pct = (float) ($user->social_security_percentage ?? 19.475);
+
+        $tax_amount = ($base * $tax_pct) / 100;
+        $social_security_amount = ($base * $ss_pct) / 100;
+
+        $net = $base + $housing + $transport + $communication + $bonus + $other_additions + $misc_allowance + $extra_total - $deduction - $advance - $penalty - $tax_amount - $social_security_amount;
 
         $payroll = EmployeePayroll::updateOrCreate(
             [
@@ -101,6 +108,8 @@ class EmployeePayrollController extends Controller
                 'deduction_amount' => $deduction,
                 'advance_amount' => $advance,
                 'penalty_amount' => $penalty,
+                'tax_amount' => $tax_amount,
+                'social_security_amount' => $social_security_amount,
                 'other_additions' => $other_additions,
                 'net_salary' => $net,
                 'status' => $validated['status'],
@@ -119,7 +128,7 @@ class EmployeePayrollController extends Controller
     public function employees()
     {
         $employees = User::with('branchAgent:id,user_id')
-            ->select('id', 'name', 'username', 'email', 'salary', 'is_admin')
+            ->select('id', 'name', 'username', 'email', 'salary', 'is_admin', 'tax_percentage', 'social_security_percentage')
             ->get()
             ->filter(function ($u) {
                 return !$u->branchAgent;
@@ -144,7 +153,7 @@ class EmployeePayrollController extends Controller
         $month = $validated['month'];
 
         $employees = User::with('branchAgent:id,user_id')
-            ->select('id', 'name', 'username', 'email', 'salary', 'is_admin')
+            ->select('id', 'name', 'username', 'email', 'salary', 'is_admin', 'tax_percentage', 'social_security_percentage')
             ->get()
             ->filter(function ($u) {
                 return !$u->branchAgent;
@@ -176,7 +185,13 @@ class EmployeePayrollController extends Controller
                     $extra_total += (float) ($field['amount'] ?? 0);
                 }
                 
-                $net = $base + $housing + $transport + $communication + $bonus + $other_additions + $misc_allowance + $extra_total - $deduction - $advance - $penalty;
+                $tax_pct = (float) ($user->tax_percentage ?? 10.0);
+                $ss_pct = (float) ($user->social_security_percentage ?? 19.475);
+
+                $tax_amount = ($base * $tax_pct) / 100;
+                $social_security_amount = ($base * $ss_pct) / 100;
+
+                $net = $base + $housing + $transport + $communication + $bonus + $other_additions + $misc_allowance + $extra_total - $deduction - $advance - $penalty - $tax_amount - $social_security_amount;
 
                 EmployeePayroll::updateOrCreate(
                     [
@@ -194,6 +209,8 @@ class EmployeePayrollController extends Controller
                         'deduction_amount' => $deduction,
                         'advance_amount' => $advance,
                         'penalty_amount' => $penalty,
+                        'tax_amount' => $tax_amount,
+                        'social_security_amount' => $social_security_amount,
                         'other_additions' => $other_additions,
                         'net_salary' => $net,
                         'status' => 'paid',
@@ -215,5 +232,33 @@ class EmployeePayrollController extends Controller
             'year' => $year,
             'month' => $month,
         ]);
+    }
+
+    public function taxSSReport(Request $request)
+    {
+        $validated = $request->validate([
+            'year' => 'nullable|integer|min:2000|max:2100',
+            'month' => 'nullable|integer|min:1|max:12',
+            'from_date' => 'nullable|date',
+            'to_date' => 'nullable|date',
+        ]);
+
+        $query = EmployeePayroll::with(['user:id,name,job_title,national_id_number,nationality,start_date,tax_percentage,social_security_percentage']);
+
+        if (!empty($validated['year'])) {
+            $query->where('year', $validated['year']);
+        }
+        if (!empty($validated['month'])) {
+            $query->where('month', $validated['month']);
+        }
+        if (!empty($validated['from_date'])) {
+            $query->whereDate('created_at', '>=', $validated['from_date']);
+        }
+        if (!empty($validated['to_date'])) {
+            $query->whereDate('created_at', '<=', $validated['to_date']);
+        }
+
+        // Only include non-branch agents (already handled by Payroll table logic as only they have payrolls)
+        return response()->json($query->orderByDesc('year')->orderByDesc('month')->get());
     }
 }

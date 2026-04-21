@@ -55,6 +55,10 @@ Route::post('/login', function (Request $request) {
         return response()->json(['message' => 'بيانات الدخول غير صحيحة'], 401);
     }
 
+    if (isset($user->is_active) && $user->is_active === false) {
+        return response()->json(['message' => 'هذا الحساب غير نشط حالياً، يرجى مراجعة الإدارة'], 403);
+    }
+
     // جلب معلومات الوكيل/الفرع المرتبط بالمستخدم (إذا كان موجوداً)
     $branchAgent = $user->branchAgent;
     $authorizedDocuments = $user->authorized_documents ?? ($branchAgent ? ($branchAgent->authorized_documents ?? []) : []);
@@ -111,6 +115,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/users/{user}/salary-history', [UserController::class, 'salaryHistory']);
     Route::apiResource('employee-requests', EmployeeRequestController::class);
     Route::get('/employee-payrolls/employees', [EmployeePayrollController::class, 'employees']);
+    Route::get('/employee-payrolls/reports', [EmployeePayrollController::class, 'taxSSReport']);
     Route::get('/employee-payrolls', [EmployeePayrollController::class, 'index']);
     Route::post('/employee-payrolls/bulk-pay', [EmployeePayrollController::class, 'bulkPay']);
     Route::post('/employee-payrolls', [EmployeePayrollController::class, 'upsert']);
@@ -173,6 +178,7 @@ Route::get('/dashboard/statistics', [BranchAgentController::class, 'getStatistic
 Route::get('/dashboard/latest-documents', [BranchAgentController::class, 'getLatestDocuments']);
 Route::get('/union-balances', [App\Http\Controllers\UnionBalancePurchaseController::class, 'index']);
 Route::post('/union-balances', [App\Http\Controllers\UnionBalancePurchaseController::class, 'store']);
+Route::put('/union-balances/{id}', [App\Http\Controllers\UnionBalancePurchaseController::class, 'update']);
 Route::delete('/union-balances/{id}', [App\Http\Controllers\UnionBalancePurchaseController::class, 'destroy']);
 Route::get('/financial-statistics', [FinancialStatisticsController::class, 'getStatistics']);
 Route::apiResource('cities', CityController::class);

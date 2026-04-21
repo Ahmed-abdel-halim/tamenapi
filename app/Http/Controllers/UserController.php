@@ -38,6 +38,11 @@ class UserController extends Controller
             $query->whereJsonContains('authorized_documents', $request->permission);
         }
 
+        // الفلترة حسب الحالة (نشط / غير نشط)
+        if ($request->has('active') && $request->active !== 'all') {
+            $query->where('is_active', $request->active == '1');
+        }
+
         if ($request->has('search')) {
             $search = $request->get('search');
             $query->where(function ($q) use ($search) {
@@ -125,6 +130,9 @@ class UserController extends Controller
             'fixed_fines' => 'nullable|numeric',
             'hourly_leave_deduction' => 'nullable|numeric',
             'daily_leave_deduction' => 'nullable|numeric',
+            'is_active' => 'nullable|boolean',
+            'tax_percentage' => 'nullable|numeric',
+            'social_security_percentage' => 'nullable|numeric',
         ]);
 
         $data = $validated;
@@ -237,6 +245,9 @@ class UserController extends Controller
             'fixed_fines' => 'nullable|numeric',
             'hourly_leave_deduction' => 'nullable|numeric',
             'daily_leave_deduction' => 'nullable|numeric',
+            'is_active' => 'nullable|boolean',
+            'tax_percentage' => 'nullable|numeric',
+            'social_security_percentage' => 'nullable|numeric',
         ]);
 
         $oldSalary = $user->salary;

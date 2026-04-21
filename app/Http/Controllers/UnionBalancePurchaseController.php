@@ -85,6 +85,59 @@ class UnionBalancePurchaseController extends Controller
     }
 
     /**
+     * Update the specified purchase.
+     */
+    public function update(Request $request, $id)
+    {
+        $purchase = UnionBalancePurchase::findOrFail($id);
+
+        $request->validate([
+            'amount_paid' => 'required|numeric',
+            'card_price' => 'required|numeric',
+            'union_fee_per_card' => 'required|numeric',
+            'company_deposit_per_card' => 'required|numeric',
+            'purchase_date' => 'required|date',
+            'receipt_image' => 'nullable|image|max:2048',
+        ]);
+
+        try {
+            $data = $request->all();
+            
+            // Calculate derived fields
+            $paid = (float)$request->amount_paid;
+            $price = (float)$request->card_price;
+            $cardsCount = $price > 0 ? floor($paid / $price) : 0;
+            
+            $data['cards_count'] = $cardsCount;
+            $data['total_union_fee'] = $cardsCount * (float)$request->union_fee_per_card;
+            $data['total_company_deposit'] = $cardsCount * (float)$request->company_deposit_per_card;
+
+            if ($request->hasFile('receipt_image')) {
+                // Delete old image if exists
+                if ($purchase->receipt_image) {
+                    $oldPath = str_replace('/storage/', '', $purchase->receipt_image);
+                    Storage::disk('public')->delete($oldPath);
+                }
+
+                $path = $request->file('receipt_image')->store('union_receipts', 'public');
+                $data['receipt_image'] = '/storage/' . $path;
+            }
+
+            $purchase->update($data);
+
+            return response()->json([
+                'success' => true,
+                'data' => $purchase
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
      * Remove the specified purchase.
      */
     public function destroy($id)

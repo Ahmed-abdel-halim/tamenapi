@@ -128,6 +128,7 @@ class EmployeePayrollController extends Controller
     public function employees()
     {
         $employees = User::with('branchAgent:id,user_id')
+            ->where('is_active', true)
             ->select('id', 'name', 'username', 'email', 'salary', 'is_admin', 'tax_percentage', 'social_security_percentage')
             ->get()
             ->filter(function ($u) {
@@ -153,6 +154,7 @@ class EmployeePayrollController extends Controller
         $month = $validated['month'];
 
         $employees = User::with('branchAgent:id,user_id')
+            ->where('is_active', true)
             ->select('id', 'name', 'username', 'email', 'salary', 'is_admin', 'tax_percentage', 'social_security_percentage')
             ->get()
             ->filter(function ($u) {

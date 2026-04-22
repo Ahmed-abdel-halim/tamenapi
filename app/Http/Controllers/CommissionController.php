@@ -12,9 +12,10 @@ class CommissionController extends Controller
     private function syncCommissions()
     {
         $agents = BranchAgent::all()->keyBy('id');
-        
+
         $tables = [
-            'insurance_documents' => function($doc) { return $doc->insurance_type ?? 'تأمين سيارات إجباري'; },
+            'insurance_documents' => function ($doc) {
+                return $doc->insurance_type ?? 'تأمين سيارات إجباري'; },
             'travel_insurance_documents' => 'تأمين المسافرين',
             'resident_insurance_documents' => 'تأمين الوافدين',
             'marine_structure_insurance_documents' => 'تأمين الهياكل البحرية',
@@ -28,21 +29,22 @@ class CommissionController extends Controller
         foreach ($tables as $table => $typeResolver) {
             $docs = DB::table($table)->get();
             foreach ($docs as $doc) {
-                if (!$doc->branch_agent_id || !isset($agents[$doc->branch_agent_id])) continue;
-                
+                if (!$doc->branch_agent_id || !isset($agents[$doc->branch_agent_id]))
+                    continue;
+
                 $agent = $agents[$doc->branch_agent_id];
                 $docType = is_callable($typeResolver) ? $typeResolver($doc) : $typeResolver;
-                $docNumber = $doc->insurance_number ?? (string)$doc->id;
-                
+                $docNumber = $doc->insurance_number ?? (string) $doc->id;
+
                 $percentages = is_string($agent->document_percentages) ? json_decode($agent->document_percentages, true) : ($agent->document_percentages ?? []);
-                
+
                 $percentageKey = $docType;
                 if (in_array($docType, ['تأمين سيارات إجباري', 'تأمين إجباري سيارات', 'تأمين سيارة جمرك', 'تأمين سيارات أجنبية', 'تأمين طرف ثالث سيارات'])) {
                     $percentageKey = 'تأمين سيارات';
                 }
 
                 $percentage = $percentages[$percentageKey] ?? $percentages[$docType] ?? $percentages['تأمين سيارات إجباري'] ?? 0;
-                
+
                 $premium = $doc->premium ?? 0;
                 $total_amount = $doc->total ?? 0;
                 $commission_amount = $premium * ($percentage / 100);
@@ -50,7 +52,7 @@ class CommissionController extends Controller
                 $commission = Commission::where('document_type', $docType)
                     ->where('document_number', $docNumber)
                     ->first();
-                
+
                 if (!$commission) {
                     Commission::create([
                         'branch_agent_id' => $agent->id,

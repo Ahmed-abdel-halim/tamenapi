@@ -53,18 +53,31 @@ class MarineStructureInsuranceDocumentController extends Controller
                 $query->where('branch_agent_id', $branchAgentId);
             }
 
-            $documents = $query->orderBy('created_at', 'desc')
-                ->get()
-                ->map(function ($document) use ($isAdmin) {
-                    // إضافة اسم الوكالة للادمن فقط
-                    if ($isAdmin) {
-                        $document->agency_name = $document->branchAgent ? ($document->branchAgent->agency_name ?? null) : null;
-                    } else {
-                        $document->agency_name = null;
-                    }
-                    
-                    return $document;
+            // إضافة ميزة البحث
+            $search = $request->query('search');
+            if ($search) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('insurance_number', 'like', "%{$search}%")
+                      ->orWhere('insured_name', 'like', "%{$search}%")
+                      ->orWhere('phone', 'like', "%{$search}%")
+                      ->orWhere('vessel_name', 'like', "%{$search}%");
                 });
+            }
+
+            $perPage = $request->query('per_page', 10);
+            $documents = $query->orderBy('created_at', 'desc')
+                ->paginate($perPage);
+
+            $documents->getCollection()->transform(function ($document) use ($isAdmin) {
+                // إضافة اسم الوكالة للادمن فقط
+                if ($isAdmin) {
+                    $document->agency_name = $document->branchAgent ? ($document->branchAgent->agency_name ?? null) : null;
+                } else {
+                    $document->agency_name = null;
+                }
+                
+                return $document;
+            });
             
             return response()->json($documents);
         } catch (\Exception $e) {

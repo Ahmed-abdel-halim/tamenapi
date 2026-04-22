@@ -24,7 +24,7 @@ class TravelInsuranceDocumentController extends Controller
             $branchAgentId = null;
 
             if ($userId) {
-                $userId = is_numeric($userId) ? (int)$userId : null;
+                $userId = is_numeric($userId) ? (int) $userId : null;
                 if ($userId) {
                     $user = User::find($userId);
                     if ($user) {
@@ -53,18 +53,35 @@ class TravelInsuranceDocumentController extends Controller
                 $query->where('branch_agent_id', $branchAgentId);
             }
 
-            $documents = $query->orderBy('created_at', 'desc')
-                ->get()
-                ->map(function ($document) use ($isAdmin) {
-                    // إضافة اسم الوكالة للادمن فقط
-                    if ($isAdmin) {
-                        $document->agency_name = $document->branchAgent ? ($document->branchAgent->agency_name ?? null) : null;
-                    } else {
-                        $document->agency_name = null;
-                    }
-                    return $document;
+            // إضافة ميزة البحث
+            $search = $request->query('search');
+            if ($search) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('insurance_number', 'like', "%{$search}%")
+                      ->orWhereHas('passengers', function ($pq) use ($search) {
+                          $pq->where('is_main_passenger', true)
+                             ->where(function ($sq) use ($search) {
+                                 $sq->where('name_ar', 'like', "%{$search}%")
+                                    ->orWhere('name_en', 'like', "%{$search}%");
+                             });
+                      });
                 });
-            
+            }
+
+            $perPage = $request->query('per_page', 10);
+            $documents = $query->orderBy('created_at', 'desc')
+                ->paginate($perPage);
+
+            $documents->getCollection()->transform(function ($document) use ($isAdmin) {
+                // إضافة اسم الوكالة للادمن فقط
+                if ($isAdmin) {
+                    $document->agency_name = $document->branchAgent ? ($document->branchAgent->agency_name ?? null) : null;
+                } else {
+                    $document->agency_name = null;
+                }
+                return $document;
+            });
+
             return response()->json($documents);
         } catch (\Exception $e) {
             Log::error('Error in TravelInsuranceDocumentController@index: ' . $e->getMessage());
@@ -120,7 +137,7 @@ class TravelInsuranceDocumentController extends Controller
             // توليد رقم التأمين التلقائي
             $lastDocument = TravelInsuranceDocument::orderBy('id', 'desc')->first();
             if ($lastDocument && preg_match('/BKTRV(\d+)/', $lastDocument->insurance_number, $matches)) {
-                $nextNumber = (int)$matches[1] + 1;
+                $nextNumber = (int) $matches[1] + 1;
             } else {
                 $nextNumber = 1;
             }
@@ -130,7 +147,7 @@ class TravelInsuranceDocumentController extends Controller
             $branchAgentId = null;
             $userId = $request->header('X-User-Id') ?? $request->input('user_id');
             if ($userId) {
-                $userId = is_numeric($userId) ? (int)$userId : null;
+                $userId = is_numeric($userId) ? (int) $userId : null;
                 if ($userId) {
                     $user = User::find($userId);
                     if ($user && !($user->is_admin ?? false)) {
@@ -254,12 +271,12 @@ class TravelInsuranceDocumentController extends Controller
 
         try {
             $document = TravelInsuranceDocument::with('passengers')->findOrFail($id);
-            
+
             // تحديث branch_agent_id فقط إذا كان المستخدم admin أو إذا لم يكن للوثيقة branch_agent_id
             $branchAgentId = $document->branch_agent_id; // الحفاظ على القيمة الحالية
             $userId = $request->header('X-User-Id') ?? $request->input('user_id');
             if ($userId) {
-                $userId = is_numeric($userId) ? (int)$userId : null;
+                $userId = is_numeric($userId) ? (int) $userId : null;
                 if ($userId) {
                     $user = User::find($userId);
                     if ($user) {
@@ -281,7 +298,7 @@ class TravelInsuranceDocumentController extends Controller
                     }
                 }
             }
-            
+
             // تحديث بيانات الوثيقة
             $document->update([
                 'insurance_type' => $validated['insurance_type'],
@@ -364,23 +381,23 @@ class TravelInsuranceDocumentController extends Controller
     {
         try {
             $document = TravelInsuranceDocument::with(['passengers', 'branchAgent'])->findOrFail($id);
-            
+
             // تحضير بيانات الوكالة
             $agencyData = [
                 'agency_name' => 'المدار الليبي للتأمين',
                 'code' => 'ML0001',
                 'agent_name' => 'الإدارة',
             ];
-            
+
             if ($document->branchAgent) {
                 $agencyData['agency_name'] = $document->branchAgent->agency_name ?? 'المدار الليبي للتأمين';
                 $agencyData['code'] = $document->branchAgent->code ?? 'ML0001';
                 $agencyData['agent_name'] = $document->branchAgent->agent_name ?? 'الإدارة';
             }
-            
+
             // تحضير البيانات للطباعة
             $mainPassenger = $document->passengers->where('is_main_passenger', true)->first();
-            
+
             $printData = [
                 'insurance_number' => $document->insurance_number,
                 'issue_date' => \Carbon\Carbon::parse($document->issue_date)->format('d/m/Y h:i A'),
@@ -398,39 +415,39 @@ class TravelInsuranceDocumentController extends Controller
                     'total' => $document->total
                 ]
             ];
-            
+
             return view('travel-insurance-documents.print', compact('document', 'printData'));
         } catch (\Exception $e) {
             Log::error('Error in TravelInsuranceDocumentController@print: ' . $e->getMessage());
             abort(404, 'الوثيقة غير موجودة');
         }
     }
-    
+
     private function numberToArabicWords($number)
     {
         $ones = ['', 'واحد', 'اثنان', 'ثلاثة', 'أربعة', 'خمسة', 'ستة', 'سبعة', 'ثمانية', 'تسعة'];
         $teens = ['عشرة', 'أحد عشر', 'اثنا عشر', 'ثلاثة عشر', 'أربعة عشر', 'خمسة عشر', 'ستة عشر', 'سبعة عشر', 'ثمانية عشر', 'تسعة عشر'];
         $tens = ['', '', 'عشرون', 'ثلاثون', 'أربعون', 'خمسون', 'ستون', 'سبعون', 'ثمانون', 'تسعون'];
         $hundreds = ['', 'مائة', 'مائتان', 'ثلاثمائة', 'أربعمائة', 'خمسمائة', 'ستمائة', 'سبعمائة', 'ثمانمائة', 'تسعمائة'];
-        
+
         // فصل الجزء الصحيح والجزء العشري
-        $parts = explode('.', (string)$number);
-        $integerPart = (int)($parts[0] ?? 0);
-        $decimalPart = isset($parts[1]) ? (int)($parts[1]) : 0;
-        
+        $parts = explode('.', (string) $number);
+        $integerPart = (int) ($parts[0] ?? 0);
+        $decimalPart = isset($parts[1]) ? (int) ($parts[1]) : 0;
+
         // تحويل الجزء الصحيح
         $words = '';
-        
+
         if ($integerPart == 0 && $decimalPart == 0) {
             return 'صفر دينار';
         }
-        
+
         if ($integerPart > 0) {
             $num = $integerPart;
-            
+
             // الآلاف
             if ($num >= 1000) {
-                $thousands = (int)($num / 1000);
+                $thousands = (int) ($num / 1000);
                 if ($thousands == 1) {
                     $words .= 'ألف ';
                 } elseif ($thousands == 2) {
@@ -442,17 +459,17 @@ class TravelInsuranceDocumentController extends Controller
                 }
                 $num = $num % 1000;
             }
-            
+
             // المئات
             if ($num >= 100) {
-                $hundred = (int)($num / 100);
+                $hundred = (int) ($num / 100);
                 $words .= $hundreds[$hundred] . ' ';
                 $num = $num % 100;
             }
-            
+
             // العشرات والآحاد
             if ($num >= 20) {
-                $ten = (int)($num / 10);
+                $ten = (int) ($num / 10);
                 $one = $num % 10;
                 if ($one > 0) {
                     $words .= $ones[$one] . ' و' . $tens[$ten];
@@ -464,10 +481,10 @@ class TravelInsuranceDocumentController extends Controller
             } elseif ($num > 0) {
                 $words .= $ones[$num];
             }
-            
+
             $words .= ' دينار';
         }
-        
+
         // تحويل الجزء العشري
         if ($decimalPart > 0) {
             if ($integerPart > 0) {
@@ -475,7 +492,7 @@ class TravelInsuranceDocumentController extends Controller
             }
             $words .= $decimalPart . ' درهم';
         }
-        
+
         return trim($words);
     }
 }

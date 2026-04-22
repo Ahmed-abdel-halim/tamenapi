@@ -35,7 +35,30 @@ class SchoolStudentInsuranceDocumentController extends Controller
                 $query->where('branch_agent_id', $branchAgentId);
             }
 
-            return response()->json($query->orderBy('created_at', 'desc')->get());
+            // إضافة ميزة البحث
+            $search = $request->query('search');
+            if ($search) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('policy_number', 'like', "%{$search}%")
+                      ->orWhere('student_name', 'like', "%{$search}%")
+                      ->orWhere('school_name', 'like', "%{$search}%");
+                });
+            }
+
+            $perPage = $request->query('per_page', 10);
+            $documents = $query->orderBy('created_at', 'desc')
+                ->paginate($perPage);
+
+            $documents->getCollection()->transform(function ($document) use ($isAdmin) {
+                if ($isAdmin) {
+                    $document->agency_name = $document->branchAgent ? ($document->branchAgent->agency_name ?? null) : null;
+                } else {
+                    $document->agency_name = null;
+                }
+                return $document;
+            });
+            
+            return response()->json($documents);
         } catch (\Exception $e) {
             return response()->json(['message' => 'Error: ' . $e->getMessage()], 500);
         }

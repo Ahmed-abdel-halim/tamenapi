@@ -50,7 +50,7 @@ class UnionBalancePurchaseController extends Controller
             'union_fee_per_card' => 'required|numeric',
             'company_deposit_per_card' => 'required|numeric',
             'purchase_date' => 'required|date',
-            'receipt_image' => 'nullable|image|max:2048',
+            'receipt_image' => 'nullable|file|mimes:jpeg,png,jpg,pdf|max:10240',
         ]);
 
         try {
@@ -97,7 +97,7 @@ class UnionBalancePurchaseController extends Controller
             'union_fee_per_card' => 'required|numeric',
             'company_deposit_per_card' => 'required|numeric',
             'purchase_date' => 'required|date',
-            'receipt_image' => 'nullable|image|max:2048',
+            'receipt_image' => 'nullable|file|mimes:jpeg,png,jpg,pdf|max:10240',
         ]);
 
         try {

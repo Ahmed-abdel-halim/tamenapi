@@ -44,7 +44,22 @@ class SchoolStudentInsuranceDocumentController extends Controller
                       ->orWhere('school_name', 'like', "%{$search}%");
                 });
             }
+            // فلتر الوكيل (للادمن)
+            if ($isAdmin && $request->has('branch_agent_id')) {
+                $query->where('branch_agent_id', $request->query('branch_agent_id'));
+            }
 
+            // فلاتر التاريخ (السنة، الشهر، اليوم)
+            $dateField = 'created_at'; 
+            if ($request->has('year')) {
+                $query->whereYear($dateField, $request->query('year'));
+            }
+            if ($request->has('month')) {
+                $query->whereMonth($dateField, $request->query('month'));
+            }
+            if ($request->has('day')) {
+                $query->whereDay($dateField, $request->query('day'));
+            }
             $perPage = $request->query('per_page', 10);
             $documents = $query->orderBy('created_at', 'desc')
                 ->paginate($perPage);

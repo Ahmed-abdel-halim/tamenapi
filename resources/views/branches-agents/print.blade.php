@@ -109,8 +109,8 @@
             <tr>
                 <td colspan="4" class="bold-header" style="font-size: 18px; padding: 6px;">المدار الليبي للتأمين</td>
                 <td colspan="2" class="text-center" style="width: 25%; padding: 4px;">
-                    <img src="/img/logo.png" alt="لوقو" style="max-height: 40px;"
-                        onerror="this.onerror=null;this.parentElement.innerHTML='لوقو';">
+                    <img src="{{ asset('img/logo.png') }}" alt="لوقو" style="max-height: 40px;"
+                        onerror="this.src='/img/logo.png'; this.onerror=function(){this.parentElement.innerHTML='لوقو';};">
                 </td>
             </tr>
 
@@ -191,90 +191,98 @@
             <tr>
                 <td colspan="6" class="bold-header" style="background-color: #f1f5f9;">شروط العقد</td>
             </tr>
-            <tr>
-                <td colspan="6" class="bold-header" style="background-color: #f8fafc;">تمهيد</td>
-            </tr>
 
-            <!-- Terms content -->
-            <tr>
-                <td class="font-bold text-center">م</td>
-                <td colspan="5" class="text-right text-justify" style="padding: 4px;">
-                    بناء على رغبة الطرفين في إيجاد مصلحة مشتركة وتحديد حقوق والتزامات كل طرف اتجاه الآخر ووفقا لما يقتضي
-                    نظام الوكالات التسويقية وتعديلاته في دولة ليبيا حيث أبدى الطرف الثاني رغبته في الحصول على إذن تسويق
-                    واصدار وثائق التأمين الخاصة بشركة المدار الليبي للتأمين.
-                </td>
-            </tr>
-            <tr>
-                <td class="font-bold text-center">1</td>
-                <td colspan="5" class="text-right text-justify" style="padding: 4px;">
-                    يتعهد الطرف الثاني بأن يعمل لحساب ولصالح الطرف الأول وتحت إشرافه بصفته وكيلاً عنه بإصدار وثائق
-                    التأمين الإجبارية التي تقوم الشركة بإصدارها، وذلك وفقاً للقانون والنظام المعمول به والأحكام والضوابط
-                    المبينة بهذا العقد.
-                </td>
-            </tr>
-            <tr>
-                <td class="font-bold text-center">2</td>
-                <td colspan="5" class="text-right text-justify" style="padding: 4px;">
-                    تقوم الشركة بدفع العمولة المستحقة للطرف الثاني وذلك عند نهاية كل شهر بناءً على حوافظ اصدار الوثائق
-                    المحالة من <strong>الطرف الثاني إلى الطرف الأول</strong> بعد استيفاء المراجعة المالية والفنية.
-                </td>
-            </tr>
-            <tr>
-                <td class="font-bold text-center">3</td>
-                <td colspan="5" class="text-right" style="padding: 4px;">
-                    1- اتفق الطرفان على مدة هذا العقد
-                    (<strong>{{ $branchAgent->contract_duration ?? 'سنة واحدة' }}</strong>) اعتباراً من تاريخ
-                    إبرامه.<br>
-                    2- يجدد العقد بحضور الطرف الثاني أو من ينوب عنه ويبرم عقد تجديد العقد في الشركة / الطرف الأول.<br>
-                    3- يلغى الطرف الأول العقد مع الطرف الثاني برسالة إخطار موجهه للطرف الثاني في حال عدم التقيد في شروط
-                    هذا العقد.
-                </td>
-            </tr>
-            <tr>
-                <td class="font-bold text-center">4</td>
-                <td colspan="5" class="text-right" style="padding: 4px;">
-                    <strong>يلتزم الطرف الثاني بشأن تنفيذ أحكام هذا العقد بما يلي:</strong><br>
-                    1. مباشرة العمل خلال مدة لا تتجاوز شهر من تاريخ ابرام العقد، ويحق للشركة الغاء العقد في حالة مخالفته
-                    لهذا الالتزام.<br>
-                    2. العمل على إصدار وثائق التأمين عن طريق منظومة الاصدار الخاصة بالشركة فقط.<br>
-                    3. عدم مخالفة اسعار الوثائق التي يصدرها وعدم التعهد بأية التزامات أو وعود بشأن الآثار المترتبة عن
-                    هذه الوثائق.<br>
-                    4. مراعاة الطرف الثاني مبدأ حسن النية في عمليات إصدار الوثائق المتفق على إصدارها.<br>
-                    5. عدم قبول التأمين على أخطار قد تحققت فعلاً قبل إصدار وثيقة تأمين.
-                </td>
-            </tr>
-            <tr>
-                <td class="font-bold text-center">5</td>
-                <td colspan="5" class="text-right text-justify" style="padding: 4px;">
-                    يحق للطرف الأول فسخ العقد دون اخطار الطرف الثاني في حالة ثبوت مخالفته للوائح المالية والفنية النافذة
-                    بالشركة.
-                </td>
-            </tr>
-            <tr>
-                <td class="font-bold text-center">6</td>
-                <td colspan="5" class="text-right text-justify" style="padding: 4px;">
-                    اتفق الطرفان بأنه يحق للطرف الثاني إنهاء العقد ويشترط الحصول على براءة ذمة من الطرف الأول.
-                </td>
-            </tr>
-            <tr>
-                <td class="font-bold text-center">7</td>
-                <td colspan="5" class="text-right text-justify" style="padding: 4px;">
-                    اتفق الطرفان بأن أي نزاع ينشأ بينهما يختص به القضاء الليبي بعد استنفاذ جميع محاولات التسوية الودية.
-                </td>
-            </tr>
-            <tr>
-                <td class="font-bold text-center">8</td>
-                <td colspan="5" class="text-right text-justify" style="padding: 4px;">
-                    اتفق الطرفان بأن المراسلات الرسمية التي يتم تبادلها بينهما توجه إلى الطرف الآخر رسالة رسمية صادره من
-                    أحدهما.
-                </td>
-            </tr>
-            <tr>
-                <td class="font-bold text-center">9</td>
-                <td colspan="5" class="text-right text-justify" style="padding: 4px;">
-                    وقع الطرفان على هذا العقد بما يفيد اعتماده والعمل بما جاء فيه من أحكام وشروط من تاريخ إبرامه.
-                </td>
-            </tr>
+            @if($branchAgent->contract_conditions)
+                <tr>
+                    <td colspan="6" class="text-right" style="padding: 10px 40px; font-size: 11px; line-height: 1.4; white-space: pre-wrap; vertical-align: top;">{!! nl2br(e($branchAgent->contract_conditions)) !!}</td>
+                </tr>
+            @else
+                <tr>
+                    <td colspan="6" class="bold-header" style="background-color: #f8fafc;">تمهيد</td>
+                </tr>
+
+                <!-- Terms content -->
+                <tr>
+                    <td class="font-bold text-center">م</td>
+                    <td colspan="5" class="text-right text-justify" style="padding: 4px;">
+                        بناء على رغبة الطرفين في إيجاد مصلحة مشتركة وتحديد حقوق والتزامات كل طرف اتجاه الآخر ووفقا لما يقتضي
+                        نظام الوكالات التسويقية وتعديلاته في دولة ليبيا حيث أبدى الطرف الثاني رغبته في الحصول على إذن تسويق
+                        واصدار وثائق التأمين الخاصة بشركة المدار الليبي للتأمين.
+                    </td>
+                </tr>
+                <tr>
+                    <td class="font-bold text-center">1</td>
+                    <td colspan="5" class="text-right text-justify" style="padding: 4px;">
+                        يتعهد الطرف الثاني بأن يعمل لحساب ولصالح الطرف الأول وتحت إشرافه بصفته وكيلاً عنه بإصدار وثائق
+                        التأمين الإجبارية التي تقوم الشركة بإصدارها، وذلك وفقاً للقانون والنظام المعمول به والأحكام والضوابط
+                        المبينة بهذا العقد.
+                    </td>
+                </tr>
+                <tr>
+                    <td class="font-bold text-center">2</td>
+                    <td colspan="5" class="text-right text-justify" style="padding: 4px;">
+                        تقوم الشركة بدفع العمولة المستحقة للطرف الثاني وذلك عند نهاية كل شهر بناءً على حوافظ اصدار الوثائق
+                        المحالة من <strong>الطرف الثاني إلى الطرف الأول</strong> بعد استيفاء المراجعة المالية والفنية.
+                    </td>
+                </tr>
+                <tr>
+                    <td class="font-bold text-center">3</td>
+                    <td colspan="5" class="text-right" style="padding: 4px;">
+                        1- اتفق الطرفان على مدة هذا العقد
+                        (<strong>{{ $branchAgent->contract_duration ?? 'سنة واحدة' }}</strong>) اعتباراً من تاريخ
+                        إبرامه.<br>
+                        2- يجدد العقد بحضور الطرف الثاني أو من ينوب عنه ويبرم عقد تجديد العقد في الشركة / الطرف الأول.<br>
+                        3- يلغى الطرف الأول العقد مع الطرف الثاني برسالة إخطار موجهه للطرف الثاني في حال عدم التقيد في شروط
+                        هذا العقد.
+                    </td>
+                </tr>
+                <tr>
+                    <td class="font-bold text-center">4</td>
+                    <td colspan="5" class="text-right" style="padding: 4px;">
+                        <strong>يلتزم الطرف الثاني بشأن تنفيذ أحكام هذا العقد بما يلي:</strong><br>
+                        1. مباشرة العمل خلال مدة لا تتجاوز شهر من تاريخ ابرام العقد، ويحق للشركة الغاء العقد في حالة مخالفته
+                        لهذا الالتزام.<br>
+                        2. العمل على إصدار وثائق التأمين عن طريق منظومة الاصدار الخاصة بالشركة فقط.<br>
+                        3. عدم مخالفة اسعار الوثائق التي يصدرها وعدم التعهد بأية التزامات أو وعود بشأن الآثار المترتبة عن
+                        هذه الوثائق.<br>
+                        4. مراعاة الطرف الثاني مبدأ حسن النية في عمليات إصدار الوثائق المتفق على إصدارها.<br>
+                        5. عدم قبول التأمين على أخطار قد تحققت فعلاً قبل إصدار وثيقة تأمين.
+                    </td>
+                </tr>
+                <tr>
+                    <td class="font-bold text-center">5</td>
+                    <td colspan="5" class="text-right text-justify" style="padding: 4px;">
+                        يحق للطرف الأول فسخ العقد دون اخطار الطرف الثاني في حالة ثبوت مخالفته للوائح المالية والفنية النافذة
+                        بالشركة.
+                    </td>
+                </tr>
+                <tr>
+                    <td class="font-bold text-center">6</td>
+                    <td colspan="5" class="text-right text-justify" style="padding: 4px;">
+                        اتفق الطرفان بأنه يحق للطرف الثاني إنهاء العقد ويشترط الحصول على براءة ذمة من الطرف الأول.
+                    </td>
+                </tr>
+                <tr>
+                    <td class="font-bold text-center">7</td>
+                    <td colspan="5" class="text-right text-justify" style="padding: 4px;">
+                        اتفق الطرفان بأن أي نزاع ينشأ بينهما يختص به القضاء الليبي بعد استنفاذ جميع محاولات التسوية الودية.
+                    </td>
+                </tr>
+                <tr>
+                    <td class="font-bold text-center">8</td>
+                    <td colspan="5" class="text-right text-justify" style="padding: 4px;">
+                        اتفق الطرفان بأن المراسلات الرسمية التي يتم تبادلها بينهما توجه إلى الطرف الآخر رسالة رسمية صادره من
+                        أحدهما.
+                    </td>
+                </tr>
+                <tr>
+                    <td class="font-bold text-center">9</td>
+                    <td colspan="5" class="text-right text-justify" style="padding: 4px;">
+                        وقع الطرفان على هذا العقد بما يفيد اعتماده والعمل بما جاء فيه من أحكام وشروط من تاريخ إبرامه.
+                    </td>
+                </tr>
+            @endif
+
 
             <!-- Signatures Row -->
             <tr>

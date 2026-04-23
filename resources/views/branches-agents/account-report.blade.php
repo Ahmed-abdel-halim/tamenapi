@@ -223,7 +223,7 @@
                 </div>
             </div>
             <div class="logo">
-                <img src="/img/logo.png" alt="شعار الشركة" onerror="this.style.display='none'; this.parentElement.innerHTML='<div class=\'logo-placeholder\'>LOGO</div>';" />
+                <img src="{{ asset('img/logo.png') }}" alt="شعار الشركة" onerror="this.src='/img/logo.png'; this.onerror=function(){this.style.display='none'; this.parentElement.innerHTML='<div class=\'logo-placeholder\'>LOGO</div>';};" />
             </div>
         </div>
         

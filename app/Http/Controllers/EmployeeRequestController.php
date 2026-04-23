@@ -12,6 +12,10 @@ class EmployeeRequestController extends Controller
     {
         $query = EmployeeRequest::with(['user', 'approver']);
 
+        if ($request->has('user_id')) {
+            $query->where('user_id', $request->user_id);
+        }
+
         // If not admin, only show own requests
         if (!$request->user()->is_admin) {
             $query->where('user_id', $request->user()->id);
@@ -23,7 +27,7 @@ class EmployeeRequestController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'type' => 'required|in:termination,leave_hourly,leave_daily,other',
+            'type' => 'required|in:termination,leave_hourly,leave_daily,salary_advance,allowance,complaint,maintenance,other',
             'reason' => 'required|string',
             'with_salary' => 'boolean',
             'details' => 'nullable|array',

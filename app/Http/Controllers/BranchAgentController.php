@@ -79,6 +79,7 @@ class BranchAgentController extends Controller
                 'status' => 'nullable|in:نشط,غير نشط',
                 'authorized_documents' => 'nullable|string',
                 'document_percentages' => 'nullable|string',
+                'contract_conditions' => 'nullable|string',
             ]);
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
@@ -186,6 +187,7 @@ class BranchAgentController extends Controller
                 'status' => $request->status ?? 'نشط',
                 'authorized_documents' => $authorizedDocuments,
                 'document_percentages' => $documentPercentages,
+                'contract_conditions' => $request->contract_conditions,
             ]);
 
             DB::commit();
@@ -321,6 +323,7 @@ class BranchAgentController extends Controller
             'status' => 'nullable|in:نشط,غير نشط',
             'authorized_documents' => 'nullable|string',
             'document_percentages' => 'nullable|string',
+            'contract_conditions' => 'nullable|string',
         ]);
 
         DB::beginTransaction();
@@ -393,7 +396,7 @@ class BranchAgentController extends Controller
                 'type', 'agency_name', 'agent_name', 'activity', 'agency_number',
                 'stamp_number', 'contract_date', 'contract_end_date', 'contract_duration',
                 'city', 'address', 'phone', 'nationality', 'national_id',
-                'identity_number', 'notes', 'status'
+                'identity_number', 'notes', 'status', 'contract_conditions'
             ]);
 
             if ($request->has('consumed_custodies') && $request->consumed_custodies) {

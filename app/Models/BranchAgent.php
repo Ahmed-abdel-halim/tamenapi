@@ -39,6 +39,7 @@ class BranchAgent extends Model
         'status',
         'authorized_documents',
         'document_percentages',
+        'contract_conditions',
     ];
 
     protected $casts = [

@@ -339,7 +339,7 @@
         <!-- Header -->
         <div class="header">
             <div class="logo">
-                <img src="/img/logo.png" alt="شعار الشركة" onerror="this.style.display='none'; this.parentElement.innerHTML='<div style=\'width:85px;height:85px;background:#000;color:#fff;display:flex;align-items:center;justify-content:center;font-size:8px;text-align:center;\'>LOGO</div>';" />
+                <img src="{{ asset('img/logo.png') }}" alt="شعار الشركة" onerror="this.src='/img/logo.png'; this.onerror=function(){this.style.display='none'; this.parentElement.innerHTML='<div style=\'width:85px;height:85px;background:#000;color:#fff;display:flex;align-items:center;justify-content:center;font-size:8px;text-align:center;\'>LOGO</div>';};" />
             </div>
             <div class="company-info">
                 <div class="company-name">شركة المدار الليبي للتأمين</div>

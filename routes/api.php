@@ -114,6 +114,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('users', UserController::class);
     Route::get('/users/{user}/salary-history', [UserController::class, 'salaryHistory']);
     Route::apiResource('employee-requests', EmployeeRequestController::class);
+    Route::apiResource('agent-requests', \App\Http\Controllers\AgentRequestController::class);
     Route::get('/employee-payrolls/employees', [EmployeePayrollController::class, 'employees']);
     Route::get('/employee-payrolls/reports', [EmployeePayrollController::class, 'taxSSReport']);
     Route::get('/employee-payrolls', [EmployeePayrollController::class, 'index']);

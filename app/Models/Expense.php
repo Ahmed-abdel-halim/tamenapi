@@ -32,5 +32,6 @@ class Expense extends Model
     protected $casts = [
         'amount' => 'float',
         'expense_date' => 'date:Y-m-d',
+        'is_indemnity' => 'boolean',
     ];
 }

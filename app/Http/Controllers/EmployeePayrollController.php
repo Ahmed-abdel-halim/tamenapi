@@ -260,7 +260,11 @@ class EmployeePayrollController extends Controller
             $query->whereDate('created_at', '<=', $validated['to_date']);
         }
 
-        // Only include non-branch agents (already handled by Payroll table logic as only they have payrolls)
+        $query->whereHas('user', function ($q) {
+            $q->where('is_active', true)
+              ->whereDoesntHave('branchAgent');
+        });
+
         return response()->json($query->orderByDesc('year')->orderByDesc('month')->get());
     }
 }

@@ -32,7 +32,7 @@ class BranchAgentController extends Controller
     public function index()
     {
         try {
-            $branchesAgents = BranchAgent::with('user:id,username,name')
+            $branchesAgents = BranchAgent::with('user:id,username,name,is_blocked')
                 ->orderBy('created_at', 'desc')
                 ->get();
             
@@ -2495,4 +2495,33 @@ class BranchAgentController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Toggle block status for the agent's user.
+     */
+    public function toggleBlock($id)
+    {
+        try {
+            $branchAgent = BranchAgent::findOrFail($id);
+            if (!$branchAgent->user_id) {
+                return response()->json(['message' => 'هذا الوكيل ليس لديه حساب مستخدم مرتبط'], 404);
+            }
+
+            $user = User::findOrFail($branchAgent->user_id);
+            $user->is_blocked = !$user->is_blocked;
+            $user->save();
+
+            return response()->json([
+                'success' => true,
+                'is_blocked' => $user->is_blocked,
+                'message' => $user->is_blocked ? 'تم حظر الوكيل بنجاح' : 'تم إلغاء حظر الوكيل بنجاح'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'حدث خطأ أثناء تحديث حالة الحظر',
+                'error' => config('app.debug') ? $e->getMessage() : 'خطأ غير معروف'
+            ], 500);
+        }
+    }
 }
+

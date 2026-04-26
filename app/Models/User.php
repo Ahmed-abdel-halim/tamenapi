@@ -69,6 +69,7 @@ class User extends Authenticatable
         'health_certificate_path',
         'contract_conditions_photo_path',
         'is_active',
+        'is_blocked',
     ];
 
     /**
@@ -124,6 +125,7 @@ class User extends Authenticatable
         'hourly_leave_deduction' => 'decimal:2',
         'daily_leave_deduction' => 'decimal:2',
         'is_active' => 'boolean',
+        'is_blocked' => 'boolean',
     ];
 
     /**

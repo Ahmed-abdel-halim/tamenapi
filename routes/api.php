@@ -75,6 +75,7 @@ Route::post('/login', function (Request $request) {
             'is_admin' => $user->is_admin ?? false,
             'authorized_documents' => $authorizedDocuments,
             'branch_agent_id' => $branchAgent ? $branchAgent->id : null,
+            'is_blocked' => $user->is_blocked ?? false,
         ],
         'token' => $token,
     ]);
@@ -97,6 +98,7 @@ Route::get('/user/{id}/refresh', function (Request $request, $id) {
                 'name' => $user->name,
                 'is_admin' => $user->is_admin ?? false,
                 'authorized_documents' => $authorizedDocuments,
+                'is_blocked' => $user->is_blocked ?? false,
             ],
         ]);
     } catch (\Exception $e) {
@@ -167,6 +169,7 @@ Route::apiResource('cargo-insurance', 'App\Http\Controllers\CargoInsuranceDocume
 Route::get('/cargo-insurance/{id}/print', ['App\Http\Controllers\CargoInsuranceDocumentController', 'print']);
 Route::get('/branches-agents/{id}/print', [BranchAgentController::class, 'print']);
 Route::get('/branches-agents/{id}/account-report', [BranchAgentController::class, 'accountReport']);
+Route::post('/branches-agents/{id}/toggle-block', [BranchAgentController::class, 'toggleBlock']);
 Route::get('/reports/outstanding-debts', [\App\Http\Controllers\DebtReportController::class, 'getOutstandingDebts']);
 
 // Financial Management Routes
@@ -218,36 +221,13 @@ Route::get('/professions', [ProfessionController::class, 'index']);
 Route::post('/professions', [ProfessionController::class, 'store']);
 Route::delete('/professions/{id}', [ProfessionController::class, 'destroy']);
 
+use App\Http\Controllers\DocumentRequestController;
+Route::apiResource('document-requests', DocumentRequestController::class);
+
 Route::apiResource('personal-accident-insurance-documents', PersonalAccidentInsuranceDocumentController::class)->parameters([
     'personal-accident-insurance-documents' => 'document'
 ]);
 Route::get('/personal-accident-insurance-documents/{document}/print', [PersonalAccidentInsuranceDocumentController::class, 'print']);
-
-// Database Fix Route (Temporary)
-Route::get('/fix-database-manually', function () {
-    try {
-        // Run any pending migrations
-        \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
-        $output = \Illuminate\Support\Facades\Artisan::output();
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Migrations executed successfully.',
-            'output' => $output,
-            'tables_checked' => [
-                'union_balance_purchases' => \Illuminate\Support\Facades\Schema::hasTable('union_balance_purchases'),
-                'store_items' => \Illuminate\Support\Facades\Schema::hasTable('store_items'),
-                'fixed_custodies' => \Illuminate\Support\Facades\Schema::hasTable('fixed_custodies'),
-            ]
-        ]);
-    } catch (\Exception $e) {
-        return response()->json([
-            'success' => false,
-            'message' => 'Migration failed',
-            'error' => $e->getMessage()
-        ], 500);
-    }
-});
 
 // Inventory & Stores Routes
 Route::prefix('inventory')->group(function () {

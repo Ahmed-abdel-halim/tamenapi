@@ -133,6 +133,8 @@ class UserController extends Controller
             'is_active' => 'nullable|boolean',
             'tax_percentage' => 'nullable|numeric',
             'social_security_percentage' => 'nullable|numeric',
+            'salary_type' => 'nullable|string|in:monthly,hourly',
+            'hourly_rate' => 'nullable|numeric',
         ]);
 
         $data = $validated;
@@ -248,6 +250,8 @@ class UserController extends Controller
             'is_active' => 'nullable|boolean',
             'tax_percentage' => 'nullable|numeric',
             'social_security_percentage' => 'nullable|numeric',
+            'salary_type' => 'nullable|string|in:monthly,hourly',
+            'hourly_rate' => 'nullable|numeric',
         ]);
 
         $oldSalary = $user->salary;

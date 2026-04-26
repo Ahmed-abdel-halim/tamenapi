@@ -70,6 +70,8 @@ class User extends Authenticatable
         'contract_conditions_photo_path',
         'is_active',
         'is_blocked',
+        'salary_type',
+        'hourly_rate',
     ];
 
     /**
@@ -126,6 +128,8 @@ class User extends Authenticatable
         'daily_leave_deduction' => 'decimal:2',
         'is_active' => 'boolean',
         'is_blocked' => 'boolean',
+        'salary_type' => 'string',
+        'hourly_rate' => 'decimal:2',
     ];
 
     /**

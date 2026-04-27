@@ -19,6 +19,7 @@ class CargoInsuranceDocument extends Model
         'voyage_to',
         'sum_insured',
         'premium_amount',
+        'whatsapp_number',
         'status'
     ];
 

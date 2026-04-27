@@ -14,7 +14,7 @@ class InsuranceDocument extends Model
         'start_date', 'end_date', 'duration', 'third_party_purpose', 'foreign_car_country', 'foreign_car_purpose',
         'chassis_number', 'plate_number_manual', 'vehicle_type_id', 'color', 'year', 'manufacturing_country', 'fuel_type',
         'license_purpose', 'engine_power', 'authorized_passengers', 'load_capacity',
-        'insured_name', 'phone', 'driving_license_number', 'premium', 'tax',
+        'insured_name', 'phone', 'whatsapp_number', 'driving_license_number', 'premium', 'tax',
         'stamp', 'issue_fees', 'supervision_fees', 'total', 'print_type', 'branch_agent_id',
     ];
 

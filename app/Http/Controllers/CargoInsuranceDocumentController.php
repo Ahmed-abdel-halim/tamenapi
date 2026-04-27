@@ -91,6 +91,7 @@ class CargoInsuranceDocumentController extends Controller
             'voyage_to' => 'nullable|string',
             'sum_insured' => 'required|numeric',
             'premium_amount' => 'required|numeric',
+            'whatsapp_number' => 'required|string',
         ]);
 
         try {

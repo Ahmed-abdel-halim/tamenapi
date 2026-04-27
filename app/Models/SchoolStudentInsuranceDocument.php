@@ -19,6 +19,7 @@ class SchoolStudentInsuranceDocument extends Model
         'start_date',
         'end_date',
         'premium_amount',
+        'whatsapp_number',
         'status'
     ];
 

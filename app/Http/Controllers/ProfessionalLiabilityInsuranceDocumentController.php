@@ -131,6 +131,7 @@ class ProfessionalLiabilityInsuranceDocumentController extends Controller
                 'issue_fees' => 'required|numeric|min:0',
                 'supervision_fees' => 'required|numeric|min:0',
                 'total' => 'required|numeric|min:0',
+                'whatsapp_number' => 'required|string|max:255',
             ]);
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
@@ -199,6 +200,7 @@ class ProfessionalLiabilityInsuranceDocumentController extends Controller
                 'issue_fees' => $validated['issue_fees'],
                 'supervision_fees' => $validated['supervision_fees'],
                 'total' => $validated['total'],
+                'whatsapp_number' => $validated['whatsapp_number'],
                 'branch_agent_id' => $branchAgentId,
             ]);
 
@@ -265,6 +267,7 @@ class ProfessionalLiabilityInsuranceDocumentController extends Controller
                 'issue_fees' => 'required|numeric|min:0',
                 'supervision_fees' => 'required|numeric|min:0',
                 'total' => 'required|numeric|min:0',
+                'whatsapp_number' => 'required|string|max:255',
             ]);
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([

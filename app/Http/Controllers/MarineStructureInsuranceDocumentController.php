@@ -138,6 +138,7 @@ class MarineStructureInsuranceDocumentController extends Controller
                 'insured_name' => 'nullable|string|max:255',
                 'phone' => 'nullable|string|max:255',
                 'license_number' => 'nullable|string|max:255',
+                'whatsapp_number' => 'required|string|max:255',
                 'engines' => 'nullable|array',
                 'engines.*.engine_type' => 'required|in:main,auxiliary',
                 'engines.*.engine_model' => 'nullable|string|max:255',
@@ -279,6 +280,8 @@ class MarineStructureInsuranceDocumentController extends Controller
                 'issue_fees' => $issueFees,
                 'supervision_fees' => $supervisionFees,
                 'total' => $total,
+                'whatsapp_number' => $validated['whatsapp_number'],
+                'branch_agent_id' => $branchAgentId,
             ]);
 
             // إنشاء المحركات
@@ -365,6 +368,7 @@ class MarineStructureInsuranceDocumentController extends Controller
                 'insured_name' => 'nullable|string|max:255',
                 'phone' => 'nullable|string|max:255',
                 'license_number' => 'nullable|string|max:255',
+                'whatsapp_number' => 'required|string|max:255',
                 'engines' => 'nullable|array',
                 'engines.*.engine_type' => 'required|in:main,auxiliary',
                 'engines.*.engine_model' => 'nullable|string|max:255',

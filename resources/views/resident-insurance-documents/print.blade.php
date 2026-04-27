@@ -421,19 +421,20 @@
                 </tr>
                 <tr>
                     <td colspan="2" style="text-align:center;"><nobr>الاسم بالعربي Name in Arabic</nobr></td>
-                    <td colspan="7" style="text-align:center;"><nobr>{{ $mainPassenger->name_ar ?? '-' }}</nobr></td>
-                    <td colspan="2" style="text-align:center;"><nobr>رقم الهاتف Phone number</nobr></td>
-                    <td colspan="4" style="text-align:center;"><nobr>{{ $mainPassenger->phone ?? '-' }}</nobr></td>
+                    <td colspan="13" style="text-align:center;"><nobr>{{ $mainPassenger->name_ar ?? '-' }}</nobr></td>
                 </tr>
                 <tr>
                     <td colspan="2" style="text-align:center;"><nobr>الاسم بالإنجليزي Name in English</nobr></td>
-                    <td colspan="7" style="text-align:center;"><nobr>{{ $mainPassenger->name_en ?? '-' }}</nobr></td>
-                    <td colspan="2" style="text-align:center;"><nobr>رقم الجواز Passport number</nobr></td>
-                    <td colspan="4" style="text-align:center;"><nobr>{{ $mainPassenger->passport_number ?? '-' }}</nobr></td>
+                    <td colspan="5" style="text-align:center;"><nobr>{{ $mainPassenger->name_en ?? '-' }}</nobr></td>
+                    <td colspan="3" style="text-align:center;"><nobr>هاتف/واتساب Phone/WA</nobr></td>
+                    <td colspan="5" style="text-align:center;"><nobr>{{ $mainPassenger->phone ?? '-' }} / {{ $document->whatsapp_number ?? '-' }}</nobr></td>
                 </tr>
                 <tr>
+                    <td colspan="2" style="text-align:center;"><nobr>رقم الجواز Passport</nobr></td>
+                    <td colspan="4" style="text-align:center;"><nobr>{{ $mainPassenger->passport_number ?? '-' }}</nobr></td>
                     <td colspan="2" style="text-align:center;"><nobr>الجنس Gender</nobr></td>
-                    <td colspan="7" style="text-align:center;"><nobr>
+                    <td colspan="7" style="text-align:center;">
+                        <nobr>
                         @if($mainPassenger?->gender == 'ذكر')
                             ذكر Male
                         @elseif($mainPassenger?->gender == 'أنثى')
@@ -441,9 +442,8 @@
                         @else
                             {{ $mainPassenger->gender ?? '-' }}
                         @endif
-                    </nobr></td>
-                    <td colspan="2" style="text-align:center;"><nobr>العنوان Address</nobr></td>
-                    <td colspan="4" style="text-align:center;"><nobr>{{ $mainPassenger->address ?? '-' }}</nobr></td>
+                        </nobr>
+                    </td>
                 </tr>
                 <tr>
                     <td colspan="2" style="text-align:center;"><nobr>الجنسية Nationality</nobr></td>

@@ -298,40 +298,36 @@
                 <tr style="vertical-align:top;">
                     <td colspan="2" style="width:79px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
                         <nobr>الاسم بالعربي &nbsp;Name&nbsp;in&nbsp;Arabic</nobr>
-
-                </td>
-                    <td colspan="7" style="width:158px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
+                    </td>
+                    <td colspan="13" style="width:401px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
                         <nobr>{{ $mainPassenger->name_ar ?? '-' }}</nobr>
                     </td>
-                    <td colspan="2" style="width:79px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                    <nobr>رقـــــم&nbsp;الهــــــــــــــــاتـــف &nbsp;Phone&nbsp;number</nobr>
-
-                    </td>
-                    <td colspan="4" style="width:158px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>{{ $mainPassenger->phone ?? '-' }}</nobr>
-                    </td>
                 </tr>
                 <tr style="vertical-align:top;">
                     <td colspan="2" style="width:79px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                    <nobr>الاسم بالإنجليزي &nbsp;Name&nbsp;in&nbsp;English</nobr>
-
+                        <nobr>الاسم بالإنجليزي &nbsp;English Name</nobr>
                     </td>
-                    <td colspan="7" style="width:158px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
+                    <td colspan="5" style="width:150px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
                         <nobr>{{ $mainPassenger->name_en ?? '-' }}</nobr>
                     </td>
-                    <td colspan="2" style="width:79px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                    <nobr>رقم الجواز &nbsp;Passport&nbsp;number</nobr>
-
-                </td>
-                    <td colspan="4" style="width:158px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>{{ $mainPassenger->passport_number ?? '-' }}</nobr>
+                    <td colspan="3" style="width:100px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
+                        <nobr>هاتف/واتساب Phone/WA</nobr>
+                    </td>
+                    <td colspan="5" style="width:151px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
+                        <nobr>{{ $mainPassenger->phone ?? '-' }} / {{ $document->whatsapp_number ?? '-' }}</nobr>
                     </td>
                 </tr>
                 <tr style="vertical-align:top;">
+                    <td colspan="2" style="width:79px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
+                        <nobr>رقم الجواز &nbsp;Passport</nobr>
+                    </td>
+                    <td colspan="7" style="width:158px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
+                        <nobr>{{ $mainPassenger->passport_number ?? '-' }}</nobr>
+                    </td>
                     <td colspan="2" style="width:79px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
                         <nobr>الجنس &nbsp;Gender</nobr>
                     </td>
-                    <td colspan="7" style="width:158px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
+                    <td colspan="4" style="width:158px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
                         <nobr>
                             @if($mainPassenger->gender == 'ذكر')
                                 ذكر Male
@@ -341,12 +337,6 @@
                                 {{ $mainPassenger->gender ?? '-' }}
                             @endif
                         </nobr>
-                    </td>
-                    <td colspan="2" style="width:79px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>العنوان &nbsp;Address</nobr>
-                    </td>
-                    <td colspan="4" style="width:158px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>{{ $mainPassenger->address ?? '-' }}</nobr>
                     </td>
                 </tr>
                 <tr style="vertical-align:top;">

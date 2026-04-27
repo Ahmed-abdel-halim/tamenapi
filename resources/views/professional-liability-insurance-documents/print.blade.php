@@ -266,14 +266,14 @@
                     <td colspan="2" style="width:79px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
                         <nobr>اسم المؤمن له Insured name</nobr>
                     </td>
-                    <td colspan="7" style="width:158px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
+                    <td colspan="7" style="width:237px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
                         <nobr>{{ $printData['insured_name'] }}</nobr>
                     </td>
                     <td colspan="2" style="width:79px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>رقـــــم الهــــــــــــــــاتـــف Phone number</nobr>
+                        <nobr>هاتف/واتساب Phone/WA</nobr>
                     </td>
-                    <td colspan="4" style="width:158px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>{{ $printData['phone'] }}</nobr>
+                    <td colspan="4" style="width:85px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
+                        <nobr>{{ $printData['phone'] }} / {{ $document->whatsapp_number ?? '-' }}</nobr>
                     </td>
                 </tr>
                 <tr style="vertical-align:top;">

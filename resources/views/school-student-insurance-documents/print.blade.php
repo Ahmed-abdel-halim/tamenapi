@@ -54,16 +54,16 @@
         <h3>بيانات المؤمن عليه (الطالب)</h3>
         <table>
             <tr>
-                <th>اسم الطالب</th>
+                <th>اسم الطالب Student name</th>
                 <td>{{ $document->student_name }}</td>
             </tr>
             <tr>
-                <th>المرحلة الدراسية</th>
+                <th>المرحلة الدراسية Grade</th>
                 <td>{{ $document->grade ?? '-' }}</td>
             </tr>
             <tr>
-                <th>تاريخ الميلاد</th>
-                <td>{{ $document->birth_date ?? '-' }}</td>
+                <th>تاريخ الميلاد / الواتساب</th>
+                <td>{{ $document->birth_date ?? '-' }} / {{ $document->whatsapp_number ?? '-' }}</td>
             </tr>
         </table>
 

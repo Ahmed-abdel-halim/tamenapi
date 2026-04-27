@@ -88,6 +88,7 @@ class CashInTransitInsuranceDocumentController extends Controller
             'start_date' => 'required|date',
             'end_date' => 'required|date',
             'premium_amount' => 'required|numeric',
+            'whatsapp_number' => 'required|string',
         ]);
 
         try {

@@ -16,6 +16,7 @@ class ResidentInsurancePassenger extends Model
         'name_ar',
         'name_en',
         'phone',
+        'whatsapp_number',
         'passport_number',
         'address',
         'birth_date',

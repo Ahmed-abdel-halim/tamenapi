@@ -34,6 +34,7 @@ class ProfessionalLiabilityInsuranceDocument extends Model
         'issue_fees',
         'supervision_fees',
         'total',
+        'whatsapp_number',
         'branch_agent_id',
     ];
 

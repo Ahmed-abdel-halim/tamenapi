@@ -41,15 +41,15 @@
 
         <table>
             <tr>
-                <th>رقم الوثيقة</th>
+                <th>رقم الوثيقة Document number</th>
                 <td>{{ $document->policy_number }}</td>
             </tr>
             <tr>
-                <th>اسم المؤمن له</th>
-                <td>{{ $document->insured_name }}</td>
+                <th>المؤمن له / الواتساب</th>
+                <td>{{ $document->insured_name }} / {{ $document->whatsapp_number ?? '-' }}</td>
             </tr>
             <tr>
-                <th>تاريخ الإصدار</th>
+                <th>تاريخ الإصدار Issue date</th>
                 <td>{{ $document->created_at->format('Y/m/d') }}</td>
             </tr>
         </table>

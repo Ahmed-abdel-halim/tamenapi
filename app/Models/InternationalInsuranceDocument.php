@@ -10,7 +10,7 @@ class InternationalInsuranceDocument extends Model
     use HasFactory;
 
     protected $fillable = [
-        'document_number', 'insured_name', 'insured_address', 'phone',
+        'document_number', 'insured_name', 'insured_address', 'phone', 'whatsapp_number',
         'chassis_number', 'plate_number', 'vehicle_type_id', 'external_car_id', 'year',
         'vehicle_nationality', 'external_vehicle_nationality_id', 'visited_country', 'external_country_id',
         'start_date', 'number_of_days', 'end_date',

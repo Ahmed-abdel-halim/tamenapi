@@ -410,14 +410,14 @@
                     <td colspan="2" style="width:79px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
                         <nobr>اســــم&nbsp;المؤمـــــــن&nbsp;لـه</nobr>
                     </td>
-                    <td colspan="7" style="width:158px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
+                    <td colspan="7" style="width:237px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
                         <nobr>{{ $document->insured_name ?? '-' }}</nobr>
                     </td>
                     <td colspan="2" style="width:79px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>رقـــــم&nbsp;الهــــــــــــــــاتـــف</nobr>
+                        <nobr>هاتف&nbsp;/&nbsp;واتساب</nobr>
                     </td>
-                    <td colspan="4" style="width:158px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>{{ $document->phone ?? '-' }}</nobr>
+                    <td colspan="4" style="width:85px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
+                        <nobr>{{ $document->phone ?? '-' }} / {{ $document->whatsapp_number ?? '-' }}</nobr>
                     </td>
                 </tr>
                 <tr style="vertical-align:top;">

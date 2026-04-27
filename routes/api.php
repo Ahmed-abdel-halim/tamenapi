@@ -229,6 +229,9 @@ Route::apiResource('personal-accident-insurance-documents', PersonalAccidentInsu
 ]);
 Route::get('/personal-accident-insurance-documents/{document}/print', [PersonalAccidentInsuranceDocumentController::class, 'print']);
 
+Route::apiResource('external-entities', \App\Http\Controllers\ExternalEntityController::class);
+Route::apiResource('mail-documents', \App\Http\Controllers\MailDocumentController::class);
+
 // Inventory & Stores Routes
 Route::prefix('inventory')->group(function () {
     Route::get('/items', [InventoryController::class, 'itemsIndex']);

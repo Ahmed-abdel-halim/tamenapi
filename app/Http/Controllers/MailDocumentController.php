@@ -36,26 +36,29 @@ class MailDocumentController extends Controller
             'employee_id' => 'nullable|exists:users,id',
             'pages_count' => 'nullable|integer',
             'attachment' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:5120',
+            'referential_number' => 'nullable|string|unique:mail_documents,referential_number',
         ]);
 
-        // توليد الرقم الإشاري الإلكتروني تلقائياً
-        $year = date('Y', strtotime($validated['date']));
-        $typePrefix = $validated['type'] === 'incoming' ? 'IN' : 'OUT';
+        if (!$request->filled('referential_number')) {
+            // توليد الرقم الإشاري الإلكتروني تلقائياً إذا لم يتم إدخاله
+            $year = date('Y', strtotime($validated['date']));
+            $typePrefix = $validated['type'] === 'incoming' ? 'IN' : 'OUT';
 
-        $lastDoc = MailDocument::where('type', $validated['type'])
-            ->whereYear('date', $year)
-            ->orderBy('id', 'desc')
-            ->first();
+            $lastDoc = MailDocument::where('type', $validated['type'])
+                ->whereYear('date', $year)
+                ->orderBy('id', 'desc')
+                ->first();
 
-        $sequence = 1;
-        if ($lastDoc) {
-            // استخراج الرقم التسلسلي من الرقم الإشاري الأخير
-            $parts = explode('-', $lastDoc->referential_number);
-            $lastSeq = (int) end($parts);
-            $sequence = $lastSeq + 1;
+            $sequence = 1;
+            if ($lastDoc) {
+                // استخراج الرقم التسلسلي من الرقم الإشاري الأخير
+                $parts = explode('-', $lastDoc->referential_number);
+                $lastSeq = (int) end($parts);
+                $sequence = $lastSeq + 1;
+            }
+
+            $validated['referential_number'] = sprintf("MLI-%s-%s-%04d", $typePrefix, $year, $sequence);
         }
-
-        $validated['referential_number'] = sprintf("MLI-%s-%s-%04d", $typePrefix, $year, $sequence);
 
         // التعامل مع المرفقات المتعددة
         $attachments = [];
@@ -112,6 +115,7 @@ class MailDocumentController extends Controller
             'attachment' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:5120',
             'attachments.*' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:5120',
             'existing_attachments' => 'nullable|string', // JSON string of paths to keep
+            'referential_number' => 'required|string|unique:mail_documents,referential_number,' . $mailDocument->id,
         ]);
 
         $currentAttachments = $mailDocument->attachments ?? [];

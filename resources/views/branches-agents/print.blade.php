@@ -7,12 +7,12 @@
     <title>عقد الوكيل - {{ $branchAgent->agency_name }}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <style>
         @page {
             size: A4;
-            margin: 5mm;
-            /* Very small margins to maximize height */
+            margin: 8mm;
         }
 
         * {
@@ -22,294 +22,279 @@
         }
 
         body {
-            font-family: 'Tajawal', 'Arial', 'Tahoma', sans-serif;
-            font-size: 11px;
-            /* Smaller font */
+            font-family: 'Tajawal', 'Arial', sans-serif;
+            font-size: 10px;
             color: #000;
             background: #fff;
-            padding: 0;
-            line-height: 1.25;
-            /* Tighter line height */
+            line-height: 1.3;
             height: 100vh;
         }
 
-        .contract-container {
+        .contract-page {
             width: 100%;
-            height: 98vh; /* Force container to nearly full page height */
-            margin: 0 auto;
-            background: #fff;
-            padding: 0; 
-        }
-
-        .contract-table {
-            width: 100%;
-            height: 100%; /* Stretch the table to fill the container height */
-            border-collapse: collapse;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
             border: 2px solid #000;
+            padding: 12px;
+            position: relative;
         }
 
-        .contract-table th,
-        .contract-table td {
+        .header-section {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+            border-bottom: 2px solid #000;
+            padding-bottom: 10px;
+        }
+
+        .logo-container {
+            width: 150px; /* Reduced width to give more space to title */
+            text-align: right;
+        }
+
+        .logo-img {
+            max-height: 70px;
+        }
+
+        .qr-container {
+            width: 150px; /* Reduced width to give more space to title */
+            display: flex;
+            justify-content: flex-end;
+        }
+
+        #qrcode {
+            display: inline-block;
+        }
+
+        #qrcode img {
+            max-width: 60px;
+            border: 1px solid #eee;
+            padding: 2px;
+        }
+
+        .header-titles {
+            flex: 1;
+            text-align: center;
+            padding: 0 10px;
+        }
+
+        .contract-title {
+            font-size: 28px; /* Increased size */
+            font-weight: 900;
+            color: #4b5563;
+            background: #f3f4f6;
+            display: inline-block;
+            padding: 8px 40px; /* Increased padding */
+            border-radius: 12px;
+            border: 1.5px solid #d1d5db;
+            white-space: nowrap; /* Force one line */
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .meta-info {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            font-weight: 800;
+            font-size: 11.5px;
+        }
+
+        .section-header {
+            background: #f3f4f6;
+            font-weight: 900;
+            text-align: center;
+            padding: 4px;
             border: 1px solid #000;
-            padding: 3px 4px;
-            /* Reduced padding */
+            font-size: 12px;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 10px;
+        }
+
+        .data-table td {
+            border: 1px solid #000;
+            padding: 3px 6px;
+            vertical-align: middle;
+            text-align: right;
+        }
+
+        .label {
+            font-weight: 800;
+            background: #f9fafb;
+            width: 18%;
+        }
+
+        .value {
+            width: 32%;
+        }
+
+        .terms-container {
+            flex: 1;
+            border: 1px solid #000;
+            padding: 8px 15px;
+            font-size: 10px;
+            text-align: justify;
+        }
+
+        .terms-title {
+            font-weight: 900;
+            margin-bottom: 6px;
+            text-decoration: underline;
+            font-size: 11px;
+        }
+
+        .term-item {
+            margin-bottom: 3px;
+        }
+
+        .signatures-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-top: 10px;
+            border-top: 2px solid #000;
+            padding-top: 8px;
+        }
+
+        .signature-box {
             text-align: center;
         }
 
-        .contract-table .bold-header {
-            font-weight: bold;
-            font-size: 14px;
-            /* Reduced from 16 */
-            background-color: #f8f9fa;
+        .signature-title {
+            font-weight: 800;
+            font-size: 12px;
+            margin-bottom: 10px;
+            text-decoration: underline;
         }
 
-        .text-right {
-            text-align: right !important;
-        }
-
-        .text-center {
-            text-align: center !important;
-        }
-
-        .text-justify {
-            text-align: justify !important;
-        }
-
-        .font-bold {
-            font-weight: bold;
-        }
-
-        .footer {
-            display: flex;
-            justify-content: space-between;
-            margin-top: 15px;
-            font-size: 11px;
-            color: #6b7280;
+        .signature-line {
+            margin-top: 10px;
+            font-weight: 700;
         }
 
         @media print {
-            body {
-                padding: 0;
-                margin: 0;
-                -webkit-print-color-adjust: exact;
-                print-color-adjust: exact;
-            }
-
-            .contract-table .bold-header {
-                background-color: #f8f9fa !important;
-            }
+            body { margin: 0; padding: 0; }
+            .contract-page { height: 280mm; }
         }
     </style>
 </head>
 
 <body>
-    <div class="contract-container">
-        <table class="contract-table">
-            <!-- Header row -->
+    <div class="contract-page">
+        <!-- Header -->
+        <div class="header-section">
+            <!-- Logo on the Right -->
+            <div class="logo-container">
+                <img src="{{ asset('img/logo.png') }}" alt="المدار الليبي للتأمين" class="logo-img" onerror="this.src='/img/logo.png';">
+            </div>
+            
+            <div class="header-titles">
+                <h1 class="contract-title">عقد وكيل تقديم خدمات تأمين</h1>
+            </div>
+
+            <!-- QR Code on the Left -->
+            <div class="qr-container">
+                <div id="qrcode"></div>
+            </div>
+        </div>
+
+        <!-- Meta -->
+        <div class="meta-info">
+            <div>رقم العقد: <span style="direction: ltr; display: inline-block;">{{ $branchAgent->agency_number ?? $branchAgent->code }}</span></div>
+            <div>تاريخ الإصدار: {{ \Carbon\Carbon::parse($branchAgent->contract_date)->format('Y/m/d') }}</div>
+        </div>
+
+        <!-- Parties -->
+        <div class="section-header">بيانات أطراف التعاقد</div>
+        <table class="data-table">
             <tr>
-                <td colspan="4" class="bold-header" style="font-size: 18px; padding: 6px;">المدار الليبي للتأمين</td>
-                <td colspan="2" class="text-center" style="width: 25%; padding: 4px;">
-                    <img src="{{ asset('img/logo.png') }}" alt="لوقو" style="max-height: 40px;"
-                        onerror="this.src='/img/logo.png'; this.onerror=function(){this.parentElement.innerHTML='لوقو';};">
-                </td>
-            </tr>
-
-            <!-- Document meta row -->
-            <tr>
-                <td colspan="2" class="font-bold">المدار الليبي للتأمين - عقد وكيل تقديم خدمات تأمين</td>
-                <td class="font-bold">تاريخ التعاقد</td>
-                <td>{{ \Carbon\Carbon::parse($branchAgent->contract_date)->format('Y/m/d') }}</td>
-                <td class="font-bold">رقم الوكالة</td>
-                <td style="direction: ltr;">{{ $branchAgent->agency_number ?? $branchAgent->code }}</td>
-            </tr>
-
-            <!-- Parties Header -->
-            <tr>
-                <td colspan="2" class="bold-header">الطرف الثاني</td>
-                <td colspan="4" class="bold-header">الطرف الأول</td>
-            </tr>
-
-            <!-- First Party Info (Right) & Second Party Info (Left) in standard RTL table flow -->
-            <!-- 2 cols for Party 2 (Left logically but rendered Right as 1st/2nd in RTL) / Wait RTL goes right-to-left. First column is FAR RIGHT.
-                 Image: Right half = Party 1 (الطرف الأول), Left half = Party 2 (الطرف الثاني)
-                 To match this in RTL:
-                 col 1-2 = right = Party 1
-                 col 3-6 = left = Party 2
-            -->
-            <tr>
-                <td class="font-bold" style="width: 15%">الاسم القانوني</td>
-                <td style="width: 18.33%">المدار الليبي للتأمين</td>
-
-                <td class="font-bold" style="width: 15%">اسم الوكيل</td>
-                <td style="width: 18.33%">{{ $branchAgent->agent_name }}</td>
-
-                <td class="font-bold" style="width: 15%">اسم الوكالة</td>
-                <td style="width: 18.33%">{{ $branchAgent->agency_name }}</td>
+                <td class="label">الطرف الأول (الموكل):</td>
+                <td class="value">المدار الليبي للتأمين</td>
+                <td class="label">الطرف الثاني (الوكيل):</td>
+                <td class="value">{{ $branchAgent->agent_name }}</td>
             </tr>
             <tr>
-                <td class="font-bold">رقم الترخيص</td>
-                <td style="direction: ltr;">123456789</td>
-
-                <td class="font-bold">الجنسية</td>
-                <td>{{ $branchAgent->nationality ?? 'ليبيا' }}</td>
-
-                <td class="font-bold">نوع النشاط</td>
-                <td>{{ $branchAgent->activity ?? '-' }}</td>
+                <td class="label">رقم القيد التجاري:</td>
+                <td class="value">123456789</td>
+                <td class="label">اسم الوكالة:</td>
+                <td class="value">{{ $branchAgent->agency_name }}</td>
             </tr>
             <tr>
-                <td class="font-bold">العنوان</td>
-                <td>ليبيا - طرابلس</td>
-
-                <td class="font-bold">رقم الجواز</td>
-                <td>{{ $branchAgent->identity_number ?? '-' }}</td>
-
-                <td class="font-bold">العنوان</td>
-                <td>{{ $branchAgent->city }}</td>
+                <td class="label">العنوان الوطني:</td>
+                <td class="value">ليبيا - طرابلس</td>
+                <td class="label">المدينة / الفرع:</td>
+                <td class="value">{{ $branchAgent->city }}</td>
             </tr>
             <tr>
-                <td class="font-bold">رقم الهاتف</td>
-                <td style="direction: ltr;">0920003366</td>
-
-                <td class="font-bold">الرقم الوطني</td>
-                <td>{{ $branchAgent->national_id ?? '-' }}</td>
-
-                <td class="font-bold">رقم هاتف الوكالة</td>
-                <td style="direction: ltr;">{{ $branchAgent->phone ?? '-' }}</td>
+                <td class="label">الرقم الوطني للوكيل:</td>
+                <td class="value">{{ $branchAgent->national_id ?? '-' }}</td>
+                <td class="label">رقم الهاتف:</td>
+                <td class="value" style="direction: ltr; text-align: right;">{{ $branchAgent->phone ?? '-' }}</td>
             </tr>
             <tr>
-                <td class="font-bold">البريد الإلكتروني</td>
-                <td style="direction: ltr;">info@mli.ly</td>
-
-                <td class="font-bold">رقم هاتف الوكيل</td>
-                <td style="direction: ltr;">{{ $branchAgent->phone ?? '-' }}</td>
-
-                <td class="font-bold">موقع الكتروني</td>
-                <td>-</td>
-            </tr>
-
-            <!-- Terms Header -->
-            <tr>
-                <td colspan="6" class="bold-header" style="background-color: #f1f5f9;">شروط العقد</td>
-            </tr>
-
-            @if($branchAgent->contract_conditions)
-                <tr>
-                    <td colspan="6" class="text-right" style="padding: 10px 40px; font-size: 11px; line-height: 1.4; white-space: pre-wrap; vertical-align: top;">{!! nl2br(e($branchAgent->contract_conditions)) !!}</td>
-                </tr>
-            @else
-                <tr>
-                    <td colspan="6" class="bold-header" style="background-color: #f8fafc;">تمهيد</td>
-                </tr>
-
-                <!-- Terms content -->
-                <tr>
-                    <td class="font-bold text-center">م</td>
-                    <td colspan="5" class="text-right text-justify" style="padding: 4px;">
-                        بناء على رغبة الطرفين في إيجاد مصلحة مشتركة وتحديد حقوق والتزامات كل طرف اتجاه الآخر ووفقا لما يقتضي
-                        نظام الوكالات التسويقية وتعديلاته في دولة ليبيا حيث أبدى الطرف الثاني رغبته في الحصول على إذن تسويق
-                        واصدار وثائق التأمين الخاصة بشركة المدار الليبي للتأمين.
-                    </td>
-                </tr>
-                <tr>
-                    <td class="font-bold text-center">1</td>
-                    <td colspan="5" class="text-right text-justify" style="padding: 4px;">
-                        يتعهد الطرف الثاني بأن يعمل لحساب ولصالح الطرف الأول وتحت إشرافه بصفته وكيلاً عنه بإصدار وثائق
-                        التأمين الإجبارية التي تقوم الشركة بإصدارها، وذلك وفقاً للقانون والنظام المعمول به والأحكام والضوابط
-                        المبينة بهذا العقد.
-                    </td>
-                </tr>
-                <tr>
-                    <td class="font-bold text-center">2</td>
-                    <td colspan="5" class="text-right text-justify" style="padding: 4px;">
-                        تقوم الشركة بدفع العمولة المستحقة للطرف الثاني وذلك عند نهاية كل شهر بناءً على حوافظ اصدار الوثائق
-                        المحالة من <strong>الطرف الثاني إلى الطرف الأول</strong> بعد استيفاء المراجعة المالية والفنية.
-                    </td>
-                </tr>
-                <tr>
-                    <td class="font-bold text-center">3</td>
-                    <td colspan="5" class="text-right" style="padding: 4px;">
-                        1- اتفق الطرفان على مدة هذا العقد
-                        (<strong>{{ $branchAgent->contract_duration ?? 'سنة واحدة' }}</strong>) اعتباراً من تاريخ
-                        إبرامه.<br>
-                        2- يجدد العقد بحضور الطرف الثاني أو من ينوب عنه ويبرم عقد تجديد العقد في الشركة / الطرف الأول.<br>
-                        3- يلغى الطرف الأول العقد مع الطرف الثاني برسالة إخطار موجهه للطرف الثاني في حال عدم التقيد في شروط
-                        هذا العقد.
-                    </td>
-                </tr>
-                <tr>
-                    <td class="font-bold text-center">4</td>
-                    <td colspan="5" class="text-right" style="padding: 4px;">
-                        <strong>يلتزم الطرف الثاني بشأن تنفيذ أحكام هذا العقد بما يلي:</strong><br>
-                        1. مباشرة العمل خلال مدة لا تتجاوز شهر من تاريخ ابرام العقد، ويحق للشركة الغاء العقد في حالة مخالفته
-                        لهذا الالتزام.<br>
-                        2. العمل على إصدار وثائق التأمين عن طريق منظومة الاصدار الخاصة بالشركة فقط.<br>
-                        3. عدم مخالفة اسعار الوثائق التي يصدرها وعدم التعهد بأية التزامات أو وعود بشأن الآثار المترتبة عن
-                        هذه الوثائق.<br>
-                        4. مراعاة الطرف الثاني مبدأ حسن النية في عمليات إصدار الوثائق المتفق على إصدارها.<br>
-                        5. عدم قبول التأمين على أخطار قد تحققت فعلاً قبل إصدار وثيقة تأمين.
-                    </td>
-                </tr>
-                <tr>
-                    <td class="font-bold text-center">5</td>
-                    <td colspan="5" class="text-right text-justify" style="padding: 4px;">
-                        يحق للطرف الأول فسخ العقد دون اخطار الطرف الثاني في حالة ثبوت مخالفته للوائح المالية والفنية النافذة
-                        بالشركة.
-                    </td>
-                </tr>
-                <tr>
-                    <td class="font-bold text-center">6</td>
-                    <td colspan="5" class="text-right text-justify" style="padding: 4px;">
-                        اتفق الطرفان بأنه يحق للطرف الثاني إنهاء العقد ويشترط الحصول على براءة ذمة من الطرف الأول.
-                    </td>
-                </tr>
-                <tr>
-                    <td class="font-bold text-center">7</td>
-                    <td colspan="5" class="text-right text-justify" style="padding: 4px;">
-                        اتفق الطرفان بأن أي نزاع ينشأ بينهما يختص به القضاء الليبي بعد استنفاذ جميع محاولات التسوية الودية.
-                    </td>
-                </tr>
-                <tr>
-                    <td class="font-bold text-center">8</td>
-                    <td colspan="5" class="text-right text-justify" style="padding: 4px;">
-                        اتفق الطرفان بأن المراسلات الرسمية التي يتم تبادلها بينهما توجه إلى الطرف الآخر رسالة رسمية صادره من
-                        أحدهما.
-                    </td>
-                </tr>
-                <tr>
-                    <td class="font-bold text-center">9</td>
-                    <td colspan="5" class="text-right text-justify" style="padding: 4px;">
-                        وقع الطرفان على هذا العقد بما يفيد اعتماده والعمل بما جاء فيه من أحكام وشروط من تاريخ إبرامه.
-                    </td>
-                </tr>
-            @endif
-
-
-            <!-- Signatures Row -->
-            <tr>
-                <td colspan="2" class="text-center" style="padding: 10px; vertical-align: top;">
-                    <div class="font-bold" style="margin-bottom: 15px;">الطرف الأول</div>
-                    <div style="margin-bottom: 15px;">مدير الافرع والوكلاء</div>
-                    <div style="margin-bottom: 15px;">الاسم / ....لطفيه رحومه....</div>
-                    <div>التوقيع /................</div>
-                </td>
-                <td colspan="4" class="text-center" style="padding: 10px; vertical-align: top;">
-                    <div class="font-bold" style="margin-bottom: 15px;">الطرف الثاني</div>
-                    <div style="margin-bottom: 15px;">ممثل الطرف الثاني</div>
-                    <div style="margin-bottom: 15px;">الاسم / ....{{ $branchAgent->agent_name }}....</div>
-                    <div>التوقيع /................</div>
-                </td>
+                <td class="label">مدة العقد:</td>
+                <td class="value">{{ $branchAgent->contract_duration ?? 'سنة واحدة' }}</td>
+                <td class="label">تاريخ انتهاء العقد:</td>
+                <td class="value">{{ $branchAgent->contract_end_date ? \Carbon\Carbon::parse($branchAgent->contract_end_date)->format('Y/m/d') : '-' }}</td>
             </tr>
         </table>
+
+        <!-- Terms -->
+        <div class="terms-container">
+            <div class="terms-title">البنود والشروط العامة للتعاقد:</div>
+            
+            @if($branchAgent->contract_conditions)
+                <div style="white-space: pre-wrap; line-height: 1.5;">{!! nl2br(e($branchAgent->contract_conditions)) !!}</div>
+            @else
+                <div class="term-item"><strong>تمهيد:</strong> بناءً على رغبة الطرفين في التعاون المشترك، فقد اتفقا على أن يعمل الطرف الثاني وكيلاً معتمداً للطرف الأول.</div>
+                <div class="term-item">1. يتعهد الطرف الثاني بالعمل لحساب ولصالح الطرف الأول وبإشرافه المباشر في إصدار وثائق التأمين المعتمدة.</div>
+                <div class="term-item">2. يلتزم الطرف الثاني بالتقيد بالأسعار واللوائح الفنية والمالية الصادرة عن الشركة (الطرف الأول).</div>
+                <div class="term-item">3. تصرف العمولات للطرف الثاني بناءً على صافي الأقساط المحصلة والمراجعة مالياً وفنياً.</div>
+                <div class="term-item">4. يلتزم الطرف الثاني باستخدام منظومة الشركة الإلكترونية حصراً في عمليات الإصدار والتحصيل.</div>
+                <div class="term-item">5. مدة هذا العقد ({{ $branchAgent->contract_duration ?? 'سنة واحدة' }})، تبدأ من تاريخ توقيعه وتجدد بموافقة الطرفين.</div>
+                <div class="term-item">6. يحق للطرف الأول فسخ العقد فوراً في حال ثبوت مخالفة الطرف الثاني لأي من بنود العقد أو اللوائح المنظمة.</div>
+                <div class="term-item">7. يقر الطرف الثاني بمسؤوليته الكاملة عن صحة البيانات المدخلة في الوثائق الصادرة من طرفه.</div>
+                <div class="term-item">8. يخضع هذا العقد لأحكام القانون الليبي، وفي حال النزاع يختص القضاء الليبي بالفصل فيه.</div>
+            @endif
+        </div>
+
+        <!-- Signatures -->
+        <div class="signatures-section">
+            <div class="signature-box">
+                <div class="signature-title">الطرف الأول (شركة المدار الليبي للتأمين)</div>
+                <div style="margin-top: 5px;">الاسم: لطفيه رحومه</div>
+                <div>الصفة: مدير الأفرع والوكلاء</div>
+                <div class="signature-line">التوقيع والختم: ................................</div>
+            </div>
+            <div class="signature-box">
+                <div class="signature-title">الطرف الثاني (الوكيل المعتمد)</div>
+                <div style="margin-top: 5px;">الاسم: {{ $branchAgent->agent_name }}</div>
+                <div>الصفة: وكيل خدمات تأمين</div>
+                <div class="signature-line">التوقيع والختم: ................................</div>
+            </div>
+        </div>
     </div>
 
-    <!-- Hidden div for generating QR data if ever needed again -- the QR code isn't in original image structure, but keeping it invisible doesn't hurt. -->
-    <div id="qrcode" style="display: none;"></div>
-
     <script>
+        // Generate QR Code
+        new QRCode(document.getElementById("qrcode"), {
+            text: window.location.href,
+            width: 80,
+            height: 80,
+            colorDark : "#000000",
+            colorLight : "#ffffff",
+            correctLevel : QRCode.CorrectLevel.H
+        });
+
         window.onload = function () {
             setTimeout(function () {
                 window.print();
-            }, 500);
+            }, 800);
         };
     </script>
 </body>

@@ -24,12 +24,14 @@ class MailDocument extends Model
         'messenger_phone',
         'employee_id',
         'attachment_path',
+        'attachments',
         'pages_count',
     ];
 
     protected $casts = [
         'date' => 'date',
         'registered_at' => 'date',
+        'attachments' => 'array',
     ];
 
     public function entity()
@@ -45,12 +47,26 @@ class MailDocument extends Model
     /**
      * Path relative to storage.
      */
-    protected $appends = ['attachment_url'];
+    protected $appends = ['attachment_url', 'attachment_urls'];
 
     public function getAttachmentUrlAttribute()
     {
         if (!$this->attachment_path)
             return null;
         return '/storage/' . $this->attachment_path;
+    }
+
+    public function getAttachmentUrlsAttribute()
+    {
+        $urls = [];
+        if ($this->attachment_path) {
+            $urls[] = '/storage/' . $this->attachment_path;
+        }
+        if ($this->attachments && is_array($this->attachments)) {
+            foreach ($this->attachments as $path) {
+                $urls[] = '/storage/' . $path;
+            }
+        }
+        return $urls;
     }
 }

@@ -57,7 +57,17 @@ class MailDocumentController extends Controller
 
         $validated['referential_number'] = sprintf("MLI-%s-%s-%04d", $typePrefix, $year, $sequence);
 
-        // التعامل مع المرفق
+        // التعامل مع المرفقات المتعددة
+        $attachments = [];
+        if ($request->hasFile('attachments')) {
+            foreach ($request->file('attachments') as $file) {
+                $path = $file->store('mail_attachments', 'public');
+                $attachments[] = $path;
+            }
+        }
+        $validated['attachments'] = $attachments;
+
+        // دعم الحقل القديم للتوافق
         if ($request->hasFile('attachment')) {
             $path = $request->file('attachment')->store('mail_attachments', 'public');
             $validated['attachment_path'] = $path;
@@ -100,7 +110,33 @@ class MailDocumentController extends Controller
             'employee_id' => 'nullable|exists:users,id',
             'pages_count' => 'nullable|integer',
             'attachment' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:5120',
+            'attachments.*' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:5120',
+            'existing_attachments' => 'nullable|string', // JSON string of paths to keep
         ]);
+
+        $currentAttachments = $mailDocument->attachments ?? [];
+        
+        // التعامل مع المرفقات الموجودة (في حال تم حذف بعضها من الفرونت إند)
+        if ($request->has('existing_attachments')) {
+            $keep = json_decode($request->existing_attachments, true);
+            if (is_array($keep)) {
+                // حذف الملفات التي لم تعد موجودة في القائمة
+                $toDelete = array_diff($currentAttachments, $keep);
+                foreach ($toDelete as $path) {
+                    Storage::disk('public')->delete($path);
+                }
+                $currentAttachments = $keep;
+            }
+        }
+
+        // إضافة مرفقات جديدة
+        if ($request->hasFile('attachments')) {
+            foreach ($request->file('attachments') as $file) {
+                $path = $file->store('mail_attachments', 'public');
+                $currentAttachments[] = $path;
+            }
+        }
+        $validated['attachments'] = $currentAttachments;
 
         if ($request->hasFile('attachment')) {
             // حذف المرفق القديم إن وجد
@@ -121,6 +157,13 @@ class MailDocumentController extends Controller
         if ($mailDocument->attachment_path) {
             Storage::disk('public')->delete($mailDocument->attachment_path);
         }
+        
+        if ($mailDocument->attachments && is_array($mailDocument->attachments)) {
+            foreach ($mailDocument->attachments as $path) {
+                Storage::disk('public')->delete($path);
+            }
+        }
+        
         $mailDocument->delete();
         return response()->json(['message' => 'Document deleted successfully']);
     }

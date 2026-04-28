@@ -166,7 +166,7 @@ class ClaimController extends Controller
 
         $transfer = $claim->transfers()->create([
             'transfer_type' => $validated['transfer_type'],
-            'other_transfer_type' => $validated['other_transfer_type'],
+            'other_transfer_type' => $validated['other_transfer_type'] ?? null,
             'details' => $details,
         ]);
 

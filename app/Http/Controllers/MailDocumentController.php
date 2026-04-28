@@ -35,7 +35,8 @@ class MailDocumentController extends Controller
             'messenger_phone' => 'nullable|string',
             'employee_id' => 'nullable|exists:users,id',
             'pages_count' => 'nullable|integer',
-            'attachment' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:5120',
+            'attachment' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:51200',
+            'attachments.*' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:51200',
             'referential_number' => 'nullable|string|unique:mail_documents,referential_number',
         ]);
 
@@ -63,9 +64,19 @@ class MailDocumentController extends Controller
         // التعامل مع المرفقات المتعددة
         $attachments = [];
         if ($request->hasFile('attachments')) {
-            foreach ($request->file('attachments') as $file) {
-                $path = $file->store('mail_attachments', 'public');
-                $attachments[] = $path;
+            $files = $request->file('attachments');
+            if (is_array($files)) {
+                foreach ($files as $file) {
+                    if ($file->isValid()) {
+                        $path = $file->store('mail_attachments', 'public');
+                        $attachments[] = $path;
+                    } else {
+                        return response()->json([
+                            'message' => 'أحد الملفات المرفقة غير صالح أو حجمه كبير جداً',
+                            'error' => $file->getErrorMessage()
+                        ], 422);
+                    }
+                }
             }
         }
         $validated['attachments'] = $attachments;
@@ -112,8 +123,8 @@ class MailDocumentController extends Controller
             'messenger_phone' => 'nullable|string',
             'employee_id' => 'nullable|exists:users,id',
             'pages_count' => 'nullable|integer',
-            'attachment' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:5120',
-            'attachments.*' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:5120',
+            'attachment' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:51200',
+            'attachments.*' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:51200',
             'existing_attachments' => 'nullable|string', // JSON string of paths to keep
             'referential_number' => 'required|string|unique:mail_documents,referential_number,' . $mailDocument->id,
         ]);
@@ -135,9 +146,19 @@ class MailDocumentController extends Controller
 
         // إضافة مرفقات جديدة
         if ($request->hasFile('attachments')) {
-            foreach ($request->file('attachments') as $file) {
-                $path = $file->store('mail_attachments', 'public');
-                $currentAttachments[] = $path;
+            $files = $request->file('attachments');
+            if (is_array($files)) {
+                foreach ($files as $file) {
+                    if ($file->isValid()) {
+                        $path = $file->store('mail_attachments', 'public');
+                        $currentAttachments[] = $path;
+                    } else {
+                        return response()->json([
+                            'message' => 'أحد الملفات المرفقة غير صالح أو حجمه كبير جداً',
+                            'error' => $file->getErrorMessage()
+                        ], 422);
+                    }
+                }
             }
         }
         $validated['attachments'] = $currentAttachments;

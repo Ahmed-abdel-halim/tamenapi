@@ -26,6 +26,7 @@ use App\Http\Controllers\ProfessionController;
 use App\Http\Controllers\ColorController;
 use App\Http\Controllers\FinancialStatisticsController;
 use App\Http\Controllers\EmployeePayrollController;
+use App\Http\Controllers\ClaimController;
 use Illuminate\Support\Facades\Hash;
 use App\Models\User;
 
@@ -231,6 +232,11 @@ Route::get('/personal-accident-insurance-documents/{document}/print', [PersonalA
 
 Route::apiResource('external-entities', \App\Http\Controllers\ExternalEntityController::class);
 Route::apiResource('mail-documents', \App\Http\Controllers\MailDocumentController::class);
+
+Route::get('/claims/document-info', [ClaimController::class, 'fetchDocumentInfo']);
+Route::get('/claims/search-documents', [ClaimController::class, 'searchDocuments']);
+Route::apiResource('claims', ClaimController::class)->only(['index', 'store', 'show']);
+Route::post('/claims/{id}/transfers', [ClaimController::class, 'addTransfer']);
 
 // Inventory & Stores Routes
 Route::prefix('inventory')->group(function () {

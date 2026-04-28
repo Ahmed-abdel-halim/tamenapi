@@ -190,7 +190,7 @@
         <div class="header-section">
             <!-- Logo on the Right -->
             <div class="logo-container">
-                <img src="{{ asset('img/logo.png') }}" alt="المدار الليبي للتأمين" class="logo-img" onerror="this.src='/img/logo.png';">
+                <img src="{{ asset('img/logo.png') }}" alt="المدار الليبي للتأمين" class="logo-img" onerror="this.onerror=null;this.src='/img/logo.png';">
             </div>
             
             <div class="header-titles">

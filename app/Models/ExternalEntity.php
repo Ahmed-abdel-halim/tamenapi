@@ -17,7 +17,15 @@ class ExternalEntity extends Model
         'email',
         'default_messenger_name',
         'default_messenger_phone',
+        'logo_path',
     ];
+
+    protected $appends = ['logo_url'];
+
+    public function getLogoUrlAttribute()
+    {
+        return $this->logo_path ? '/storage/' . $this->logo_path : null;
+    }
 
     /**
      * Get the mail documents associated with this entity.

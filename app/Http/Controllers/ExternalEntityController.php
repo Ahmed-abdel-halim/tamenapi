@@ -22,7 +22,13 @@ class ExternalEntityController extends Controller
             'email' => 'nullable|email|max:255',
             'default_messenger_name' => 'nullable|string|max:255',
             'default_messenger_phone' => 'nullable|string|max:50',
+            'logo' => 'nullable|image|max:2048',
         ]);
+
+        if ($request->hasFile('logo')) {
+            $path = $request->file('logo')->store('logos', 'public');
+            $validated['logo_path'] = $path;
+        }
 
         $entity = ExternalEntity::create($validated);
         return response()->json($entity, 201);
@@ -43,7 +49,17 @@ class ExternalEntityController extends Controller
             'email' => 'nullable|email|max:255',
             'default_messenger_name' => 'nullable|string|max:255',
             'default_messenger_phone' => 'nullable|string|max:50',
+            'logo' => 'nullable|image|max:2048',
         ]);
+
+        if ($request->hasFile('logo')) {
+            // Delete old logo if exists
+            if ($externalEntity->logo_path) {
+                \Illuminate\Support\Facades\Storage::disk('public')->delete($externalEntity->logo_path);
+            }
+            $path = $request->file('logo')->store('logos', 'public');
+            $validated['logo_path'] = $path;
+        }
 
         $externalEntity->update($validated);
         return response()->json($externalEntity);

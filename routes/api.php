@@ -29,6 +29,8 @@ use App\Http\Controllers\EmployeePayrollController;
 use App\Http\Controllers\ClaimController;
 use Illuminate\Support\Facades\Hash;
 use App\Models\User;
+use App\Http\Controllers\AgencyCancellationController;
+
 
 /*
 |--------------------------------------------------------------------------
@@ -118,6 +120,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/users/{user}/salary-history', [UserController::class, 'salaryHistory']);
     Route::apiResource('employee-requests', EmployeeRequestController::class);
     Route::apiResource('agent-requests', \App\Http\Controllers\AgentRequestController::class);
+    Route::apiResource('agency-cancellations', AgencyCancellationController::class);
+
     Route::get('/employee-payrolls/employees', [EmployeePayrollController::class, 'employees']);
     Route::get('/employee-payrolls/reports', [EmployeePayrollController::class, 'taxSSReport']);
     Route::get('/employee-payrolls', [EmployeePayrollController::class, 'index']);

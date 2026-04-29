@@ -27,12 +27,12 @@
             color: #000;
             background: #fff;
             line-height: 1.3;
-            height: 100vh;
+            min-height: 100vh;
         }
 
         .contract-page {
             width: 100%;
-            height: 100%;
+            min-height: 100%;
             display: flex;
             flex-direction: column;
             border: 2px solid #000;
@@ -134,11 +134,11 @@
         }
 
         .terms-container {
-            flex: 1;
             border: 1px solid #000;
             padding: 8px 15px;
             font-size: 10px;
             text-align: justify;
+            margin-bottom: 10px;
         }
 
         .terms-title {
@@ -156,9 +156,9 @@
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 20px;
-            margin-top: 10px;
+            margin-top: 15px;
             border-top: 2px solid #000;
-            padding-top: 8px;
+            padding-top: 15px;
         }
 
         .signature-box {
@@ -179,7 +179,7 @@
 
         @media print {
             body { margin: 0; padding: 0; }
-            .contract-page { height: 280mm; }
+            .contract-page { min-height: 280mm; }
         }
     </style>
 </head>

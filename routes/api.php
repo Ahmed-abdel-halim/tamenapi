@@ -30,6 +30,8 @@ use App\Http\Controllers\ClaimController;
 use Illuminate\Support\Facades\Hash;
 use App\Models\User;
 use App\Http\Controllers\AgencyCancellationController;
+use App\Http\Controllers\CompanyDocumentController;
+
 
 
 /*
@@ -236,6 +238,29 @@ Route::get('/personal-accident-insurance-documents/{document}/print', [PersonalA
 
 Route::apiResource('external-entities', \App\Http\Controllers\ExternalEntityController::class);
 Route::apiResource('mail-documents', \App\Http\Controllers\MailDocumentController::class);
+Route::apiResource('company-documents', CompanyDocumentController::class);
+
+Route::get('/fix-storage', function() {
+    try {
+        if (is_link(public_path('storage'))) {
+            app()->make('files')->delete(public_path('storage'));
+        }
+        \Illuminate\Support\Facades\Artisan::call('storage:link');
+        return "Storage link fixed successfully!";
+    } catch (\Exception $e) {
+        return "Error: " . $e->getMessage();
+    }
+});
+
+Route::get('/run-migrations', function() {
+    try {
+        \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
+        return "Migrations ran successfully! Output: " . \Illuminate\Support\Facades\Artisan::output();
+    } catch (\Exception $e) {
+        return "Error: " . $e->getMessage();
+    }
+});
+
 
 Route::get('/claims/document-info', [ClaimController::class, 'fetchDocumentInfo']);
 Route::get('/claims/search-documents', [ClaimController::class, 'searchDocuments']);

@@ -84,8 +84,8 @@ class SchoolStudentInsuranceDocumentController extends Controller
         $validated = $request->validate([
             'student_name' => 'required|string',
             'school_name' => 'required|string',
-            'grade' => 'nullable|string',
-            'birth_date' => 'nullable|date',
+            'grade' => 'required|string',
+            'birth_date' => 'required|date',
             'start_date' => 'required|date',
             'end_date' => 'required|date',
             'premium_amount' => 'required|numeric',
@@ -124,8 +124,19 @@ class SchoolStudentInsuranceDocumentController extends Controller
 
     public function update(Request $request, $id)
     {
+        $validated = $request->validate([
+            'student_name' => 'required|string',
+            'school_name' => 'required|string',
+            'grade' => 'required|string',
+            'birth_date' => 'required|date',
+            'start_date' => 'required|date',
+            'end_date' => 'required|date',
+            'premium_amount' => 'required|numeric',
+            'whatsapp_number' => 'required|string',
+        ]);
+
         $document = SchoolStudentInsuranceDocument::findOrFail($id);
-        $document->update($request->all());
+        $document->update($validated);
         return response()->json($document);
     }
 

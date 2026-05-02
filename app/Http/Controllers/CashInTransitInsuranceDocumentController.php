@@ -81,10 +81,10 @@ class CashInTransitInsuranceDocumentController extends Controller
     {
         $validated = $request->validate([
             'insured_name' => 'required|string',
-            'transit_from' => 'nullable|string',
-            'transit_to' => 'nullable|string',
+            'transit_from' => 'required|string',
+            'transit_to' => 'required|string',
             'limit_per_transit' => 'required|numeric',
-            'annual_turnover' => 'nullable|numeric',
+            'annual_turnover' => 'required|numeric',
             'start_date' => 'required|date',
             'end_date' => 'required|date',
             'premium_amount' => 'required|numeric',
@@ -123,8 +123,20 @@ class CashInTransitInsuranceDocumentController extends Controller
 
     public function update(Request $request, $id)
     {
+        $validated = $request->validate([
+            'insured_name' => 'required|string',
+            'transit_from' => 'required|string',
+            'transit_to' => 'required|string',
+            'limit_per_transit' => 'required|numeric',
+            'annual_turnover' => 'required|numeric',
+            'start_date' => 'required|date',
+            'end_date' => 'required|date',
+            'premium_amount' => 'required|numeric',
+            'whatsapp_number' => 'required|string',
+        ]);
+
         $document = CashInTransitInsuranceDocument::findOrFail($id);
-        $document->update($request->all());
+        $document->update($validated);
         return response()->json($document);
     }
 

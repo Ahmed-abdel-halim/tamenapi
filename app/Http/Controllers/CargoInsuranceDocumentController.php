@@ -86,9 +86,9 @@ class CargoInsuranceDocumentController extends Controller
         $validated = $request->validate([
             'insured_name' => 'required|string',
             'cargo_description' => 'required|string',
-            'transport_type' => 'nullable|string',
-            'voyage_from' => 'nullable|string',
-            'voyage_to' => 'nullable|string',
+            'transport_type' => 'required|string',
+            'voyage_from' => 'required|string',
+            'voyage_to' => 'required|string',
             'sum_insured' => 'required|numeric',
             'premium_amount' => 'required|numeric',
             'whatsapp_number' => 'required|string',
@@ -126,8 +126,19 @@ class CargoInsuranceDocumentController extends Controller
 
     public function update(Request $request, $id)
     {
+        $validated = $request->validate([
+            'insured_name' => 'required|string',
+            'cargo_description' => 'required|string',
+            'transport_type' => 'required|string',
+            'voyage_from' => 'required|string',
+            'voyage_to' => 'required|string',
+            'sum_insured' => 'required|numeric',
+            'premium_amount' => 'required|numeric',
+            'whatsapp_number' => 'required|string',
+        ]);
+
         $document = CargoInsuranceDocument::findOrFail($id);
-        $document->update($request->all());
+        $document->update($validated);
         return response()->json($document);
     }
 

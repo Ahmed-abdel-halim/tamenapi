@@ -31,6 +31,7 @@ use Illuminate\Support\Facades\Hash;
 use App\Models\User;
 use App\Http\Controllers\AgencyCancellationController;
 use App\Http\Controllers\CompanyDocumentController;
+use App\Http\Controllers\RentalVoucherController;
 
 
 
@@ -239,6 +240,7 @@ Route::get('/personal-accident-insurance-documents/{document}/print', [PersonalA
 Route::apiResource('external-entities', \App\Http\Controllers\ExternalEntityController::class);
 Route::apiResource('mail-documents', \App\Http\Controllers\MailDocumentController::class);
 Route::apiResource('company-documents', CompanyDocumentController::class);
+Route::apiResource('rental-vouchers', RentalVoucherController::class);
 
 Route::get('/fix-storage', function() {
     try {

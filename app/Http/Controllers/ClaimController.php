@@ -204,16 +204,41 @@ class ClaimController extends Controller
         
         if ($request->search) {
             $query->where(function($q) use ($request) {
-                $q->where('insurance_number', 'like', "%{$request->search}%")
-                  ->orWhere('insured_name', 'like', "%{$request->search}%");
+                $q->where('insurance_number', 'like', "%{$request->search}%");
+                
+                // If model has insured_name column
+                $columns = \Illuminate\Support\Facades\Schema::getColumnListing((new $modelClass)->getTable());
+                if (in_array('insured_name', $columns)) {
+                    $q->orWhere('insured_name', 'like', "%{$request->search}%");
+                } else if (method_exists($modelClass, 'passengers')) {
+                    // For Travel and Resident insurance, search in passengers
+                    $q->orWhereHas('passengers', function($pq) use ($request) {
+                        $pq->where('name_ar', 'like', "%{$request->search}%")
+                           ->orWhere('name_en', 'like', "%{$request->search}%");
+                    });
+                }
             });
         }
 
         $documents = $query->orderBy('created_at', 'desc')
                            ->limit(200)
-                           ->get(['id', 'insurance_number', 'insured_name']);
+                           ->get();
 
-        return response()->json($documents);
+        // Map documents to include a standardized insured_name
+        $formattedDocuments = $documents->map(function($doc) {
+            $name = $doc->insured_name;
+            if (!$name && method_exists($doc, 'passengers')) {
+                $mainPassenger = $doc->passengers()->where('is_main_passenger', true)->first();
+                $name = $mainPassenger ? $mainPassenger->name_ar : null;
+            }
+            return [
+                'id' => $doc->id,
+                'insurance_number' => $doc->insurance_number,
+                'insured_name' => $name ?: 'غير محدد'
+            ];
+        });
+
+        return response()->json($formattedDocuments);
     }
 
     public function fetchDocumentInfo(Request $request)
@@ -223,7 +248,6 @@ class ClaimController extends Controller
             'insurance_number' => 'required|string',
         ]);
 
-        // The document type sent from frontend is the class name, e.g. InsuranceDocument
         $modelClass = '\\App\\Models\\' . $request->document_type;
         
         if (!class_exists($modelClass)) {
@@ -236,9 +260,18 @@ class ClaimController extends Controller
             return response()->json(['message' => 'الوثيقة غير موجودة'], 404);
         }
 
-        // Return document with some extra related info if needed (like vehicle details for car insurance)
+        // Standardize insured_name for all documents
+        if (!$document->insured_name && method_exists($document, 'passengers')) {
+            $mainPassenger = $document->passengers()->where('is_main_passenger', true)->first();
+            $document->insured_name = $mainPassenger ? $mainPassenger->name_ar : 'غير محدد';
+        }
+
         if ($request->document_type === 'InsuranceDocument') {
             $document->load(['vehicleType', 'plate']);
+        }
+
+        if (in_array($request->document_type, ['TravelInsuranceDocument', 'ResidentInsuranceDocument'])) {
+            $document->load('passengers');
         }
 
         return response()->json($document);

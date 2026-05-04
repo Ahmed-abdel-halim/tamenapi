@@ -266,7 +266,7 @@ Route::get('/run-migrations', function() {
 
 Route::get('/claims/document-info', [ClaimController::class, 'fetchDocumentInfo']);
 Route::get('/claims/search-documents', [ClaimController::class, 'searchDocuments']);
-Route::apiResource('claims', ClaimController::class)->only(['index', 'store', 'show']);
+Route::apiResource('claims', ClaimController::class)->only(['index', 'store', 'show', 'update', 'destroy']);
 Route::post('/claims/{id}/transfers', [ClaimController::class, 'addTransfer']);
 
 // Inventory & Stores Routes

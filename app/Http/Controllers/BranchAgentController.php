@@ -32,7 +32,7 @@ class BranchAgentController extends Controller
     public function index()
     {
         try {
-            $branchesAgents = BranchAgent::with('user:id,username,name,is_blocked')
+            $branchesAgents = BranchAgent::with('user:id,username,name,is_blocked,eidc_username,eidc_password')
                 ->orderBy('created_at', 'desc')
                 ->get();
             
@@ -80,6 +80,8 @@ class BranchAgentController extends Controller
                 'authorized_documents' => 'nullable|string',
                 'document_percentages' => 'nullable|string',
                 'contract_conditions' => 'nullable|string',
+                'eidc_username' => 'nullable|string|max:191',
+                'eidc_password' => 'nullable|string|max:191',
             ]);
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
@@ -117,6 +119,8 @@ class BranchAgentController extends Controller
                 'password' => Hash::make($request->password),
                 'is_admin' => false,
                 'authorized_documents' => $authorizedDocuments,
+                'eidc_username' => $request->eidc_username,
+                'eidc_password' => $request->eidc_password,
             ]);
 
             // توليد الكود التلقائي
@@ -324,6 +328,8 @@ class BranchAgentController extends Controller
             'authorized_documents' => 'nullable|string',
             'document_percentages' => 'nullable|string',
             'contract_conditions' => 'nullable|string',
+            'eidc_username' => 'nullable|string|max:191',
+            'eidc_password' => 'nullable|string|max:191',
         ]);
 
         DB::beginTransaction();
@@ -340,6 +346,12 @@ class BranchAgentController extends Controller
                     }
                     if ($request->has('password')) {
                         $user->password = Hash::make($request->password);
+                    }
+                    if ($request->has('eidc_username')) {
+                        $user->eidc_username = $request->eidc_username;
+                    }
+                    if ($request->has('eidc_password')) {
+                        $user->eidc_password = $request->eidc_password;
                     }
                     
                     // تحديث الصلاحيات في جدول users

@@ -135,6 +135,8 @@ class UserController extends Controller
             'social_security_percentage' => 'nullable|numeric',
             'salary_type' => 'nullable|string|in:monthly,hourly',
             'hourly_rate' => 'nullable|numeric',
+            'eidc_username' => 'nullable|string|max:191',
+            'eidc_password' => 'nullable|string|max:191',
         ]);
 
         $data = $validated;
@@ -252,6 +254,8 @@ class UserController extends Controller
             'social_security_percentage' => 'nullable|numeric',
             'salary_type' => 'nullable|string|in:monthly,hourly',
             'hourly_rate' => 'nullable|numeric',
+            'eidc_username' => 'nullable|string|max:191',
+            'eidc_password' => 'nullable|string|max:191',
         ]);
 
         $oldSalary = $user->salary;
@@ -418,5 +422,22 @@ class UserController extends Controller
         $user->save();
 
         return response()->json(['message' => 'تم تحديث كلمة المرور بنجاح']);
+    }
+
+    public function updateEidcCredentials(Request $request, User $user)
+    {
+        $request->validate([
+            'eidc_username' => 'required|string|max:191',
+            'eidc_password' => 'required|string|max:191',
+        ]);
+
+        $user->eidc_username = $request->eidc_username;
+        $user->eidc_password = $request->eidc_password;
+        $user->save();
+
+        return response()->json([
+            'message' => 'تم تحديث بيانات الهيئة بنجاح',
+            'eidc_username' => $user->eidc_username
+        ]);
     }
 }

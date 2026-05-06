@@ -22,6 +22,8 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'eidc_username',
+        'eidc_password',
         'is_admin',
         'authorized_documents',
         'salary',

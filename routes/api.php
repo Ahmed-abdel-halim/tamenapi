@@ -120,6 +120,7 @@ use App\Http\Controllers\EmployeeRequestController;
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/users/{user}/employee-files', [UserController::class, 'uploadEmployeeFile']);
     Route::apiResource('users', UserController::class);
+    Route::put('/users/{user}/eidc-credentials', [UserController::class, 'updateEidcCredentials']);
     Route::get('/users/{user}/salary-history', [UserController::class, 'salaryHistory']);
     Route::apiResource('employee-requests', EmployeeRequestController::class);
     Route::apiResource('agent-requests', \App\Http\Controllers\AgentRequestController::class);
@@ -201,6 +202,17 @@ Route::apiResource('insurance-documents', InsuranceDocumentController::class);
 Route::get('/insurance-documents/{id}/print', [InsuranceDocumentController::class, 'print']);
 Route::post('/insurance-documents/{id}/transfer-ownership', [InsuranceDocumentController::class, 'transferOwnership']);
 Route::get('/insurance-documents/{id}/ownership-transfer-history', [InsuranceDocumentController::class, 'getOwnershipTransferHistory']);
+
+// ─── EIDC Authority Integration Routes (تأمين إجباري سيارات) ─────────────────
+Route::get('/insurance-documents/eidc/vehicle-types',  [InsuranceDocumentController::class, 'eidcVehicleTypes']);
+Route::get('/insurance-documents/eidc/vehicle-specs',  [InsuranceDocumentController::class, 'eidcVehicleSpecs']);
+Route::get('/insurance-documents/eidc/vehicle-details',[InsuranceDocumentController::class, 'eidcVehicleDetails']);
+Route::post('/insurance-documents/eidc/inquiry',       [InsuranceDocumentController::class, 'eidcInquiry']);
+Route::get('/insurance-documents/eidc/serial-stats',   [InsuranceDocumentController::class, 'eidcSerialStats']);
+Route::post('/insurance-documents/{id}/eidc-cancel',   [InsuranceDocumentController::class, 'eidcCancel']);
+Route::post('/insurance-documents/{id}/eidc-retry',    [InsuranceDocumentController::class, 'eidcRetrySync']);
+Route::post('/insurance-documents/eidc-sync-all',     [InsuranceDocumentController::class, 'eidcSyncFromAuthority']);
+
 
 Route::apiResource('international-insurance-documents', InternationalInsuranceDocumentController::class);
 Route::get('/international-insurance-documents/{id}/print', [InternationalInsuranceDocumentController::class, 'print']);

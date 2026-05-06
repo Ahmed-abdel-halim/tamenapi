@@ -156,6 +156,7 @@ class InsuranceDocumentController extends Controller
                 'load_capacity'        => 'nullable|numeric|min:0|max:1000',
                 'insured_name'         => 'required|string|max:255',
                 'phone'                => 'required|string|max:255',
+                'whatsapp_number'      => 'nullable|string|max:255',
                 'driving_license_number' => 'nullable|string|max:255',
                 'nid_passport'         => 'nullable|string|max:50',
                 'nationality'          => 'nullable|string|max:100',
@@ -308,7 +309,7 @@ class InsuranceDocumentController extends Controller
                 'phone'                 => $validated['phone'] ?? null,
                 'email'                 => $validated['email'] ?? null,
                 'address'               => $request->input('address'),
-                'whatsapp_number'       => $validated['phone'] ?? null,
+                'whatsapp_number'       => $validated['whatsapp_number'] ?? null,
                 'driving_license_number'=> $validated['driving_license_number'] ?? null,
                 'nid_passport'          => $validated['nid_passport'] ?? null,
                 'nationality'           => $validated['nationality'] ?? 'ليبي',
@@ -1034,31 +1035,34 @@ class InsuranceDocumentController extends Controller
             $serviceUsername = $eidc->getUsername();
             Log::info('EIDC: Service will use username: ' . substr($serviceUsername, 0, 3) . '***');
 
-            // تحضير بيانات الطلب بصيغة الهيئة (مطابقة للـ OpenAPI Spec)
+            // Use the actual issue_fees from the document to match the calculated total
+            $issueFees = (float)($document->issue_fees ?: ($validated['issue_fees'] ?? 2.0));
+
+            // تحضير بيانات الطلب بصيغة الهيئة (PascalCase keys as seen in error responses)
             $payload = [
-                'insuredsName'       => $validated['insured_name'],
-                'nidPassport'        => $validated['nid_passport'] ?? $document->nid_passport ?? $validated['driving_license_number'] ?? '',
-                'phoneNo'            => $validated['phone'],
-                'nationality'        => $validated['nationality'] ?? 'ليبي',
-                'email'              => $validated['email'] ?? null,
-                'address'            => $document->address ?: ($document->plate ? ($document->plate->city->name_ar ?? 'ليبيا') : 'ليبيا'),
-                'fromNoonOf'         => Carbon::parse($validated['start_date'])->isSameDay(now()) || Carbon::parse($validated['start_date'])->isPast() 
+                'InsuredsName'       => $validated['insured_name'] ?? $document->insured_name,
+                'NidPassport'        => $validated['nid_passport'] ?? $document->nid_passport ?? $validated['driving_license_number'] ?? $document->driving_license_number ?? '',
+                'PhoneNo'            => $validated['phone'] ?? $document->phone,
+                'Nationality'        => $validated['nationality'] ?? $document->nationality ?? 'ليبي',
+                'Email'              => $validated['email'] ?? $document->email ?? null,
+                'Address'            => $document->address ?: ($document->plate ? ($document->plate->city->name_ar ?? 'ليبيا') : 'ليبيا'),
+                'FromNoonOf'         => Carbon::parse($validated['start_date'] ?? $document->start_date)->isSameDay(now()) || Carbon::parse($validated['start_date'] ?? $document->start_date)->isPast() 
                                             ? now()->addDay()->setTime(12, 0, 0)->toIso8601String() 
-                                            : Carbon::parse($validated['start_date'])->setTime(12, 0, 0)->toIso8601String(),
-                'purposeLicense'     => EidcApiService::mapPurposeLicense($validated['license_purpose'] ?? 'خاصة'),
-                'dayOfCarType'       => EidcApiService::mapDurationToDays($validated['duration'] ?? 'سنة'),
-                'typeVechicleId'      => $validated['eidc_vehicle_type_id'] ?? '',
-                'typeVechicle2Id'     => $validated['eidc_vehicle_spec_id'] ?? '',
-                'typeVechicle3Id'     => $validated['eidc_vehicle_detail_id'] ?? null,
-                'issuingFeesOptions' => (float)($validated['issue_fees'] ?? 4.0),
-                'plateNo'            => $validated['plate_number_manual'] ?? null,
-                'chassisNo'          => $validated['chassis_number'] ?? null,
-                'color'              => $validated['color'] ?? null,
-                'yearMade'           => (int)($validated['year'] ?? date('Y')),
-                'passengersNo'       => (int)($validated['authorized_passengers'] ?? 0),
-                'engineHp'           => (int)(preg_replace('/[^0-9]/', '', $validated['engine_power'] ?? '0')),
-                'tonnage'            => (float)($validated['load_capacity'] ?? 0),
-                'regAuthority'       => $document->plate ? ($document->plate->city->name_ar ?? null) : null,
+                                            : Carbon::parse($validated['start_date'] ?? $document->start_date)->setTime(12, 0, 0)->toIso8601String(),
+                'PurposeLicense'     => EidcApiService::mapPurposeLicense($validated['license_purpose'] ?? $document->license_purpose ?? 'خاصة'),
+                'DayOfCarType'       => EidcApiService::mapDurationToDays($validated['duration'] ?? $document->duration ?? 'سنة'),
+                'TypeVechicleId'     => $validated['eidc_vehicle_type_id'] ?? $document->eidc_vehicle_type_id ?? '',
+                'TypeVechicle2Id'    => $validated['eidc_vehicle_spec_id'] ?? $document->eidc_vehicle_spec_id ?? '',
+                'TypeVechicle3Id'    => $validated['eidc_vehicle_detail_id'] ?? $document->eidc_vehicle_detail_id ?? null,
+                'IssuingFeesOptions' => $issueFees,
+                'PlateNo'            => $validated['plate_number_manual'] ?? $document->plate_number_manual ?? null,
+                'ChassisNo'          => $validated['chassis_number'] ?? $document->chassis_number ?? null,
+                'Color'              => $validated['color'] ?? $document->color ?? null,
+                'YearMade'           => (int)($validated['year'] ?? $document->year ?? date('Y')),
+                'PassengersNo'       => (int)($validated['authorized_passengers'] ?? $document->authorized_passengers ?? 0),
+                'EngineHp'           => (int)(preg_replace('/[^0-9]/', '', $validated['engine_power'] ?? $document->engine_power ?? '0')),
+                'Tonnage'            => (float)($validated['load_capacity'] ?? $document->load_capacity ?? 0),
+                'RegAuthority'       => $document->plate ? ($document->plate->city->name_ar ?? null) : null,
             ];
 
             Log::info('EIDC: Sending request to Authority', [
@@ -1100,13 +1104,13 @@ class InsuranceDocumentController extends Controller
                 }
 
                 $updatePayload = [
-                    'insuredsName'      => $payload['insuredsName'],
-                    'nidPassport'       => $payload['nidPassport'] ?: ($document->nid_passport ?: ''),
-                    'phoneNo'           => $payload['phoneNo'],
-                    'nationality'       => $payload['nationality'],
-                    'email'             => $payload['email'],
-                    'address'           => $payload['address'] ?? '',
-                    'expectedUpdatedAt' => $expectedUpdatedAt, // التوكن المطلوب لضمان التزامن
+                    'InsuredsName'      => $payload['InsuredsName'],
+                    'NidPassport'       => $payload['NidPassport'] ?: ($document->nid_passport ?: ''),
+                    'PhoneNo'           => $payload['PhoneNo'],
+                    'Nationality'       => $payload['Nationality'],
+                    'Email'             => $payload['Email'],
+                    'Address'           => $payload['Address'] ?? '',
+                    'ExpectedUpdatedAt' => $expectedUpdatedAt, // التوكن المطلوب لضمان التزامن
                 ];
 
                 Log::info('EIDC: Sending PATCH to update insured data', [

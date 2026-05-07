@@ -174,6 +174,7 @@ class InsuranceDocumentController extends Controller
                 'eidc_vehicle_type_id' => 'nullable|string',
                 'eidc_vehicle_spec_id' => 'nullable|string',
                 'eidc_vehicle_detail_id' => 'nullable|string',
+                'TypeOfVehicle'        => 'nullable|string',
             ]);
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
@@ -410,6 +411,7 @@ class InsuranceDocumentController extends Controller
                 'engine_cc' => 'nullable|string|max:255',
                 'vehicle_weight' => 'nullable|string|max:255',
                 'notes' => 'nullable|string',
+                'TypeOfVehicle' => 'nullable|string',
             ]);
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
@@ -1054,6 +1056,7 @@ class InsuranceDocumentController extends Controller
                 'TypeVechicleId'     => $validated['eidc_vehicle_type_id'] ?? $document->eidc_vehicle_type_id ?? '',
                 'TypeVechicle2Id'    => $validated['eidc_vehicle_spec_id'] ?? $document->eidc_vehicle_spec_id ?? '',
                 'TypeVechicle3Id'    => $validated['eidc_vehicle_detail_id'] ?? $document->eidc_vehicle_detail_id ?? null,
+                'TypeOfVehicle'      => $validated['TypeOfVehicle'] ?? '',
                 'IssuingFeesOptions' => $issueFees,
                 'PlateNo'            => $validated['plate_number_manual'] ?? $document->plate_number_manual ?? null,
                 'ChassisNo'          => $validated['chassis_number'] ?? $document->chassis_number ?? null,

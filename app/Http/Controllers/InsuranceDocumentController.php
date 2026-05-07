@@ -235,11 +235,11 @@ class InsuranceDocumentController extends Controller
             }
 
             // حساب الإجمالي
-            $premium = $validated['premium'] ?? 0;
-            $tax = 1.000;
-            $stamp = 0.500;
-            $issueFees = 2.000;
-            $supervisionFees = 0.500;
+            $premium = (float)($validated['premium'] ?? 0);
+            $tax = (float)($request->input('tax', 1.000));
+            $stamp = (float)($request->input('stamp', 0.500));
+            $issueFees = (float)($request->input('issue_fees', 2.000));
+            $supervisionFees = (float)($request->input('supervision_fees', 0.500));
             $total = $premium + $tax + $stamp + $issueFees + $supervisionFees;
 
             // الحصول على branch_agent_id من المستخدم الحالي
@@ -1074,6 +1074,42 @@ class InsuranceDocumentController extends Controller
                 'policy_id'        => $document->eidc_policy_id, // قد يكون موجوداً في حالة التحديث
                 'payload'          => $payload,
             ]);
+
+            // ─── جلب الأسعار النهائية من الهيئة قبل الإصدار ────────────────
+            // لضمان تطابق المبالغ المالية في منظومتنا مع منظومة الهيئة، نقوم بعمل inquiry
+            // إذا كانت هذه إضافة جديدة (ليست تحديثاً)
+            if (!$document->eidc_policy_id) {
+                try {
+                    $inquiryResult = $eidc->inquiryPolicy($payload);
+                    Log::info('EIDC: Inquiry result before creation', ['result' => $inquiryResult]);
+                    
+                    if (!empty($inquiryResult['success']) || isset($inquiryResult['netPremium']) || isset($inquiryResult['NetPremium'])) {
+                        $netPremium = (float)($inquiryResult['netPremium'] ?? $inquiryResult['net_premium'] ?? $inquiryResult['NetPremium'] ?? $inquiryResult['premiumYear'] ?? 0);
+                        $tax = (float)($inquiryResult['tax'] ?? $inquiryResult['tax_amount'] ?? $inquiryResult['Tax'] ?? 1.0);
+                        $stamp = (float)($inquiryResult['stamp'] ?? $inquiryResult['stamp_amount'] ?? $inquiryResult['Stamp'] ?? 0.25);
+                        $supervision = (float)($inquiryResult['supervisionFees'] ?? $inquiryResult['supervision_fees'] ?? $inquiryResult['SupervisionFees'] ?? 0.35);
+                        $issue = (float)($inquiryResult['issuingFees'] ?? $inquiryResult['issue_fees'] ?? $inquiryResult['IssuingFees'] ?? 2.0);
+                        $total = (float)($inquiryResult['totalPremium'] ?? $inquiryResult['total'] ?? $inquiryResult['TotalPremium'] ?? ($netPremium + $tax + $stamp + $supervision + $issue));
+
+                        if ($total > 0) {
+                            $document->update([
+                                'premium' => $netPremium,
+                                'tax' => $tax,
+                                'stamp' => $stamp,
+                                'supervision_fees' => $supervision,
+                                'issue_fees' => $issue,
+                                'total' => $total
+                            ]);
+                            Log::info('EIDC: Local document financial data synchronized with Authority inquiry', [
+                                'document_id' => $document->id,
+                                'total' => $total
+                            ]);
+                        }
+                    }
+                } catch (\Exception $e) {
+                    Log::warning('EIDC: Inquiry failed during sync, using existing data: ' . $e->getMessage());
+                }
+            }
 
             if ($document->eidc_policy_id) {
                 // ─── حالة التحديث: تعديل بيانات المؤمن له فقط عبر PATCH ────────────────

@@ -72,9 +72,9 @@ class EidcApiService
 
         $response = Http::timeout(30)
             ->withHeaders([
-                'Accept'       => 'application/json',
+                'Accept' => 'application/json',
                 'Content-Type' => 'application/json',
-                'X-API-Key'    => $this->apiKey,
+                'X-API-Key' => $this->apiKey,
             ])
             ->post("{$this->baseUrl}/api/auth/token", [
                 'username' => $this->username,
@@ -84,7 +84,7 @@ class EidcApiService
         if (!$response->successful()) {
             Log::error('EIDC Auth Failed!', [
                 'status' => $response->status(),
-                'body'   => $response->body(),
+                'body' => $response->body(),
             ]);
             throw new \Exception('فشل الدخول لنظام الهيئة. تأكد من الإيميل وكلمة المرور والـ API Key. الحالة: ' . $response->status());
         }
@@ -125,15 +125,15 @@ class EidcApiService
             $http = Http::timeout(30)
                 ->withHeaders([
                     'Authorization' => "Bearer {$token}",
-                    'Accept'        => 'application/json',
-                    'X-API-Key'     => $this->apiKey,
+                    'Accept' => 'application/json',
+                    'X-API-Key' => $this->apiKey,
                 ]);
 
             return match (strtolower($method)) {
-                'get'   => $http->get($url, $payload),
-                'post'  => $http->post($url, $payload),
+                'get' => $http->get($url, $payload),
+                'post' => $http->post($url, $payload),
                 'patch' => $http->patch($url, $payload),
-                'put'   => $http->put($url, $payload),
+                'put' => $http->put($url, $payload),
                 default => throw new \InvalidArgumentException("Unsupported HTTP method: {$method}"),
             };
         };
@@ -165,7 +165,7 @@ class EidcApiService
             if (!$response->successful()) {
                 Log::error("EIDC API Error ({$endpoint})", [
                     'status' => $response->status(),
-                    'body'   => $response->body(),
+                    'body' => $response->body(),
                 ]);
             }
 
@@ -182,19 +182,19 @@ class EidcApiService
 
             Log::info('EIDC: API Response', [
                 'endpoint' => $endpoint,
-                'status'   => $response->status(),
-                'success'  => $response->successful(),
+                'status' => $response->status(),
+                'success' => $response->successful(),
             ]);
 
             return [
-                'status'     => $response->status(),
-                'data'       => $data ?? [],
+                'status' => $response->status(),
+                'data' => $data ?? [],
                 'successful' => $response->successful(),
             ];
         } catch (\Exception $e) {
             Log::error('EIDC: Request exception', [
                 'endpoint' => $endpoint,
-                'error'    => $e->getMessage(),
+                'error' => $e->getMessage(),
             ]);
             throw $e;
         }
@@ -280,7 +280,7 @@ class EidcApiService
     {
         $result = $this->request('post', '/api/insurances/compulsory/cancel', [
             'policyId' => $policyId,
-            'reason'   => $reason,
+            'reason' => $reason,
         ]);
         return $result['data'] ?? [];
     }
@@ -352,9 +352,9 @@ class EidcApiService
     public static function mapPurposeLicense(string $licensePurpose): string
     {
         return match (true) {
-            str_contains($licensePurpose, 'Private') || str_contains($licensePurpose, 'خاصة')   => 'خاصة',
-            str_contains($licensePurpose, 'Public')  || str_contains($licensePurpose, 'عامة')   => 'عامة',
-            str_contains($licensePurpose, 'Transport') || str_contains($licensePurpose, 'نقل')  => 'نقل',
+            str_contains($licensePurpose, 'Private') || str_contains($licensePurpose, 'خاصة') => 'خاصة',
+            str_contains($licensePurpose, 'Public') || str_contains($licensePurpose, 'عامة') => 'عامة',
+            str_contains($licensePurpose, 'Transport') || str_contains($licensePurpose, 'نقل') => 'نقل',
             str_contains($licensePurpose, 'Agricultural') || str_contains($licensePurpose, 'زراعي') => 'زراعي',
             str_contains($licensePurpose, 'Industrial') || str_contains($licensePurpose, 'صناعي') => 'صناعي',
             default => $licensePurpose,
@@ -374,11 +374,11 @@ class EidcApiService
     {
         return match (true) {
             str_contains($duration, 'سنتين') || str_contains($duration, '730') => 730,
-            str_contains($duration, '3 أشهر') || str_contains($duration, '90')    => 90,
-            str_contains($duration, 'شهرين') || str_contains($duration, '60')     => 60,
-            str_contains($duration, 'شهر') || str_contains($duration, '30')       => 30,
-            str_contains($duration, '15 يوم') || str_contains($duration, '15')    => 15,
-            default                                                               => 365, // تأمين سنوي
+            str_contains($duration, '3 أشهر') || str_contains($duration, '90') => 90,
+            str_contains($duration, 'شهرين') || str_contains($duration, '60') => 60,
+            str_contains($duration, 'شهر') || str_contains($duration, '30') => 30,
+            str_contains($duration, '15 يوم') || str_contains($duration, '15') => 15,
+            default => 365, // تأمين سنوي
         };
     }
 }

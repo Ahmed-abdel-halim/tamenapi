@@ -1441,7 +1441,26 @@ class InsuranceDocumentController extends Controller
     {
         try {
             $service = (new EidcApiService())->forUser($request->user());
-            $result = $service->inquiryPolicy($request->all());
+            $data = $request->all();
+            
+            // Fix: Ensure FromNoonOf is at least tomorrow (Resolution 126/2022)
+            if (isset($data['FromNoonOf'])) {
+                try {
+                    $startDate = \Carbon\Carbon::parse($data['FromNoonOf']);
+                    if ($startDate->isSameDay(now()) || $startDate->isPast()) {
+                        $data['FromNoonOf'] = now()->addDay()->setTime(12, 0, 0)->toIso8601String();
+                    } else {
+                        $data['FromNoonOf'] = $startDate->setTime(12, 0, 0)->toIso8601String();
+                    }
+                } catch (\Exception $e) {
+                    Log::warning('EIDC: Could not parse FromNoonOf in inquiry: ' . $data['FromNoonOf']);
+                }
+            } else {
+                // If not set, default to tomorrow
+                $data['FromNoonOf'] = now()->addDay()->setTime(12, 0, 0)->toIso8601String();
+            }
+
+            $result = $service->inquiryPolicy($data);
             return response()->json($result);
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 500);

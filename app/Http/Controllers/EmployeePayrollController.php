@@ -83,12 +83,11 @@ class EmployeePayrollController extends Controller
             }
         }
 
-        $user = User::findOrFail($validated['user_id']);
         $tax_pct = (float) ($user->tax_percentage ?? 10.0);
         $ss_pct = (float) ($user->social_security_percentage ?? 19.475);
 
-        $tax_amount = ($base * $tax_pct) / 100;
-        $social_security_amount = ($base * $ss_pct) / 100;
+        $tax_amount = ($user->apply_tax !== false) ? (($base * $tax_pct) / 100) : 0;
+        $social_security_amount = ($user->apply_social_security !== false) ? (($base * $ss_pct) / 100) : 0;
 
         $net = $base + $housing + $transport + $communication + $bonus + $other_additions + $misc_allowance + $extra_total - $deduction - $advance - $penalty - $tax_amount - $social_security_amount;
 
@@ -129,7 +128,7 @@ class EmployeePayrollController extends Controller
     {
         $employees = User::with('branchAgent:id,user_id')
             ->where('is_active', true)
-            ->select('id', 'name', 'username', 'email', 'salary', 'is_admin', 'tax_percentage', 'social_security_percentage')
+            ->select('id', 'name', 'username', 'email', 'salary', 'is_admin', 'tax_percentage', 'social_security_percentage', 'apply_tax', 'apply_social_security')
             ->get()
             ->filter(function ($u) {
                 return !$u->branchAgent;
@@ -155,7 +154,7 @@ class EmployeePayrollController extends Controller
 
         $employees = User::with('branchAgent:id,user_id')
             ->where('is_active', true)
-            ->select('id', 'name', 'username', 'email', 'salary', 'is_admin', 'tax_percentage', 'social_security_percentage')
+            ->select('id', 'name', 'username', 'email', 'salary', 'is_admin', 'tax_percentage', 'social_security_percentage', 'apply_tax', 'apply_social_security')
             ->get()
             ->filter(function ($u) {
                 return !$u->branchAgent;
@@ -190,8 +189,8 @@ class EmployeePayrollController extends Controller
                 $tax_pct = (float) ($user->tax_percentage ?? 10.0);
                 $ss_pct = (float) ($user->social_security_percentage ?? 19.475);
 
-                $tax_amount = ($base * $tax_pct) / 100;
-                $social_security_amount = ($base * $ss_pct) / 100;
+                $tax_amount = ($user->apply_tax !== false) ? (($base * $tax_pct) / 100) : 0;
+                $social_security_amount = ($user->apply_social_security !== false) ? (($base * $ss_pct) / 100) : 0;
 
                 $net = $base + $housing + $transport + $communication + $bonus + $other_additions + $misc_allowance + $extra_total - $deduction - $advance - $penalty - $tax_amount - $social_security_amount;
 
@@ -245,7 +244,7 @@ class EmployeePayrollController extends Controller
             'to_date' => 'nullable|date',
         ]);
 
-        $query = EmployeePayroll::with(['user:id,name,job_title,national_id_number,nationality,start_date,tax_percentage,social_security_percentage']);
+        $query = EmployeePayroll::with(['user:id,name,job_title,national_id_number,nationality,start_date,tax_percentage,social_security_percentage,tax_file_number,social_security_file_number,apply_tax,apply_social_security']);
 
         if (!empty($validated['year'])) {
             $query->where('year', $validated['year']);

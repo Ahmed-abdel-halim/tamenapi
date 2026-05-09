@@ -137,6 +137,11 @@ class UserController extends Controller
             'hourly_rate' => 'nullable|numeric',
             'eidc_username' => 'nullable|string|max:191',
             'eidc_password' => 'nullable|string|max:191',
+            'apply_tax' => 'nullable|boolean',
+            'apply_social_security' => 'nullable|boolean',
+            'tax_file_number' => 'nullable|string|max:191',
+            'social_security_file_number' => 'nullable|string|max:191',
+            'end_date' => 'nullable|date',
         ]);
 
         $data = $validated;
@@ -256,6 +261,11 @@ class UserController extends Controller
             'hourly_rate' => 'nullable|numeric',
             'eidc_username' => 'nullable|string|max:191',
             'eidc_password' => 'nullable|string|max:191',
+            'apply_tax' => 'nullable|boolean',
+            'apply_social_security' => 'nullable|boolean',
+            'tax_file_number' => 'nullable|string|max:191',
+            'social_security_file_number' => 'nullable|string|max:191',
+            'end_date' => 'nullable|date',
         ]);
 
         $oldSalary = $user->salary;

@@ -74,6 +74,13 @@ class User extends Authenticatable
         'is_blocked',
         'salary_type',
         'hourly_rate',
+        'tax_file_number',
+        'social_security_file_number',
+        'apply_tax',
+        'apply_social_security',
+        'tax_percentage',
+        'social_security_percentage',
+        'end_date',
     ];
 
     /**
@@ -132,6 +139,11 @@ class User extends Authenticatable
         'is_blocked' => 'boolean',
         'salary_type' => 'string',
         'hourly_rate' => 'decimal:2',
+        'apply_tax' => 'boolean',
+        'apply_social_security' => 'boolean',
+        'tax_percentage' => 'decimal:3',
+        'social_security_percentage' => 'decimal:3',
+        'end_date' => 'date',
     ];
 
     /**
@@ -173,7 +185,7 @@ class User extends Authenticatable
         }
         $path = str_replace('\\', '/', ltrim($path, '/'));
 
-        return '/storage/'.$path;
+        return '/storage/' . $path;
     }
 
     public function getProfilePhotoUrlAttribute(): ?string

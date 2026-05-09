@@ -211,6 +211,7 @@ Route::post('/insurance-documents/eidc/inquiry',       [InsuranceDocumentControl
 Route::get('/insurance-documents/eidc/serial-stats',   [InsuranceDocumentController::class, 'eidcSerialStats']);
 Route::post('/insurance-documents/{id}/eidc-cancel',   [InsuranceDocumentController::class, 'eidcCancel']);
 Route::post('/insurance-documents/{id}/eidc-retry',    [InsuranceDocumentController::class, 'eidcRetrySync']);
+Route::get('/insurance-documents/{id}/eidc-print',    [InsuranceDocumentController::class, 'eidcPrintProxy']);
 Route::post('/insurance-documents/eidc-sync-all',     [InsuranceDocumentController::class, 'eidcSyncFromAuthority']);
 
 

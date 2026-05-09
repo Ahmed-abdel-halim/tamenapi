@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Services\EidcApiService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Http;
 use Carbon\Carbon;
 
 class InsuranceDocumentController extends Controller
@@ -1475,6 +1476,48 @@ class InsuranceDocumentController extends Controller
             return response()->json($stats);
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Proxy for EIDC PDF to avoid CORS, Cookie and caching issues
+     */
+    public function eidcPrintProxy(string $id)
+    {
+        try {
+            $document = InsuranceDocument::findOrFail($id);
+            if (!$document->eidc_pdf_url) {
+                return response()->json(['message' => 'رابط وثيقة الهيئة غير موجود'], 404);
+            }
+
+            // Clean the URL and FORCE HTTPS to avoid port 80 issues
+            $url = explode('?', $document->eidc_pdf_url)[0];
+            $url = str_replace('http://', 'https://', $url);
+            
+            Log::info("EIDC: Proxying PDF for document {$id}", ['url' => $url]);
+
+            // Attempt to fetch the PDF from Authority with HTTPS and longer timeout
+            $response = Http::timeout(60)->connectTimeout(15)->get($url);
+
+            if (!$response->successful()) {
+                Log::error("EIDC: Proxy failed to fetch PDF", [
+                    'status' => $response->status(),
+                    'url' => $url,
+                    'body' => substr($response->body(), 0, 200)
+                ]);
+                return response()->json(['message' => 'فشل جلب الوثيقة من نظام الهيئة. قد يكون الخادم لديهم متوقف حالياً.'], 502);
+            }
+
+            return response($response->body())
+                ->header('Content-Type', 'application/pdf')
+                ->header('Content-Disposition', 'inline; filename="eidc-policy-' . $document->insurance_number . '.pdf"')
+                ->header('Cache-Control', 'no-cache, no-store, must-revalidate')
+                ->header('Pragma', 'no-cache')
+                ->header('Expires', '0');
+
+        } catch (\Exception $e) {
+            Log::error("EIDC: Proxy exception", ['error' => $e->getMessage()]);
+            return response()->json(['message' => 'حدث خطأ أثناء جلب الوثيقة: ' . $e->getMessage()], 500);
         }
     }
 }

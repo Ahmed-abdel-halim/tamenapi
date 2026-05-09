@@ -54,6 +54,36 @@ class ColorController extends Controller
     }
 
     /**
+     * Update the specified resource in storage.
+     */
+    public function update(Request $request, $id)
+    {
+        try {
+            $color = Color::findOrFail($id);
+            
+            $validated = $request->validate([
+                'name' => 'required|string|max:255|unique:colors,name,' . $id,
+            ]);
+
+            $color->update($validated);
+            return response()->json($color);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json(['message' => 'اللون غير موجود'], 404);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'message' => 'خطأ في التحقق من البيانات',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            Log::error('Error in ColorController@update: ' . $e->getMessage());
+            return response()->json([
+                'message' => 'حدث خطأ أثناء تحديث اللون',
+                'error' => config('app.debug') ? $e->getMessage() : 'خطأ غير معروف'
+            ], 500);
+        }
+    }
+
+    /**
      * Remove the specified resource from storage.
      */
     public function destroy($id)

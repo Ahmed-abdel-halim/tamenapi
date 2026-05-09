@@ -197,7 +197,7 @@ Route::get('/financial-statistics', [FinancialStatisticsController::class, 'getS
 Route::apiResource('cities', CityController::class);
 Route::apiResource('plates', PlateController::class);
 Route::apiResource('vehicle-types', VehicleTypeController::class);
-Route::apiResource('colors', ColorController::class)->only(['index', 'store', 'destroy']);
+Route::apiResource('colors', ColorController::class)->only(['index', 'store', 'update', 'destroy']);
 Route::apiResource('insurance-documents', InsuranceDocumentController::class);
 Route::get('/insurance-documents/{id}/print', [InsuranceDocumentController::class, 'print']);
 Route::post('/insurance-documents/{id}/transfer-ownership', [InsuranceDocumentController::class, 'transferOwnership']);

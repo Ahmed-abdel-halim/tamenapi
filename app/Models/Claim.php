@@ -21,6 +21,13 @@ class Claim extends Model
         return $this->hasMany(ClaimReport::class);
     }
 
+    protected $casts = [
+        'damaged_vehicle_photos' => 'array',
+        'damaged_person_photos'  => 'array',
+        'damaged_building_photos' => 'array',
+        'has_fatalities' => 'boolean',
+    ];
+
     public function transfers()
     {
         return $this->hasMany(ClaimTransfer::class);

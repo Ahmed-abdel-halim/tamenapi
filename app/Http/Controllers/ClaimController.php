@@ -26,7 +26,6 @@ class ClaimController extends Controller
             }
         }
 
-        // Additional Filters
         if ($request->status) {
             $query->where('status', $request->status);
         }
@@ -41,28 +40,73 @@ class ClaimController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'claim_number' => 'required|string|unique:claims',
-            'reference_number' => 'nullable|string',
-            'claim_date' => 'required|date',
-            'accident_date' => 'required|date',
-            'damage_type' => 'required|string',
-            'other_damage_type' => 'nullable|string',
-            
-            'claimant_name' => 'required|string',
-            'kinship' => 'required|string',
-            'personal_id' => 'required|string',
-            'nationality' => 'required|string',
-            'phone_number' => 'required|string',
-            
-            'document_coverage' => 'nullable|string',
-            'document_type' => 'nullable|string',
-            'document_id' => 'nullable|integer',
-            'branch_agent_id' => 'nullable|integer',
+            'claim_number'        => 'required|string|unique:claims',
+            'reference_number'    => 'nullable|string',
+            'admin_number'        => 'nullable|string',
+            'claim_date'          => 'required|date',
+            'accident_date'       => 'required|date',
+            'accident_location'   => 'nullable|string',
+            'accident_time'       => 'nullable|string',
+            'has_fatalities'      => 'nullable|boolean',
+            'damage_type'         => 'required|string',
+            'other_damage_type'   => 'nullable|string',
+
+            'claimant_name'       => 'required|string',
+            'kinship'             => 'required|string',
+            'personal_id'         => 'required|string',
+            'nationality'         => 'required|string',
+            'phone_number'        => 'required|string',
+            'claimant_check_number' => 'nullable|string',
+
+            // Driver
+            'driver_name'                 => 'nullable|string',
+            'driver_nationality'          => 'nullable|string',
+            'driver_id_number'            => 'nullable|string',
+            'driver_license_number'       => 'nullable|string',
+            'driver_license_issue_date'   => 'nullable|date',
+            'driver_license_expiry_date'  => 'nullable|date',
+
+            // Damaged body
+            'damaged_body_type'           => 'nullable|string',
+
+            // Vehicle
+            'damaged_vehicle_model'       => 'nullable|string',
+            'damaged_vehicle_plate'       => 'nullable|string',
+            'damaged_vehicle_amount'      => 'nullable|numeric',
+            'damaged_vehicle_repair_shop' => 'nullable|string',
+
+            // Person
+            'damaged_person_name'         => 'nullable|string',
+            'damaged_person_amount'       => 'nullable|numeric',
+
+            // Building
+            'damaged_building_description' => 'nullable|string',
+            'damaged_building_amount'      => 'nullable|numeric',
+
+            // Victim insurance
+            'victim_insurance_company'     => 'nullable|string',
+            'victim_insurance_number'      => 'nullable|string',
+            'victim_insurance_type'        => 'nullable|string',
+            'victim_insurance_issue_date'  => 'nullable|date',
+            'victim_insurance_expiry_date' => 'nullable|date',
+
+            // Assessor
+            'assessor_name'          => 'nullable|string',
+            'assessor_phone'         => 'nullable|string',
+            'assessor_date'          => 'nullable|date',
+            'assessor_amount_dinar'  => 'nullable|numeric',
+            'assessor_amount_dollar' => 'nullable|numeric',
+
+            'document_coverage'   => 'nullable|string',
+            'document_type'       => 'nullable|string',
+            'document_id'         => 'nullable|integer',
+            'branch_agent_id'     => 'nullable|integer',
         ]);
 
-        $claim = Claim::create($validated);
+        // Handle file uploads
+        $validated = $this->handleFileUploads($request, $validated);
 
-        // Handle reports
+        $claim = Claim::create($validated);
         $this->handleReports($request, $claim);
 
         return response()->json($claim->load('reports'), 201);
@@ -71,34 +115,104 @@ class ClaimController extends Controller
     public function update(Request $request, $id)
     {
         $claim = Claim::findOrFail($id);
-        
+
         $validated = $request->validate([
-            'claim_number' => 'required|string|unique:claims,claim_number,' . $id,
-            'reference_number' => 'nullable|string',
-            'claim_date' => 'required|date',
-            'accident_date' => 'required|date',
-            'damage_type' => 'required|string',
-            'other_damage_type' => 'nullable|string',
-            'claimant_name' => 'required|string',
-            'kinship' => 'required|string',
-            'personal_id' => 'required|string',
-            'nationality' => 'required|string',
-            'phone_number' => 'required|string',
-            'status' => 'nullable|string',
+            'claim_number'        => 'required|string|unique:claims,claim_number,' . $id,
+            'reference_number'    => 'nullable|string',
+            'admin_number'        => 'nullable|string',
+            'claim_date'          => 'required|date',
+            'accident_date'       => 'required|date',
+            'accident_location'   => 'nullable|string',
+            'accident_time'       => 'nullable|string',
+            'has_fatalities'      => 'nullable|boolean',
+            'damage_type'         => 'required|string',
+            'other_damage_type'   => 'nullable|string',
+            'claimant_name'       => 'required|string',
+            'kinship'             => 'nullable|string',
+            'personal_id'         => 'nullable|string',
+            'nationality'         => 'nullable|string',
+            'phone_number'        => 'required|string',
+            'claimant_check_number' => 'nullable|string',
+            'driver_name'                 => 'nullable|string',
+            'driver_nationality'          => 'nullable|string',
+            'driver_id_number'            => 'nullable|string',
+            'driver_license_number'       => 'nullable|string',
+            'driver_license_issue_date'   => 'nullable|date',
+            'driver_license_expiry_date'  => 'nullable|date',
+            'damaged_body_type'           => 'nullable|string',
+            'damaged_vehicle_model'       => 'nullable|string',
+            'damaged_vehicle_plate'       => 'nullable|string',
+            'damaged_vehicle_amount'      => 'nullable|numeric',
+            'damaged_vehicle_repair_shop' => 'nullable|string',
+            'damaged_person_name'         => 'nullable|string',
+            'damaged_person_amount'       => 'nullable|numeric',
+            'damaged_building_description' => 'nullable|string',
+            'damaged_building_amount'      => 'nullable|numeric',
+            'victim_insurance_company'     => 'nullable|string',
+            'victim_insurance_number'      => 'nullable|string',
+            'victim_insurance_type'        => 'nullable|string',
+            'victim_insurance_issue_date'  => 'nullable|date',
+            'victim_insurance_expiry_date' => 'nullable|date',
+            'assessor_name'          => 'nullable|string',
+            'assessor_phone'         => 'nullable|string',
+            'assessor_date'          => 'nullable|date',
+            'assessor_amount_dinar'  => 'nullable|numeric',
+            'assessor_amount_dollar' => 'nullable|numeric',
+            'status'                 => 'nullable|string',
         ]);
 
+        $validated = $this->handleFileUploads($request, $validated, $claim);
+
         $claim->update($validated);
-        
-        // Handle reports if any new ones sent
         $this->handleReports($request, $claim);
 
         return response()->json($claim->load('reports'));
     }
 
+    private function handleFileUploads(Request $request, array $validated, ?Claim $claim = null): array
+    {
+        $fileFields = [
+            'driver_photo'            => 'claim_driver_photos',
+            'driver_license_photo'    => 'claim_driver_photos',
+            'victim_insurance_photo'  => 'claim_victim_docs',
+            'assessor_report_photo'   => 'claim_assessor_reports',
+        ];
+
+        foreach ($fileFields as $field => $folder) {
+            if ($request->hasFile($field)) {
+                // Delete old file if updating
+                if ($claim && $claim->$field) {
+                    Storage::disk('public')->delete($claim->$field);
+                }
+                $validated[$field] = $request->file($field)->store($folder, 'public');
+            }
+        }
+
+        // Handle multiple photo arrays
+        $photoArrayFields = [
+            'damaged_vehicle_photos' => 'claim_vehicle_photos',
+            'damaged_person_photos'  => 'claim_person_photos',
+            'damaged_building_photos' => 'claim_building_photos',
+        ];
+
+        foreach ($photoArrayFields as $field => $folder) {
+            if ($request->hasFile($field)) {
+                $files = $request->file($field);
+                $paths = [];
+                foreach ((array)$files as $file) {
+                    $paths[] = $file->store($folder, 'public');
+                }
+                $existing = ($claim && $claim->$field) ? $claim->$field : [];
+                $validated[$field] = array_merge($existing, $paths);
+            }
+        }
+
+        return $validated;
+    }
+
     public function destroy($id)
     {
         $claim = Claim::findOrFail($id);
-        // Delete reports files from storage
         foreach ($claim->reports as $report) {
             if ($report->report_image) {
                 Storage::disk('public')->delete($report->report_image);
@@ -117,14 +231,14 @@ class ClaimController extends Controller
                 if ($request->hasFile("reports_{$i}_report_image")) {
                     $imagePath = $request->file("reports_{$i}_report_image")->store('claim_reports', 'public');
                 }
-                
+
                 $claim->reports()->create([
-                    'report_type' => $request->input("reports_{$i}_report_type"),
+                    'report_type'       => $request->input("reports_{$i}_report_type"),
                     'other_report_type' => $request->input("reports_{$i}_other_report_type"),
-                    'report_date' => $request->input("reports_{$i}_report_date"),
-                    'preparer_name' => $request->input("reports_{$i}_preparer_name"),
-                    'report_number' => $request->input("reports_{$i}_report_number"),
-                    'report_image' => $imagePath,
+                    'report_date'       => $request->input("reports_{$i}_report_date"),
+                    'preparer_name'     => $request->input("reports_{$i}_preparer_name"),
+                    'report_number'     => $request->input("reports_{$i}_report_number"),
+                    'report_image'      => $imagePath,
                 ]);
             }
         }
@@ -141,33 +255,27 @@ class ClaimController extends Controller
         $claim = Claim::findOrFail($id);
 
         $validated = $request->validate([
-            'transfer_type' => 'required|string',
+            'transfer_type'       => 'required|string',
             'other_transfer_type' => 'nullable|string',
         ]);
 
-        // Process dynamic details. We expect details to be sent as JSON string if it's multipart form data, or flat fields.
-        // We will just read anything starting with 'detail_'
         $details = [];
-        
         foreach ($request->all() as $key => $value) {
             if (str_starts_with($key, 'detail_')) {
-                $detailKey = str_replace('detail_', '', $key);
-                $details[$detailKey] = $value;
+                $details[str_replace('detail_', '', $key)] = $value;
             }
         }
-
         foreach ($request->allFiles() as $key => $file) {
             if (str_starts_with($key, 'detail_')) {
-                $detailKey = str_replace('detail_', '', $key);
                 $path = $file->store('claim_transfers', 'public');
-                $details[$detailKey] = $path;
+                $details[str_replace('detail_', '', $key)] = $path;
             }
         }
 
         $transfer = $claim->transfers()->create([
-            'transfer_type' => $validated['transfer_type'],
+            'transfer_type'       => $validated['transfer_type'],
             'other_transfer_type' => $validated['other_transfer_type'] ?? null,
-            'details' => $details,
+            'details'             => $details,
         ]);
 
         $claim->update(['status' => $validated['transfer_type']]);
@@ -179,18 +287,16 @@ class ClaimController extends Controller
     {
         $request->validate([
             'document_type' => 'required|string',
-            'search' => 'nullable|string',
+            'search'        => 'nullable|string',
         ]);
 
         $modelClass = '\\App\\Models\\' . $request->document_type;
-        
         if (!class_exists($modelClass)) {
             return response()->json([], 200);
         }
 
         $query = $modelClass::query();
 
-        // Filter by branch agent if not admin
         $userId = $request->header('X-User-Id') ?? $request->query('user_id');
         if ($userId) {
             $user = \App\Models\User::find($userId);
@@ -201,18 +307,15 @@ class ClaimController extends Controller
                 }
             }
         }
-        
+
         if ($request->search) {
-            $query->where(function($q) use ($request) {
+            $query->where(function ($q) use ($request, $modelClass) {
                 $q->where('insurance_number', 'like', "%{$request->search}%");
-                
-                // If model has insured_name column
                 $columns = \Illuminate\Support\Facades\Schema::getColumnListing((new $modelClass)->getTable());
                 if (in_array('insured_name', $columns)) {
                     $q->orWhere('insured_name', 'like', "%{$request->search}%");
-                } else if (method_exists($modelClass, 'passengers')) {
-                    // For Travel and Resident insurance, search in passengers
-                    $q->orWhereHas('passengers', function($pq) use ($request) {
+                } elseif (method_exists($modelClass, 'passengers')) {
+                    $q->orWhereHas('passengers', function ($pq) use ($request) {
                         $pq->where('name_ar', 'like', "%{$request->search}%")
                            ->orWhere('name_en', 'like', "%{$request->search}%");
                     });
@@ -220,21 +323,17 @@ class ClaimController extends Controller
             });
         }
 
-        $documents = $query->orderBy('created_at', 'desc')
-                           ->limit(200)
-                           ->get();
-
-        // Map documents to include a standardized insured_name
-        $formattedDocuments = $documents->map(function($doc) {
+        $documents = $query->orderBy('created_at', 'desc')->limit(200)->get();
+        $formattedDocuments = $documents->map(function ($doc) {
             $name = $doc->insured_name;
             if (!$name && method_exists($doc, 'passengers')) {
                 $mainPassenger = $doc->passengers()->where('is_main_passenger', true)->first();
                 $name = $mainPassenger ? $mainPassenger->name_ar : null;
             }
             return [
-                'id' => $doc->id,
+                'id'              => $doc->id,
                 'insurance_number' => $doc->insurance_number,
-                'insured_name' => $name ?: 'غير محدد'
+                'insured_name'    => $name ?: 'غير محدد',
             ];
         });
 
@@ -244,23 +343,20 @@ class ClaimController extends Controller
     public function fetchDocumentInfo(Request $request)
     {
         $request->validate([
-            'document_type' => 'required|string',
+            'document_type'    => 'required|string',
             'insurance_number' => 'required|string',
         ]);
 
         $modelClass = '\\App\\Models\\' . $request->document_type;
-        
         if (!class_exists($modelClass)) {
             return response()->json(['message' => 'نوع الوثيقة غير موجود'], 404);
         }
 
         $document = $modelClass::where('insurance_number', $request->insurance_number)->first();
-
         if (!$document) {
             return response()->json(['message' => 'الوثيقة غير موجودة'], 404);
         }
 
-        // Standardize insured_name for all documents
         if (!$document->insured_name && method_exists($document, 'passengers')) {
             $mainPassenger = $document->passengers()->where('is_main_passenger', true)->first();
             $document->insured_name = $mainPassenger ? $mainPassenger->name_ar : 'غير محدد';

@@ -40,6 +40,7 @@ class BranchAgent extends Model
         'authorized_documents',
         'document_percentages',
         'contract_conditions',
+        'requested_documents',
     ];
 
     protected $casts = [
@@ -49,6 +50,7 @@ class BranchAgent extends Model
         'fixed_custodies' => 'array',
         'authorized_documents' => 'array',
         'document_percentages' => 'array',
+        'requested_documents' => 'array',
     ];
 
     public function user()

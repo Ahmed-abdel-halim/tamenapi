@@ -206,6 +206,179 @@ class BranchAgentController extends Controller
         }
     }
 
+    public function publicRegister(Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                'type' => 'required|in:وكيل,فرع من شركة',
+                'agency_name' => 'required|string',
+                'agent_name' => 'required|string',
+                'activity' => 'nullable|string',
+                'agency_number' => 'nullable|string',
+                'stamp_number' => 'nullable|string',
+                'contract_date' => 'required|date',
+                'contract_end_date' => 'nullable|date',
+                'contract_duration' => 'nullable|string',
+                'city' => 'required|string',
+                'address' => 'nullable|string',
+                'phone' => 'nullable|string',
+                'nationality' => 'nullable|string',
+                'national_id' => 'nullable|string|size:12',
+                'identity_number' => 'nullable|string',
+                'personal_photo' => 'nullable|file|mimes:jpg,jpeg,png|max:5120',
+                'identity_photo' => 'nullable|file|mimes:jpg,jpeg,png|max:5120',
+                'national_id_photo' => 'nullable|file|mimes:jpg,jpeg,png|max:5120',
+                'contract_photo' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:10240',
+                'username' => 'required|string|unique:users,username',
+                'password' => 'required|string|min:6',
+                'notes' => 'nullable|string',
+                'requested_documents' => 'nullable|string',
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'message' => 'خطأ في التحقق من البيانات',
+                'errors' => $e->errors()
+            ], 422);
+        }
+
+        DB::beginTransaction();
+        try {
+            $requestedDocuments = [];
+            if ($request->has('requested_documents') && $request->requested_documents) {
+                $decoded = is_string($request->requested_documents) 
+                    ? json_decode($request->requested_documents, true) 
+                    : $request->requested_documents;
+                if (is_array($decoded)) {
+                    $requestedDocuments = $decoded;
+                }
+            }
+
+            // إنشاء المستخدم مع الصلاحيات فارغة حاليا
+            $user = User::create([
+                'username' => $request->username,
+                'name' => $request->agent_name,
+                'password' => Hash::make($request->password),
+                'is_admin' => false,
+                'authorized_documents' => [],
+                'is_active' => false, // Account inactive until approved
+            ]);
+
+            // توليد الكود التلقائي
+            $lastAgent = BranchAgent::orderBy('id', 'desc')->first();
+            $nextNumber = $lastAgent ? (int)substr($lastAgent->code, 2) + 1 : 1;
+            $code = 'BK' . str_pad($nextNumber, 4, '0', STR_PAD_LEFT);
+
+            // رفع الصور
+            $personalPhoto = null;
+            $identityPhoto = null;
+            $nationalIdPhoto = null;
+            $contractPhoto = null;
+
+            if ($request->hasFile('personal_photo')) {
+                $personalPhoto = $request->file('personal_photo')->store('branches_agents/personal_photos', 'public');
+            }
+            if ($request->hasFile('identity_photo')) {
+                $identityPhoto = $request->file('identity_photo')->store('branches_agents/identity_photos', 'public');
+            }
+            if ($request->hasFile('national_id_photo')) {
+                $nationalIdPhoto = $request->file('national_id_photo')->store('branches_agents/national_id_photos', 'public');
+            }
+            if ($request->hasFile('contract_photo')) {
+                $contractPhoto = $request->file('contract_photo')->store('branches_agents/contract_photos', 'public');
+            }
+
+            // إنشاء الفرع أو الوكيل بحالة "قيد الانتظار"
+            $branchAgent = BranchAgent::create([
+                'type' => $request->type,
+                'code' => $code,
+                'agency_name' => $request->agency_name,
+                'agent_name' => $request->agent_name,
+                'activity' => $request->activity,
+                'agency_number' => $request->agency_number,
+                'stamp_number' => $request->stamp_number,
+                'contract_date' => $request->contract_date,
+                'contract_end_date' => $request->contract_end_date,
+                'contract_duration' => $request->contract_duration,
+                'city' => $request->city,
+                'address' => $request->address,
+                'phone' => $request->phone,
+                'nationality' => $request->nationality,
+                'national_id' => $request->national_id,
+                'identity_number' => $request->identity_number,
+                'personal_photo' => $personalPhoto,
+                'identity_photo' => $identityPhoto,
+                'national_id_photo' => $nationalIdPhoto,
+                'contract_photo' => $contractPhoto,
+                'user_id' => $user->id,
+                'notes' => $request->notes,
+                'status' => 'قيد الانتظار',
+                'requested_documents' => $requestedDocuments,
+                'authorized_documents' => [],
+                'document_percentages' => [],
+            ]);
+
+            DB::commit();
+
+            return response()->json([
+                'message' => 'تم إرسال طلب الاشتراك بنجاح. سيتم مراجعته من قبل الإدارة',
+                'data' => $branchAgent
+            ], 201);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'message' => 'حدث خطأ أثناء إرسال الطلب',
+                'error' => config('app.debug') ? $e->getMessage() : 'خطأ غير معروف'
+            ], 500);
+        }
+    }
+
+    /**
+     * Approve agent
+     */
+    public function approveAgent(Request $request, $id)
+    {
+        DB::beginTransaction();
+        try {
+            $branchAgent = BranchAgent::findOrFail($id);
+            
+            if ($branchAgent->status !== 'قيد الانتظار') {
+                return response()->json(['message' => 'هذا الوكيل ليس في حالة انتظار'], 400);
+            }
+
+            $branchAgent->status = 'نشط';
+            
+            // Assign requested documents if admin approved them, or wait, admin might want to review/edit them.
+            // Actually, admin activates via a button and maybe passes permissions. 
+            // If the frontend sends permissions, update them. Otherwise just use requested_documents
+            if ($request->has('authorized_documents')) {
+                $branchAgent->authorized_documents = $request->authorized_documents;
+            } else {
+                $branchAgent->authorized_documents = $branchAgent->requested_documents;
+            }
+
+            $branchAgent->save();
+
+            // Activate user
+            if ($branchAgent->user_id) {
+                $user = User::find($branchAgent->user_id);
+                if ($user) {
+                    $user->is_active = true;
+                    $user->authorized_documents = $branchAgent->authorized_documents;
+                    $user->save();
+                }
+            }
+
+            DB::commit();
+            return response()->json(['message' => 'تم تفعيل الوكيل بنجاح', 'data' => $branchAgent]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'message' => 'حدث خطأ أثناء تفعيل الوكيل',
+                'error' => config('app.debug') ? $e->getMessage() : 'خطأ غير معروف'
+            ], 500);
+        }
+    }
+
     /**
      * Display the specified resource.
      */
@@ -323,8 +496,7 @@ class BranchAgentController extends Controller
             'contract_photo' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:10240',
             'username' => 'nullable|string|unique:users,username,' . $branchAgent->user_id,
             'password' => 'nullable|string|min:6',
-            'notes' => 'nullable|string',
-            'status' => 'nullable|in:نشط,غير نشط',
+            'status' => 'nullable|in:نشط,غير نشط,قيد الانتظار',
             'authorized_documents' => 'nullable|string',
             'document_percentages' => 'nullable|string',
             'contract_conditions' => 'nullable|string',

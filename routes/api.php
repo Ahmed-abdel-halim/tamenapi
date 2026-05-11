@@ -46,6 +46,8 @@ use App\Http\Controllers\RentalVoucherController;
 |
 */
 
+Route::post('/public/agent-register', [BranchAgentController::class, 'publicRegister']);
+
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();
 });
@@ -179,6 +181,7 @@ Route::get('/cargo-insurance/{id}/print', ['App\Http\Controllers\CargoInsuranceD
 Route::get('/branches-agents/{id}/print', [BranchAgentController::class, 'print']);
 Route::get('/branches-agents/{id}/account-report', [BranchAgentController::class, 'accountReport']);
 Route::post('/branches-agents/{id}/toggle-block', [BranchAgentController::class, 'toggleBlock']);
+Route::post('/branches-agents/{id}/approve', [BranchAgentController::class, 'approveAgent']);
 Route::get('/reports/outstanding-debts', [\App\Http\Controllers\DebtReportController::class, 'getOutstandingDebts']);
 
 // Financial Management Routes

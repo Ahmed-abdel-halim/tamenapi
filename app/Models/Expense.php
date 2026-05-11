@@ -16,9 +16,14 @@ class Expense extends Model
         'recipient',
         'category',
         'amount',
+        'currency',
+        'voucher_number',
+        'receipt_image',
+        'expense_type',
         'expense_date',
         'status',
         'notes',
+        'items',
         'expense_category_id',
         'treasury_id',
         'is_indemnity',
@@ -33,5 +38,6 @@ class Expense extends Model
         'amount' => 'float',
         'expense_date' => 'date:Y-m-d',
         'is_indemnity' => 'boolean',
+        'items' => 'json',
     ];
 }

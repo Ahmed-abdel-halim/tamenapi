@@ -46,25 +46,50 @@ class ExpenseController extends Controller
     }
 
     /**
+     * Get a single expense by ID.
+     */
+    public function show($id)
+    {
+        $expense = Expense::findOrFail($id);
+        return response()->json($expense);
+    }
+
+    /**
      * Store a new expense.
      */
     public function store(Request $request)
     {
+        if ($request->has('items') && is_string($request->items)) {
+            $request->merge([
+                'items' => json_decode($request->items, true)
+            ]);
+        }
+
         $request->validate([
             'name' => 'required|string',
             'recipient' => 'nullable|string',
             'category' => 'required|string',
             'amount' => 'required|numeric|min:0',
+            'currency' => 'nullable|string|in:LYD,USD',
+            'voucher_number' => 'nullable|string',
+            'expense_type' => 'nullable|string|in:fixed,consumable',
             'expense_date' => 'required|date',
             'status' => 'nullable|string',
             'notes' => 'nullable|string',
+            'items' => 'nullable|array',
+            'receipt_image' => 'nullable|image|max:10240',
             'is_indemnity' => 'nullable|boolean',
             'indemnity_type' => 'nullable|string',
             'payment_source' => 'nullable|string',
         ]);
 
         try {
-            $data = $request->all();
+            $data = $request->except(['receipt_image']);
+
+            if ($request->hasFile('receipt_image')) {
+                $path = $request->file('receipt_image')->store('expense_receipts', 'public');
+                $data['receipt_image'] = $path;
+            }
 
             // للتعامل مع القيود في حال لم يتم تشغيل الهجرة (Migration)
             // نحاول جلب أول تصنيف وأول خزينة مسجلة
@@ -95,21 +120,39 @@ class ExpenseController extends Controller
     {
         $expense = Expense::findOrFail($id);
 
+        if ($request->has('items') && is_string($request->items)) {
+            $request->merge([
+                'items' => json_decode($request->items, true)
+            ]);
+        }
+
         $request->validate([
             'name' => 'required|string',
             'recipient' => 'nullable|string',
             'category' => 'required|string',
             'amount' => 'required|numeric|min:0',
+            'currency' => 'nullable|string|in:LYD,USD',
+            'voucher_number' => 'nullable|string',
+            'expense_type' => 'nullable|string|in:fixed,consumable',
             'expense_date' => 'required|date',
             'status' => 'nullable|string',
             'notes' => 'nullable|string',
+            'items' => 'nullable|array',
+            'receipt_image' => 'nullable|image|max:10240',
             'is_indemnity' => 'nullable|boolean',
             'indemnity_type' => 'nullable|string',
             'payment_source' => 'nullable|string',
         ]);
 
         try {
-            $expense->update($request->all());
+            $data = $request->except(['receipt_image']);
+
+            if ($request->hasFile('receipt_image')) {
+                $path = $request->file('receipt_image')->store('expense_receipts', 'public');
+                $data['receipt_image'] = $path;
+            }
+
+            $expense->update($data);
             return response()->json([
                 'success' => true,
                 'data' => $expense

@@ -148,16 +148,16 @@ class EidcApiService
                 $response = $makeRequest($this->fetchToken());
             }
 
-            // Handle 429 Too Many Requests: wait and retry once
+            // Handle 429 Too Many Requests: wait and retry
             if ($response->status() === 429) {
-                Log::warning("EIDC: Rate limited (429) on {$endpoint}, retrying after 3 seconds...");
-                sleep(3);
+                Log::warning("EIDC: Rate limited (429) on {$endpoint}, retrying after 5 seconds...");
+                sleep(5);
                 $response = $makeRequest($this->getToken());
 
                 // If still 429 after retry, wait longer and try one more time
                 if ($response->status() === 429) {
-                    Log::warning("EIDC: Still rate limited (429) on {$endpoint}, retrying after 5 more seconds...");
-                    sleep(5);
+                    Log::warning("EIDC: Still rate limited (429) on {$endpoint}, retrying after 10 more seconds...");
+                    sleep(10);
                     $response = $makeRequest($this->getToken());
                 }
             }
@@ -177,6 +177,21 @@ class EidcApiService
                     $data = $decoded;
                 } else {
                     $data = ['message' => $decoded ?? (string) $response->body()];
+                }
+            }
+
+            // Extract specific error messages if EIDC returns validation errors
+            if (!$response->successful() && isset($data['errors']) && is_array($data['errors'])) {
+                $errorMessages = [];
+                foreach ($data['errors'] as $field => $messages) {
+                    if (is_array($messages)) {
+                        $errorMessages[] = implode(', ', $messages);
+                    } else {
+                        $errorMessages[] = $messages;
+                    }
+                }
+                if (!empty($errorMessages)) {
+                    $data['message'] = implode(' | ', $errorMessages);
                 }
             }
 
@@ -208,8 +223,11 @@ class EidcApiService
      */
     public function getVehicleTypes(): array
     {
-        $result = $this->request('get', '/api/insurances/compulsory/get-type-vehicles');
-        return $result['data'] ?? [];
+        $cacheKey = 'eidc_vehicle_types';
+        return Cache::remember($cacheKey, 3600, function () {
+            $result = $this->request('get', '/api/insurances/compulsory/get-type-vehicles');
+            return $result['data'] ?? [];
+        });
     }
 
     /**
@@ -218,10 +236,13 @@ class EidcApiService
      */
     public function getVehicleSpecs(string $typeId): array
     {
-        $result = $this->request('get', '/api/insurances/compulsory/get-spec-vehicles', [
-            'typeId' => $typeId,
-        ]);
-        return $result['data'] ?? [];
+        $cacheKey = "eidc_vehicle_specs_{$typeId}";
+        return Cache::remember($cacheKey, 3600, function () use ($typeId) {
+            $result = $this->request('get', '/api/insurances/compulsory/get-spec-vehicles', [
+                'typeId' => $typeId,
+            ]);
+            return $result['data'] ?? [];
+        });
     }
 
     /**
@@ -230,10 +251,13 @@ class EidcApiService
      */
     public function getVehicleDetails(string $typeId): array
     {
-        $result = $this->request('get', '/api/insurances/compulsory/get-detail-vehicles', [
-            'typeId' => $typeId,
-        ]);
-        return $result['data'] ?? [];
+        $cacheKey = "eidc_vehicle_details_{$typeId}";
+        return Cache::remember($cacheKey, 3600, function () use ($typeId) {
+            $result = $this->request('get', '/api/insurances/compulsory/get-detail-vehicles', [
+                'typeId' => $typeId,
+            ]);
+            return $result['data'] ?? [];
+        });
     }
 
     // ─── Policy Operations ─────────────────────────────────────────────────────

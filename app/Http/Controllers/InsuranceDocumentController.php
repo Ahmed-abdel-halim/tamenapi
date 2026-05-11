@@ -1059,13 +1059,13 @@ class InsuranceDocumentController extends Controller
                 'TypeVechicle3Id'    => $validated['eidc_vehicle_detail_id'] ?? $document->eidc_vehicle_detail_id ?? null,
                 'TypeOfVehicle'      => $validated['TypeOfVehicle'] ?? '',
                 'IssuingFeesOptions' => $issueFees,
-                'PlateNo'            => $validated['plate_number_manual'] ?? $document->plate_number_manual ?? null,
+                'PlateNo'            => substr($validated['plate_number_manual'] ?? $document->plate_number_manual ?? '', 0, 20),
                 'ChassisNo'          => $validated['chassis_number'] ?? $document->chassis_number ?? null,
                 'Color'              => $validated['color'] ?? $document->color ?? null,
                 'YearMade'           => (int)($validated['year'] ?? $document->year ?? date('Y')),
                 'PassengersNo'       => (int)($validated['authorized_passengers'] ?? $document->authorized_passengers ?? 0),
                 'EngineHp'           => (int)(preg_replace('/[^0-9]/', '', $validated['engine_power'] ?? $document->engine_power ?? '0')),
-                'Tonnage'            => (float)($validated['load_capacity'] ?? $document->load_capacity ?? 0),
+                'Tonnage'            => max(0, min(1000, (float)($validated['load_capacity'] ?? $document->load_capacity ?? 0))),
                 'RegAuthority'       => $document->plate ? ($document->plate->city->name_ar ?? null) : null,
             ];
 

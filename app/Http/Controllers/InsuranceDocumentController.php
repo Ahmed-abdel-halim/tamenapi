@@ -1041,6 +1041,17 @@ class InsuranceDocumentController extends Controller
             // Use the actual issue_fees from the document to match the calculated total
             $issueFees = (float)($document->issue_fees ?: ($validated['issue_fees'] ?? 2.0));
 
+            // التحقق من وجود البيانات الإجبارية للهيئة قبل الإرسال (تأمين إجباري فقط)
+            if ($document->insurance_type === 'تأمين إجباري سيارات') {
+                $nid = $validated['nid_passport'] ?? $document->nid_passport;
+                $vType = $validated['eidc_vehicle_type_id'] ?? $document->eidc_vehicle_type_id;
+                $vSpec = $validated['eidc_vehicle_spec_id'] ?? $document->eidc_vehicle_spec_id;
+
+                if (empty($nid) || empty($vType) || empty($vSpec)) {
+                    throw new \Exception('بيانات الهيئة ناقصة (الرقم الوطني أو تصنيفات المركبة). يرجى تعديل الوثيقة وإكمال البيانات قبل المزامنة.');
+                }
+            }
+
             // تحضير بيانات الطلب بصيغة الهيئة (PascalCase keys as seen in error responses)
             $payload = [
                 'InsuredsName'       => $validated['insured_name'] ?? $document->insured_name,

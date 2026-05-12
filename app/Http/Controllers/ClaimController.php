@@ -290,19 +290,38 @@ class ClaimController extends Controller
     private function handleReports(Request $request, Claim $claim)
     {
         $reportsCount = $request->input('reports_count', 0);
+        
+        // If we are updating, we should ideally update existing reports.
+        // For simplicity, we'll clear existing ones if new reports are provided.
+        // But we must be careful not to lose images if the frontend doesn't send them back.
+        // In this system's current state, it seems reports are replaced.
+        if ($reportsCount > 0) {
+            $claim->reports()->delete();
+        }
+
         for ($i = 0; $i < $reportsCount; $i++) {
-            if ($request->has("reports_{$i}_report_type")) {
-                $imagePath = null;
+            $reportType = $request->input("reports_{$i}_report_type");
+            $reportDate = $request->input("reports_{$i}_report_date");
+            $preparerName = $request->input("reports_{$i}_preparer_name");
+            $reportNumber = $request->input("reports_{$i}_report_number");
+
+            // Sanitize date
+            if ($reportDate === 'null' || $reportDate === '') {
+                $reportDate = null;
+            }
+
+            if ($reportType || $reportDate || $preparerName || $reportNumber || $request->hasFile("reports_{$i}_report_image") || $request->input("reports_{$i}_existing_image")) {
+                $imagePath = $request->input("reports_{$i}_existing_image");
                 if ($request->hasFile("reports_{$i}_report_image")) {
                     $imagePath = $request->file("reports_{$i}_report_image")->store('claim_reports', 'public');
                 }
 
                 $claim->reports()->create([
-                    'report_type'       => $request->input("reports_{$i}_report_type"),
+                    'report_type'       => $reportType,
                     'other_report_type' => $request->input("reports_{$i}_other_report_type"),
-                    'report_date'       => $request->input("reports_{$i}_report_date"),
-                    'preparer_name'     => $request->input("reports_{$i}_preparer_name"),
-                    'report_number'     => $request->input("reports_{$i}_report_number"),
+                    'report_date'       => $reportDate,
+                    'preparer_name'     => $preparerName,
+                    'report_number'     => $reportNumber,
                     'report_image'      => $imagePath,
                 ]);
             }

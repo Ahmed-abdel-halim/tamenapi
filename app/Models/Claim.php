@@ -26,6 +26,10 @@ class Claim extends Model
         'damaged_person_photos'  => 'array',
         'damaged_building_photos' => 'array',
         'has_fatalities' => 'boolean',
+        'additional_documents' => 'array',
+        'document_manual_data' => 'array',
+        'damage_costs' => 'array',
+        'damage_cost_invoices' => 'array',
     ];
 
     public function transfers()

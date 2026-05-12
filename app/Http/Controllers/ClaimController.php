@@ -101,10 +101,29 @@ class ClaimController extends Controller
             'document_type'       => 'nullable|string',
             'document_id'         => 'nullable|integer',
             'branch_agent_id'     => 'nullable|integer',
+            'additional_documents'=> 'nullable|json',
+            'document_manual_data'=> 'nullable|json',
+            'fatalities_count'    => 'nullable|integer',
+            'damaged_vehicle_details' => 'nullable|string',
+            'damaged_person_details' => 'nullable|string',
+            'victim_insurance_coverage' => 'nullable|string',
+            'damage_costs'        => 'nullable|json',
+            'assessor_percentage' => 'nullable|string',
+            'assessor_other_amount' => 'nullable|string',
         ]);
 
         // Handle file uploads
         $validated = $this->handleFileUploads($request, $validated);
+
+        if (isset($validated['additional_documents'])) {
+            $validated['additional_documents'] = json_decode($validated['additional_documents'], true);
+        }
+        if (isset($validated['document_manual_data'])) {
+            $validated['document_manual_data'] = json_decode($validated['document_manual_data'], true);
+        }
+        if (isset($validated['damage_costs'])) {
+            $validated['damage_costs'] = json_decode($validated['damage_costs'], true);
+        }
 
         $claim = Claim::create($validated);
         $this->handleReports($request, $claim);
@@ -156,12 +175,30 @@ class ClaimController extends Controller
             'assessor_name'          => 'nullable|string',
             'assessor_phone'         => 'nullable|string',
             'assessor_date'          => 'nullable|date',
-            'assessor_amount_dinar'  => 'nullable|numeric',
             'assessor_amount_dollar' => 'nullable|numeric',
             'status'                 => 'nullable|string',
+            'additional_documents'   => 'nullable|json',
+            'document_manual_data'   => 'nullable|json',
+            'fatalities_count'       => 'nullable|integer',
+            'damaged_vehicle_details'=> 'nullable|string',
+            'damaged_person_details' => 'nullable|string',
+            'victim_insurance_coverage' => 'nullable|string',
+            'damage_costs'           => 'nullable|json',
+            'assessor_percentage'    => 'nullable|string',
+            'assessor_other_amount'  => 'nullable|string',
         ]);
 
         $validated = $this->handleFileUploads($request, $validated, $claim);
+
+        if (isset($validated['additional_documents'])) {
+            $validated['additional_documents'] = json_decode($validated['additional_documents'], true);
+        }
+        if (isset($validated['document_manual_data'])) {
+            $validated['document_manual_data'] = json_decode($validated['document_manual_data'], true);
+        }
+        if (isset($validated['damage_costs'])) {
+            $validated['damage_costs'] = json_decode($validated['damage_costs'], true);
+        }
 
         $claim->update($validated);
         $this->handleReports($request, $claim);
@@ -205,6 +242,34 @@ class ClaimController extends Controller
                 $existing = ($claim && $claim->$field) ? $claim->$field : [];
                 $validated[$field] = array_merge($existing, $paths);
             }
+        }
+
+        $invoiceFields = [
+            'vehicle_parts_invoice' => 'vehicle',
+            'vehicle_repair_invoice' => 'vehicle',
+            'vehicle_other_invoice' => 'vehicle',
+            'person_hospital_invoice' => 'person',
+            'person_medical_tests_invoice' => 'person',
+            'person_other_invoice' => 'person',
+            'building_materials_invoice' => 'building',
+            'building_labor_invoice' => 'building',
+            'building_maintenance_invoice' => 'building',
+            'building_other_invoice' => 'building',
+        ];
+
+        $invoicesJson = ($claim && $claim->damage_cost_invoices) ? $claim->damage_cost_invoices : [];
+
+        foreach ($invoiceFields as $field => $type) {
+            if ($request->hasFile($field)) {
+                if ($claim && isset($invoicesJson[$field])) {
+                    Storage::disk('public')->delete($invoicesJson[$field]);
+                }
+                $invoicesJson[$field] = $request->file($field)->store("claim_invoices/{$type}", 'public');
+            }
+        }
+        
+        if (!empty($invoicesJson)) {
+            $validated['damage_cost_invoices'] = $invoicesJson;
         }
 
         return $validated;

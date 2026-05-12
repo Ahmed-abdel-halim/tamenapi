@@ -32,6 +32,7 @@ use App\Models\User;
 use App\Http\Controllers\AgencyCancellationController;
 use App\Http\Controllers\CompanyDocumentController;
 use App\Http\Controllers\RentalVoucherController;
+use App\Http\Controllers\ExpenseCategoryController;
 
 
 
@@ -172,6 +173,34 @@ Route::get('/branches-agents/monthly-account-closures-report', [BranchAgentContr
 Route::apiResource('branches-agents', BranchAgentController::class);
 Route::apiResource('payment-vouchers', 'App\Http\Controllers\PaymentVoucherController');
 Route::apiResource('expenses', 'App\Http\Controllers\ExpenseController');
+Route::apiResource('expense-categories', ExpenseCategoryController::class);
+
+Route::get('/reset-categories', function () {
+    \Illuminate\Support\Facades\DB::table('expense_categories')->delete();
+    $cats = [
+        'قرطاسية', 'صيانة', 'خدمات', 'إيجار', 'ضيافة', 'التعويضات',
+        'قرطاسيه مكتبيه مستهلكه',
+        'مصاريف (رصيد واشتراكات حكوميه (كهرباء -انترنت -رصيد اتصالات-ماء -صرف صحي ))',
+        'مصاريف مواد تنظيف',
+        'عهده ماليه خاصه بالموظفين',
+        'صيانة (الكترونيات - المبنى - الاثاث -الخ )',
+        'صيانه السيارات الخاصه بالموظفين والخدمات',
+        'الكترونيات ثابته',
+        'دعايه واعلان وهدايا مستهلكه (( خاص بالوكلاء ))',
+        'رسوم ومصاريف اشتراكات المعارض والاجتماعات الخاصه بالشركه',
+        'رسوم اصدار وتجديد غرفه التجاره والصناعه والزراعه',
+        'قرطاسيه مكتبيه ثابته',
+        'رسوم اشتراكات اعاده التامين',
+        'مصلحة الضرائب والميزانيات'
+    ];
+    $insertData = [];
+    foreach($cats as $cat) {
+        $insertData[] = ['name' => $cat, 'created_at' => now(), 'updated_at' => now()];
+    }
+    \Illuminate\Support\Facades\DB::table('expense_categories')->insert($insertData);
+    return 'تم تنظيف الفئات بنجاح! جميع الفئات الوهمية تم مسحها، وتمت إضافة الفئات الرسمية فقط. يمكنك العودة للنظام الآن وتحديث الصفحة.';
+});
+
 Route::apiResource('school-student-insurance', 'App\Http\Controllers\SchoolStudentInsuranceDocumentController');
 Route::get('/school-student-insurance/{id}/print', ['App\Http\Controllers\SchoolStudentInsuranceDocumentController', 'print']);
 Route::apiResource('cash-in-transit-insurance', 'App\Http\Controllers\CashInTransitInsuranceDocumentController');

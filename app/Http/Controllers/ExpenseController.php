@@ -3,60 +3,62 @@
 namespace App\Http\Controllers;
 
 use App\Models\Expense;
+use App\Models\ExpenseCategory;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Carbon\Carbon;
 
 class ExpenseController extends Controller
 {
-    /**
-     * Get all expenses.
-     */
     public function index(Request $request)
     {
-        $expenses = Expense::orderBy('expense_date', 'desc')
-            ->orderBy('created_at', 'desc');
+        $query = Expense::query();
 
-        if ($request->has('category')) {
-            $expenses->where('category', $request->category);
+        if ($request->has('search')) {
+            $search = $request->search;
+            $query->where(function($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('recipient', 'like', "%{$search}%")
+                  ->orWhere('voucher_number', 'like', "%{$search}%");
+            });
         }
 
-        if ($request->has('status')) {
-            $expenses->where('status', $request->status);
+        if ($request->has('category') && $request->category != '') {
+            $query->where('category', $request->category);
         }
 
-        // إحصائيات الشهر الحالي
-        $now = now();
-        $monthlyTotal = Expense::whereMonth('expense_date', $now->month)
-            ->whereYear('expense_date', $now->year)
-            ->sum('amount');
+        if ($request->has('status') && $request->status != '') {
+            $query->where('status', $request->status);
+        }
+
+        $expenses = $query->orderBy('expense_date', 'desc')->get();
+
+        // Calculate statistics (for current month)
+        $startOfMonth = Carbon::now()->startOfMonth();
+        $endOfMonth = Carbon::now()->endOfMonth();
         
-        $monthlyCount = Expense::whereMonth('expense_date', $now->month)
-            ->whereYear('expense_date', $now->year)
-            ->count();
+        $monthlyTotal = Expense::whereBetween('expense_date', [$startOfMonth, $endOfMonth])->sum('amount');
+        $monthlyCount = Expense::whereBetween('expense_date', [$startOfMonth, $endOfMonth])->count();
 
         return response()->json([
             'success' => true,
-            'data' => $expenses->get(),
+            'data' => $expenses,
             'statistics' => [
                 'monthly_total' => (float)$monthlyTotal,
                 'monthly_count' => $monthlyCount,
-                'monthly_average' => $monthlyCount > 0 ? (float)($monthlyTotal / $monthlyCount) : 0,
             ]
         ]);
     }
 
-    /**
-     * Get a single expense by ID.
-     */
     public function show($id)
     {
         $expense = Expense::findOrFail($id);
-        return response()->json($expense);
+        return response()->json([
+            'success' => true,
+            'data' => $expense
+        ]);
     }
 
-    /**
-     * Store a new expense.
-     */
     public function store(Request $request)
     {
         if ($request->has('items') && is_string($request->items)) {
@@ -69,53 +71,34 @@ class ExpenseController extends Controller
             'name' => 'required|string',
             'recipient' => 'nullable|string',
             'category' => 'required|string',
-            'amount' => 'required|numeric|min:0',
-            'currency' => 'nullable|string|in:LYD,USD',
+            'amount' => 'required|numeric',
+            'currency' => 'required|string',
             'voucher_number' => 'nullable|string',
-            'expense_type' => 'nullable|string|in:fixed,consumable',
+            'expense_type' => 'required|string',
             'expense_date' => 'required|date',
-            'status' => 'nullable|string',
+            'status' => 'required|string',
             'notes' => 'nullable|string',
             'items' => 'nullable|array',
-            'receipt_image' => 'nullable|image|max:10240',
+            'receipt_image' => 'nullable|file|mimes:jpeg,png,jpg,gif,svg,webp,pdf|max:10240',
             'is_indemnity' => 'nullable|boolean',
-            'indemnity_type' => 'nullable|string',
-            'payment_source' => 'nullable|string',
         ]);
 
-        try {
-            $data = $request->except(['receipt_image']);
+        $data = $request->all();
 
-            if ($request->hasFile('receipt_image')) {
-                $path = $request->file('receipt_image')->store('expense_receipts', 'public');
-                $data['receipt_image'] = $path;
-            }
-
-            // للتعامل مع القيود في حال لم يتم تشغيل الهجرة (Migration)
-            // نحاول جلب أول تصنيف وأول خزينة مسجلة
-            if (DB::getSchemaBuilder()->hasColumn('expenses', 'expense_category_id')) {
-                $data['expense_category_id'] = DB::table('expense_categories')->first()->id ?? null;
-            }
-            if (DB::getSchemaBuilder()->hasColumn('expenses', 'treasury_id')) {
-                $data['treasury_id'] = DB::table('treasuries')->first()->id ?? null;
-            }
-
-            $expense = Expense::create($data);
-            return response()->json([
-                'success' => true,
-                'data' => $expense
-            ], 201);
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'خطأ في قاعدة البيانات: ' . $e->getMessage()
-            ], 500);
+        if ($request->hasFile('receipt_image')) {
+            $path = $request->file('receipt_image')->store('expense_receipts', 'public');
+            $data['receipt_image'] = $path;
         }
+
+        $expense = Expense::create($data);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'تم إضافة المصروف بنجاح',
+            'data' => $expense
+        ], 201);
     }
 
-    /**
-     * Update an expense.
-     */
     public function update(Request $request, $id)
     {
         $expense = Expense::findOrFail($id);
@@ -130,48 +113,47 @@ class ExpenseController extends Controller
             'name' => 'required|string',
             'recipient' => 'nullable|string',
             'category' => 'required|string',
-            'amount' => 'required|numeric|min:0',
-            'currency' => 'nullable|string|in:LYD,USD',
+            'amount' => 'required|numeric',
+            'currency' => 'required|string',
             'voucher_number' => 'nullable|string',
-            'expense_type' => 'nullable|string|in:fixed,consumable',
+            'expense_type' => 'required|string',
             'expense_date' => 'required|date',
-            'status' => 'nullable|string',
+            'status' => 'required|string',
             'notes' => 'nullable|string',
             'items' => 'nullable|array',
-            'receipt_image' => 'nullable|image|max:10240',
+            'receipt_image' => 'nullable|file|mimes:jpeg,png,jpg,gif,svg,webp,pdf|max:10240',
             'is_indemnity' => 'nullable|boolean',
-            'indemnity_type' => 'nullable|string',
-            'payment_source' => 'nullable|string',
         ]);
 
-        try {
-            $data = $request->except(['receipt_image']);
+        $data = $request->all();
 
-            if ($request->hasFile('receipt_image')) {
-                $path = $request->file('receipt_image')->store('expense_receipts', 'public');
-                $data['receipt_image'] = $path;
+        if ($request->hasFile('receipt_image')) {
+            if ($expense->receipt_image) {
+                Storage::disk('public')->delete($expense->receipt_image);
             }
-
-            $expense->update($data);
-            return response()->json([
-                'success' => true,
-                'data' => $expense
-            ]);
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => $e->getMessage()
-            ], 500);
+            $path = $request->file('receipt_image')->store('expense_receipts', 'public');
+            $data['receipt_image'] = $path;
         }
+
+        $expense->update($data);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'تم تحديث المصروف بنجاح',
+            'data' => $expense
+        ]);
     }
 
-    /**
-     * Delete an expense.
-     */
     public function destroy($id)
     {
         $expense = Expense::findOrFail($id);
+        
+        if ($expense->receipt_image) {
+            Storage::disk('public')->delete($expense->receipt_image);
+        }
+        
         $expense->delete();
+
         return response()->json([
             'success' => true,
             'message' => 'تم حذف المصروف بنجاح'

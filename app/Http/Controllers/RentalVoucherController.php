@@ -73,11 +73,11 @@ class RentalVoucherController extends Controller
             foreach ($records as $rec) {
                 RentalRecord::create([
                     'rental_voucher_id' => $voucher->id,
-                    'from_date'         => $rec['from_date'],
-                    'to_date'           => $rec['to_date'],
+                    'from_date'         => $rec['from_date'] ?: null,
+                    'to_date'           => $rec['to_date'] ?: null,
                     'apartments_count'  => $rec['apartments_count'] ?? 1,
                     'total_amount'      => $rec['total_amount'] ?? 0,
-                    'recipient_name'    => $rec['recipient_name'],
+                    'recipient_name'    => $rec['recipient_name'] ?: null,
                 ]);
             }
         }
@@ -153,11 +153,11 @@ class RentalVoucherController extends Controller
             foreach ($records as $rec) {
                 RentalRecord::create([
                     'rental_voucher_id' => $voucher->id,
-                    'from_date'         => $rec['from_date'],
-                    'to_date'           => $rec['to_date'],
+                    'from_date'         => $rec['from_date'] ?: null,
+                    'to_date'           => $rec['to_date'] ?: null,
                     'apartments_count'  => $rec['apartments_count'] ?? 1,
                     'total_amount'      => $rec['total_amount'] ?? 0,
-                    'recipient_name'    => $rec['recipient_name'],
+                    'recipient_name'    => $rec['recipient_name'] ?: null,
                 ]);
             }
         }

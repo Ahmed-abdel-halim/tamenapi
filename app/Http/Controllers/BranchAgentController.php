@@ -279,6 +279,14 @@ class BranchAgentController extends Controller
                 'identity_photo' => 'nullable|file|mimes:jpg,jpeg,png|max:5120',
                 'national_id_photo' => 'nullable|file|mimes:jpg,jpeg,png|max:5120',
                 'contract_photo' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:10240',
+                'passport_photo' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:10240',
+                'clearance_certificate' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:10240',
+                'non_bankruptcy_certificate' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:10240',
+                'experience_certificate' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:10240',
+                'non_employment_certificate' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:10240',
+                'tb_health_certificate' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:10240',
+                'academic_qualification' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:10240',
+                'activity_license' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:10240',
                 'username' => 'required|string|unique:users,username',
                 'password' => 'required|string|min:6',
                 'notes' => 'nullable|string',
@@ -319,26 +327,32 @@ class BranchAgentController extends Controller
             $code = 'BK' . str_pad($nextNumber, 4, '0', STR_PAD_LEFT);
 
             // رفع الصور
-            $personalPhoto = null;
-            $identityPhoto = null;
-            $nationalIdPhoto = null;
-            $contractPhoto = null;
+            $uploadedDocs = [];
+            $docFields = [
+                'personal_photo' => 'branches_agents/personal_photos',
+                'identity_photo' => 'branches_agents/identity_photos',
+                'national_id_photo' => 'branches_agents/national_id_photos',
+                'contract_photo' => 'branches_agents/contract_photos',
+                'passport_photo' => 'branches_agents/passport_photos',
+                'clearance_certificate' => 'branches_agents/clearance_certificates',
+                'non_bankruptcy_certificate' => 'branches_agents/non_bankruptcy_certificates',
+                'experience_certificate' => 'branches_agents/experience_certificates',
+                'non_employment_certificate' => 'branches_agents/non_employment_certificates',
+                'tb_health_certificate' => 'branches_agents/tb_health_certificates',
+                'academic_qualification' => 'branches_agents/academic_qualifications',
+                'activity_license' => 'branches_agents/activity_licenses',
+            ];
 
-            if ($request->hasFile('personal_photo')) {
-                $personalPhoto = $request->file('personal_photo')->store('branches_agents/personal_photos', 'public');
-            }
-            if ($request->hasFile('identity_photo')) {
-                $identityPhoto = $request->file('identity_photo')->store('branches_agents/identity_photos', 'public');
-            }
-            if ($request->hasFile('national_id_photo')) {
-                $nationalIdPhoto = $request->file('national_id_photo')->store('branches_agents/national_id_photos', 'public');
-            }
-            if ($request->hasFile('contract_photo')) {
-                $contractPhoto = $request->file('contract_photo')->store('branches_agents/contract_photos', 'public');
+            foreach ($docFields as $field => $path) {
+                if ($request->hasFile($field)) {
+                    $uploadedDocs[$field] = $request->file($field)->store($path, 'public');
+                } else {
+                    $uploadedDocs[$field] = null;
+                }
             }
 
             // إنشاء الفرع أو الوكيل بحالة "قيد الانتظار"
-            $branchAgent = BranchAgent::create([
+            $branchAgent = BranchAgent::create(array_merge([
                 'type' => $request->type,
                 'code' => $code,
                 'agency_name' => $request->agency_name,
@@ -355,17 +369,13 @@ class BranchAgentController extends Controller
                 'nationality' => $request->nationality,
                 'national_id' => $request->national_id,
                 'identity_number' => $request->identity_number,
-                'personal_photo' => $personalPhoto,
-                'identity_photo' => $identityPhoto,
-                'national_id_photo' => $nationalIdPhoto,
-                'contract_photo' => $contractPhoto,
                 'user_id' => $user->id,
                 'notes' => $request->notes,
                 'status' => 'قيد الانتظار',
                 'requested_documents' => $requestedDocuments,
                 'authorized_documents' => [],
                 'document_percentages' => [],
-            ]);
+            ], $uploadedDocs));
 
             DB::commit();
 

@@ -69,10 +69,18 @@ class BranchAgentController extends Controller
                 'identity_number' => 'nullable|string',
                 'consumed_custodies' => 'nullable|string',
                 'fixed_custodies' => 'nullable|string',
-                'personal_photo' => 'nullable|file|mimes:jpg,jpeg,png|max:5120',
-                'identity_photo' => 'nullable|file|mimes:jpg,jpeg,png|max:5120',
-                'national_id_photo' => 'nullable|file|mimes:jpg,jpeg,png|max:5120',
-                'contract_photo' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:10240',
+                'personal_photo' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf,doc,docx|max:10240',
+                'identity_photo' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf,doc,docx|max:10240',
+                'national_id_photo' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf,doc,docx|max:10240',
+                'contract_photo' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf,doc,docx|max:10240',
+                'passport_photo' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf,doc,docx|max:10240',
+                'clearance_certificate' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf,doc,docx|max:10240',
+                'non_bankruptcy_certificate' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf,doc,docx|max:10240',
+                'experience_certificate' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf,doc,docx|max:10240',
+                'non_employment_certificate' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf,doc,docx|max:10240',
+                'tb_health_certificate' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf,doc,docx|max:10240',
+                'academic_qualification' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf,doc,docx|max:10240',
+                'activity_license' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf,doc,docx|max:10240',
                 'username' => 'required|string|unique:users,username',
                 'password' => 'required|string|min:6',
                 'notes' => 'nullable|string',
@@ -147,6 +155,40 @@ class BranchAgentController extends Controller
                 $contractPhoto = $request->file('contract_photo')->store('branches_agents/contract_photos', 'public');
             }
 
+            $passportPhoto = null;
+            $clearanceCertificate = null;
+            $nonBankruptcyCertificate = null;
+            $experienceCertificate = null;
+            $nonEmploymentCertificate = null;
+            $tbHealthCertificate = null;
+            $academicQualification = null;
+            $activityLicense = null;
+
+            if ($request->hasFile('passport_photo')) {
+                $passportPhoto = $request->file('passport_photo')->store('branches_agents/passport_photos', 'public');
+            }
+            if ($request->hasFile('clearance_certificate')) {
+                $clearanceCertificate = $request->file('clearance_certificate')->store('branches_agents/clearance_certificates', 'public');
+            }
+            if ($request->hasFile('non_bankruptcy_certificate')) {
+                $nonBankruptcyCertificate = $request->file('non_bankruptcy_certificate')->store('branches_agents/non_bankruptcy_certificates', 'public');
+            }
+            if ($request->hasFile('experience_certificate')) {
+                $experienceCertificate = $request->file('experience_certificate')->store('branches_agents/experience_certificates', 'public');
+            }
+            if ($request->hasFile('non_employment_certificate')) {
+                $nonEmploymentCertificate = $request->file('non_employment_certificate')->store('branches_agents/non_employment_certificates', 'public');
+            }
+            if ($request->hasFile('tb_health_certificate')) {
+                $tbHealthCertificate = $request->file('tb_health_certificate')->store('branches_agents/tb_health_certificates', 'public');
+            }
+            if ($request->hasFile('academic_qualification')) {
+                $academicQualification = $request->file('academic_qualification')->store('branches_agents/academic_qualifications', 'public');
+            }
+            if ($request->hasFile('activity_license')) {
+                $activityLicense = $request->file('activity_license')->store('branches_agents/activity_licenses', 'public');
+            }
+
             // معالجة JSON للعهود
             $consumedCustodies = null;
             if ($request->has('consumed_custodies') && $request->consumed_custodies) {
@@ -186,6 +228,14 @@ class BranchAgentController extends Controller
                 'identity_photo' => $identityPhoto,
                 'national_id_photo' => $nationalIdPhoto,
                 'contract_photo' => $contractPhoto,
+                'passport_photo' => $passportPhoto,
+                'clearance_certificate' => $clearanceCertificate,
+                'non_bankruptcy_certificate' => $nonBankruptcyCertificate,
+                'experience_certificate' => $experienceCertificate,
+                'non_employment_certificate' => $nonEmploymentCertificate,
+                'tb_health_certificate' => $tbHealthCertificate,
+                'academic_qualification' => $academicQualification,
+                'activity_license' => $activityLicense,
                 'user_id' => $user->id,
                 'notes' => $request->notes,
                 'status' => $request->status ?? 'نشط',
@@ -490,10 +540,18 @@ class BranchAgentController extends Controller
             'fixed_custodies' => 'nullable|array',
             'fixed_custodies.*.description' => 'required_with:fixed_custodies|string',
             'fixed_custodies.*.quantity' => 'required_with:fixed_custodies|integer|min:1',
-            'personal_photo' => 'nullable|file|mimes:jpg,jpeg,png|max:5120',
-            'identity_photo' => 'nullable|file|mimes:jpg,jpeg,png|max:5120',
-            'national_id_photo' => 'nullable|file|mimes:jpg,jpeg,png|max:5120',
-            'contract_photo' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:10240',
+            'personal_photo' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf,doc,docx|max:10240',
+            'identity_photo' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf,doc,docx|max:10240',
+            'national_id_photo' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf,doc,docx|max:10240',
+            'contract_photo' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf,doc,docx|max:10240',
+            'passport_photo' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf,doc,docx|max:10240',
+            'clearance_certificate' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf,doc,docx|max:10240',
+            'non_bankruptcy_certificate' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf,doc,docx|max:10240',
+            'experience_certificate' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf,doc,docx|max:10240',
+            'non_employment_certificate' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf,doc,docx|max:10240',
+            'tb_health_certificate' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf,doc,docx|max:10240',
+            'academic_qualification' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf,doc,docx|max:10240',
+            'activity_license' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf,doc,docx|max:10240',
             'username' => 'nullable|string|unique:users,username,' . $branchAgent->user_id,
             'password' => 'nullable|string|min:6',
             'status' => 'nullable|in:نشط,غير نشط,قيد الانتظار',
@@ -573,6 +631,25 @@ class BranchAgentController extends Controller
                     Storage::disk('public')->delete($branchAgent->contract_photo);
                 }
                 $branchAgent->contract_photo = $request->file('contract_photo')->store('branches_agents/contract_photos', 'public');
+            }
+
+            $newDocFields = [
+                'passport_photo' => 'branches_agents/passport_photos',
+                'clearance_certificate' => 'branches_agents/clearance_certificates',
+                'non_bankruptcy_certificate' => 'branches_agents/non_bankruptcy_certificates',
+                'experience_certificate' => 'branches_agents/experience_certificates',
+                'non_employment_certificate' => 'branches_agents/non_employment_certificates',
+                'tb_health_certificate' => 'branches_agents/tb_health_certificates',
+                'academic_qualification' => 'branches_agents/academic_qualifications',
+                'activity_license' => 'branches_agents/activity_licenses',
+            ];
+            foreach ($newDocFields as $field => $dir) {
+                if ($request->hasFile($field)) {
+                    if ($branchAgent->$field && Storage::disk('public')->exists($branchAgent->$field)) {
+                        Storage::disk('public')->delete($branchAgent->$field);
+                    }
+                    $branchAgent->$field = $request->file($field)->store($dir, 'public');
+                }
             }
 
             // معالجة JSON للعهود

@@ -70,6 +70,11 @@ class User extends Authenticatable
         'educational_certificate_path',
         'health_certificate_path',
         'contract_conditions_photo_path',
+        'passport_photo_path',
+        'clearance_certificate_path',
+        'experience_certificate_path',
+        'work_commencement_order_path',
+        'resignation_letter_path',
         'is_active',
         'is_blocked',
         'salary_type',
@@ -101,6 +106,11 @@ class User extends Authenticatable
         'educational_certificate_path',
         'health_certificate_path',
         'contract_conditions_photo_path',
+        'passport_photo_path',
+        'clearance_certificate_path',
+        'experience_certificate_path',
+        'work_commencement_order_path',
+        'resignation_letter_path',
     ];
 
     protected $appends = [
@@ -114,6 +124,11 @@ class User extends Authenticatable
         'educational_certificate_url',
         'health_certificate_url',
         'contract_conditions_photo_url',
+        'passport_photo_url',
+        'clearance_certificate_url',
+        'experience_certificate_url',
+        'work_commencement_order_url',
+        'resignation_letter_url',
     ];
 
     /**
@@ -236,5 +251,30 @@ class User extends Authenticatable
     public function getContractConditionsPhotoUrlAttribute(): ?string
     {
         return $this->storagePublicUrl($this->contract_conditions_photo_path);
+    }
+
+    public function getPassportPhotoUrlAttribute(): ?string
+    {
+        return $this->storagePublicUrl($this->passport_photo_path);
+    }
+
+    public function getClearanceCertificateUrlAttribute(): ?string
+    {
+        return $this->storagePublicUrl($this->clearance_certificate_path);
+    }
+
+    public function getExperienceCertificateUrlAttribute(): ?string
+    {
+        return $this->storagePublicUrl($this->experience_certificate_path);
+    }
+
+    public function getWorkCommencementOrderUrlAttribute(): ?string
+    {
+        return $this->storagePublicUrl($this->work_commencement_order_path);
+    }
+
+    public function getResignationLetterUrlAttribute(): ?string
+    {
+        return $this->storagePublicUrl($this->resignation_letter_path);
     }
 }

@@ -333,6 +333,11 @@ class UserController extends Controller
             'educational_certificate',
             'health_certificate',
             'contract_conditions_photo',
+            'passport_photo',
+            'clearance_certificate',
+            'experience_certificate',
+            'work_commencement_order',
+            'resignation_letter',
             'other'
         ];
 
@@ -372,6 +377,11 @@ class UserController extends Controller
             'educational_certificate' => 'educational_certificate_path',
             'health_certificate' => 'health_certificate_path',
             'contract_conditions_photo' => 'contract_conditions_photo_path',
+            'passport_photo' => 'passport_photo_path',
+            'clearance_certificate' => 'clearance_certificate_path',
+            'experience_certificate' => 'experience_certificate_path',
+            'work_commencement_order' => 'work_commencement_order_path',
+            'resignation_letter' => 'resignation_letter_path',
             default => null,
         };
 

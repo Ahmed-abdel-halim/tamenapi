@@ -376,6 +376,30 @@ Route::get('/check-table', function () {
     ]);
 });
 
+// ─── Recent docs (بدون أي فلتر — لفحص ما هو مخزن فعلاً) ───────────────────
+Route::get('/recent-docs', function () {
+    $today = \Carbon\Carbon::now()->toDateString();
+
+    $total   = \Illuminate\Support\Facades\DB::selectOne("SELECT COUNT(*) as cnt FROM insurance_documents")->cnt;
+    $active  = \Illuminate\Support\Facades\DB::selectOne("SELECT COUNT(*) as cnt FROM insurance_documents WHERE end_date >= ?", [$today])->cnt;
+    $expired = \Illuminate\Support\Facades\DB::selectOne("SELECT COUNT(*) as cnt FROM insurance_documents WHERE end_date < ?", [$today])->cnt;
+    $noDate  = \Illuminate\Support\Facades\DB::selectOne("SELECT COUNT(*) as cnt FROM insurance_documents WHERE end_date IS NULL")->cnt;
+
+    $sample  = \Illuminate\Support\Facades\DB::select(
+        "SELECT id, insurance_number, insured_name, insurance_type, issue_date, start_date, end_date, created_at
+         FROM insurance_documents ORDER BY id DESC LIMIT 10"
+    );
+
+    return response()->json([
+        'server_today'   => $today,
+        'total_count'    => $total,
+        'active_count'   => $active,
+        'expired_count'  => $expired,
+        'null_end_date'  => $noDate,
+        'last_10_records'=> $sample,
+    ], 200, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+});
+
 Route::prefix('inventory')->group(function () {
     Route::get('/items', [InventoryController::class, 'itemsIndex']);
     Route::post('/items', [InventoryController::class, 'storeItem']);

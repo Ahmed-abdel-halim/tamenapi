@@ -238,7 +238,6 @@ class ExcelImportController extends Controller
             'errors'           => $errors,
             'message'          => $msg,
         ]);
-        }
     }
 
     /**

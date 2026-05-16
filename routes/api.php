@@ -404,6 +404,19 @@ Route::get('/recent-docs', function () {
     ], 200, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
 });
 
+// ─── قراءة الأخطاء الصامتة من السيرفر ───────────────────────────
+Route::get('/read-logs', function () {
+    $logFile = storage_path('logs/laravel.log');
+    if (!file_exists($logFile)) {
+        return "No log file found.";
+    }
+    // قراءة آخر 200 سطر
+    $file = file($logFile);
+    $tail = array_slice($file, -200);
+    return response("<pre style='direction:ltr; text-align:left;'>" . htmlspecialchars(implode("", $tail)) . "</pre>");
+});
+
+
 Route::prefix('inventory')->group(function () {
     Route::get('/items', [InventoryController::class, 'itemsIndex']);
     Route::post('/items', [InventoryController::class, 'storeItem']);

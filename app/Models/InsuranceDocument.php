@@ -107,7 +107,10 @@ class InsuranceDocument extends Model
 
     public function scopeActive($query)
     {
-        return $query->whereDate('end_date', '>=', \Carbon\Carbon::now()->toDateString());
+        return $query->where(function ($q) {
+            $q->whereNull('end_date')
+              ->orWhereDate('end_date', '>=', \Carbon\Carbon::now()->toDateString());
+        });
     }
 
     public function scopeArchived($query)

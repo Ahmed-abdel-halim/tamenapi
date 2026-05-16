@@ -134,7 +134,6 @@ class ExcelImportController extends Controller
      */
     public function confirmImport(Request $request)
     {
-        Log::emergency('ExcelImport: CONFIRM PROCESS STARTED ON SERVER!');
         try {
             $request->validate([
                 'import_type' => 'required|in:insurance,travel,resident,marine,professional,personal,international',

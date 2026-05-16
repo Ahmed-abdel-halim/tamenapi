@@ -394,7 +394,7 @@ class ExcelImportController extends Controller
             'print_type'         => 'A4',
         ];
 
-        InsuranceDocument::firstOrCreate(
+        InsuranceDocument::updateOrCreate(
             ['insurance_number' => $docData['insurance_number']],
             $docData
         );

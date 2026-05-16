@@ -178,7 +178,12 @@ Route::apiResource('expense-categories', ExpenseCategoryController::class);
 Route::get('/reset-categories', function () {
     \Illuminate\Support\Facades\DB::table('expense_categories')->delete();
     $cats = [
-        'قرطاسية', 'صيانة', 'خدمات', 'إيجار', 'ضيافة', 'التعويضات',
+        'قرطاسية',
+        'صيانة',
+        'خدمات',
+        'إيجار',
+        'ضيافة',
+        'التعويضات',
         'قرطاسيه مكتبيه مستهلكه',
         'مصاريف (رصيد واشتراكات حكوميه (كهرباء -انترنت -رصيد اتصالات-ماء -صرف صحي ))',
         'مصاريف مواد تنظيف',
@@ -194,7 +199,7 @@ Route::get('/reset-categories', function () {
         'مصلحة الضرائب والميزانيات'
     ];
     $insertData = [];
-    foreach($cats as $cat) {
+    foreach ($cats as $cat) {
         $insertData[] = ['name' => $cat, 'created_at' => now(), 'updated_at' => now()];
     }
     \Illuminate\Support\Facades\DB::table('expense_categories')->insert($insertData);
@@ -236,15 +241,15 @@ Route::post('/insurance-documents/{id}/transfer-ownership', [InsuranceDocumentCo
 Route::get('/insurance-documents/{id}/ownership-transfer-history', [InsuranceDocumentController::class, 'getOwnershipTransferHistory']);
 
 // ─── EIDC Authority Integration Routes (تأمين إجباري سيارات) ─────────────────
-Route::get('/insurance-documents/eidc/vehicle-types',  [InsuranceDocumentController::class, 'eidcVehicleTypes']);
-Route::get('/insurance-documents/eidc/vehicle-specs',  [InsuranceDocumentController::class, 'eidcVehicleSpecs']);
-Route::get('/insurance-documents/eidc/vehicle-details',[InsuranceDocumentController::class, 'eidcVehicleDetails']);
-Route::post('/insurance-documents/eidc/inquiry',       [InsuranceDocumentController::class, 'eidcInquiry']);
-Route::get('/insurance-documents/eidc/serial-stats',   [InsuranceDocumentController::class, 'eidcSerialStats']);
-Route::post('/insurance-documents/{id}/eidc-cancel',   [InsuranceDocumentController::class, 'eidcCancel']);
-Route::post('/insurance-documents/{id}/eidc-retry',    [InsuranceDocumentController::class, 'eidcRetrySync']);
-Route::get('/insurance-documents/{id}/eidc-print',    [InsuranceDocumentController::class, 'eidcPrintProxy']);
-Route::post('/insurance-documents/eidc-sync-all',     [InsuranceDocumentController::class, 'eidcSyncFromAuthority']);
+Route::get('/insurance-documents/eidc/vehicle-types', [InsuranceDocumentController::class, 'eidcVehicleTypes']);
+Route::get('/insurance-documents/eidc/vehicle-specs', [InsuranceDocumentController::class, 'eidcVehicleSpecs']);
+Route::get('/insurance-documents/eidc/vehicle-details', [InsuranceDocumentController::class, 'eidcVehicleDetails']);
+Route::post('/insurance-documents/eidc/inquiry', [InsuranceDocumentController::class, 'eidcInquiry']);
+Route::get('/insurance-documents/eidc/serial-stats', [InsuranceDocumentController::class, 'eidcSerialStats']);
+Route::post('/insurance-documents/{id}/eidc-cancel', [InsuranceDocumentController::class, 'eidcCancel']);
+Route::post('/insurance-documents/{id}/eidc-retry', [InsuranceDocumentController::class, 'eidcRetrySync']);
+Route::get('/insurance-documents/{id}/eidc-print', [InsuranceDocumentController::class, 'eidcPrintProxy']);
+Route::post('/insurance-documents/eidc-sync-all', [InsuranceDocumentController::class, 'eidcSyncFromAuthority']);
 
 
 Route::apiResource('international-insurance-documents', InternationalInsuranceDocumentController::class);
@@ -287,7 +292,7 @@ Route::apiResource('mail-documents', \App\Http\Controllers\MailDocumentControlle
 Route::apiResource('company-documents', CompanyDocumentController::class);
 Route::apiResource('rental-vouchers', RentalVoucherController::class);
 
-Route::get('/fix-storage', function() {
+Route::get('/fix-storage', function () {
     try {
         if (is_link(public_path('storage'))) {
             app()->make('files')->delete(public_path('storage'));
@@ -299,7 +304,7 @@ Route::get('/fix-storage', function() {
     }
 });
 
-Route::get('/run-migrations', function() {
+Route::get('/run-migrations', function () {
     try {
         \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
         return "Migrations ran successfully! Output: " . \Illuminate\Support\Facades\Artisan::output();
@@ -314,85 +319,10 @@ Route::get('/claims/search-documents', [ClaimController::class, 'searchDocuments
 Route::apiResource('claims', ClaimController::class)->only(['index', 'store', 'show', 'update', 'destroy']);
 Route::post('/claims/{id}/transfers', [ClaimController::class, 'addTransfer']);
 
+// ─── Excel Import Routes (استيراد ملفات Excel) ──────────────────────────────
 Route::post('/excel-import/analyze', [\App\Http\Controllers\ExcelImportController::class, 'analyzeFile']);
 Route::post('/excel-import/confirm', [\App\Http\Controllers\ExcelImportController::class, 'confirmImport']);
-Route::get('/excel-import/agents',   [\App\Http\Controllers\ExcelImportController::class, 'getAgents']);
-
-// ─── Diagnostics (مؤقت للتشخيص) ─────────────────────────────────────────────
-Route::get('/diagnostics', function () {
-    $checks = [];
-    $checks['zip_extension']       = extension_loaded('zip') ? 'OK' : 'MISSING';
-    $checks['simplexml_extension'] = extension_loaded('simplexml') ? 'OK' : 'MISSING';
-    $checks['pdo_mysql']           = extension_loaded('pdo_mysql') ? 'OK' : 'MISSING';
-    $checks['memory_limit']        = ini_get('memory_limit');
-    $checks['max_execution_time']  = ini_get('max_execution_time') . 's';
-    $checks['upload_max_filesize'] = ini_get('upload_max_filesize');
-    $checks['post_max_size']       = ini_get('post_max_size');
-    try {
-        $count = \App\Models\InsuranceDocument::count();
-        $checks['db_connection']   = 'OK';
-        $checks['documents_count'] = $count;
-        $checks['table_exists']    = 'YES';
-    } catch (\Exception $e) {
-        $checks['db_connection'] = 'ERROR: ' . $e->getMessage();
-        $checks['table_exists']  = 'UNKNOWN';
-    }
-    $checks['storage_writable'] = is_writable(storage_path()) ? 'OK' : 'NOT WRITABLE';
-    $checks['php_version'] = PHP_VERSION;
-    $checks['app_env']  = config('app.env');
-    $checks['app_url']  = config('app.url');
-    $checks['db_host']  = config('database.connections.mysql.host');
-    $checks['db_name']  = config('database.connections.mysql.database');
-    return response()->json($checks, 200, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
-});
-
-// ─── Test direct INSERT (للتشخيص) ────────────────────────────────────────────
-Route::get('/test-insert', function () {
-    try {
-        $testNum = 'TEST-' . time();
-
-        // محاولة الإدخال المباشر
-        $doc = \App\Models\InsuranceDocument::create([
-            'insurance_type'      => 'تأمين إجباري سيارات',
-            'insurance_number'    => $testNum,
-            'issue_date'          => now()->format('Y-m-d') . ' 12:00:00',
-            'start_date'          => now()->format('Y-m-d'),
-            'end_date'            => now()->addYear()->format('Y-m-d'),
-            'duration'            => 'سنة',
-            'insured_name'        => 'اختبار مباشر',
-            'phone'               => '-',
-            'chassis_number'      => '-',
-            'plate_number_manual' => '-',
-            'premium'             => 1.0,
-            'tax'                 => 1.0,
-            'stamp'               => 0.5,
-            'issue_fees'          => 2.0,
-            'supervision_fees'    => 0.5,
-            'total'               => 5.0,
-            'branch_agent_id'     => null,
-            'print_type'          => 'A4',
-        ]);
-
-        // تحقق هل وُجد في قاعدة البيانات فعلاً
-        $found = \App\Models\InsuranceDocument::where('insurance_number', $testNum)->first();
-
-        return response()->json([
-            'insert_status'   => 'SUCCESS',
-            'created_id'      => $doc->id,
-            'found_in_db'     => $found ? 'YES - ID=' . $found->id : 'NO - NOT FOUND!',
-            'db_name'         => config('database.connections.mysql.database'),
-            'total_count_now' => \App\Models\InsuranceDocument::count(),
-        ]);
-    } catch (\Exception $e) {
-        return response()->json([
-            'insert_status' => 'FAILED',
-            'error'         => $e->getMessage(),
-            'db_name'       => config('database.connections.mysql.database'),
-        ]);
-    }
-});
-
-
+Route::get('/excel-import/agents', [\App\Http\Controllers\ExcelImportController::class, 'getAgents']);
 
 // Inventory & Stores Routes
 Route::prefix('inventory')->group(function () {

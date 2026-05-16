@@ -314,6 +314,11 @@ Route::get('/claims/search-documents', [ClaimController::class, 'searchDocuments
 Route::apiResource('claims', ClaimController::class)->only(['index', 'store', 'show', 'update', 'destroy']);
 Route::post('/claims/{id}/transfers', [ClaimController::class, 'addTransfer']);
 
+// ─── Excel Import Routes (استيراد ملفات Excel) ──────────────────────────────
+Route::post('/excel-import/analyze', [\App\Http\Controllers\ExcelImportController::class, 'analyzeFile']);
+Route::post('/excel-import/confirm', [\App\Http\Controllers\ExcelImportController::class, 'confirmImport']);
+Route::get('/excel-import/agents',   [\App\Http\Controllers\ExcelImportController::class, 'getAgents']);
+
 // Inventory & Stores Routes
 Route::prefix('inventory')->group(function () {
     Route::get('/items', [InventoryController::class, 'itemsIndex']);

@@ -416,6 +416,26 @@ Route::get('/read-logs', function () {
     return response("<pre style='direction:ltr; text-align:left;'>" . htmlspecialchars(implode("", $tail)) . "</pre>");
 });
 
+// ─── البحث عن الوثائق المستوردة ───────────────────────────
+Route::get('/find-imported', function (\Illuminate\Http\Request $request) {
+    // سنبحث عن أي وثيقة تبدأ بـ TR- أو أي رقم وثيقة نمرره
+    $query = $request->query('q', 'TR-W');
+    
+    $results = \Illuminate\Support\Facades\DB::select(
+        "SELECT id, insurance_number, insured_name, insurance_type, issue_date, start_date, end_date, branch_agent_id
+         FROM insurance_documents 
+         WHERE insurance_number LIKE ? 
+         LIMIT 20",
+        ["%{$query}%"]
+    );
+
+    return response()->json([
+        'search_query' => $query,
+        'found_count'  => count($results),
+        'results'      => $results
+    ]);
+});
+
 
 Route::prefix('inventory')->group(function () {
     Route::get('/items', [InventoryController::class, 'itemsIndex']);

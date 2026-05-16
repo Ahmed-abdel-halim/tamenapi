@@ -384,19 +384,23 @@ Route::get('/recent-docs', function () {
     $active  = \Illuminate\Support\Facades\DB::selectOne("SELECT COUNT(*) as cnt FROM insurance_documents WHERE end_date >= ?", [$today])->cnt;
     $expired = \Illuminate\Support\Facades\DB::selectOne("SELECT COUNT(*) as cnt FROM insurance_documents WHERE end_date < ?", [$today])->cnt;
     $noDate  = \Illuminate\Support\Facades\DB::selectOne("SELECT COUNT(*) as cnt FROM insurance_documents WHERE end_date IS NULL")->cnt;
+    
+    // فحص ما إذا كانت الأرقام تقرأ فارغة!
+    $emptyNumbers = \Illuminate\Support\Facades\DB::selectOne("SELECT COUNT(*) as cnt FROM insurance_documents WHERE insurance_number = '' OR insurance_number IS NULL")->cnt;
 
+    // جلب آخر السجلات التي تم "تحديثها" للتو (لمعرفة ما السجل الذي يتم الكتابة فوقه)
     $sample  = \Illuminate\Support\Facades\DB::select(
-        "SELECT id, insurance_number, insured_name, insurance_type, issue_date, start_date, end_date, created_at
-         FROM insurance_documents ORDER BY id DESC LIMIT 10"
+        "SELECT id, insurance_number, insured_name, insurance_type, issue_date, start_date, end_date, created_at, updated_at
+         FROM insurance_documents ORDER BY updated_at DESC LIMIT 10"
     );
 
     return response()->json([
-        'server_today'   => $today,
-        'total_count'    => $total,
-        'active_count'   => $active,
-        'expired_count'  => $expired,
-        'null_end_date'  => $noDate,
-        'last_10_records'=> $sample,
+        'server_today'     => $today,
+        'total_count'      => $total,
+        'active_count'     => $active,
+        'expired_count'    => $expired,
+        'empty_number_cnt' => $emptyNumbers,
+        'last_10_updated'  => $sample,
     ], 200, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
 });
 

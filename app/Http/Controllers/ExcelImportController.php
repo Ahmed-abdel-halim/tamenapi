@@ -31,20 +31,20 @@ class ExcelImportController extends Controller
 
         try {
             $request->validate([
-                'file' => 'required|file|mimes:xlsx,xls,csv',
+                'file'        => 'required|file|mimes:xlsx,xls,csv',
                 'import_type' => 'required|in:insurance,travel,resident,marine,professional,personal,international',
             ]);
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
                 'message' => 'خطأ في التحقق',
-                'errors' => $e->errors()
+                'errors'  => $e->errors()
             ], 422);
         }
 
         try {
-            $file = $request->file('file');
-            $importType = $request->input('import_type');
-            $rows = $this->readExcelFile($file->getPathname(), $file->getClientOriginalExtension());
+            $file        = $request->file('file');
+            $importType  = $request->input('import_type');
+            $rows        = $this->readExcelFile($file->getPathname(), $file->getClientOriginalExtension());
 
             if (empty($rows)) {
                 return response()->json(['message' => 'الملف فارغ أو لا يمكن قراءته'], 422);
@@ -56,9 +56,8 @@ class ExcelImportController extends Controller
             // البحث عن صف الهيدر الحقيقي (لأن بعض الملفات تحتوي على ترويسة وعناوين قبل الجدول)
             $headerRowIndex = 0;
             foreach ($rows as $idx => $r) {
-                if ($idx > 20)
-                    break; // البحث في أول 20 صف فقط
-                $rowStr = implode(' ', array_map(fn($v) => (string) $v, $r));
+                if ($idx > 20) break; // البحث في أول 20 صف فقط
+                $rowStr = implode(' ', array_map(fn($v) => (string)$v, $r));
                 if (str_contains($rowStr, 'رقم') || str_contains($rowStr, 'اسم') || str_contains($rowStr, 'تاريخ') || str_contains($rowStr, 'قسط')) {
                     $headerRowIndex = $idx;
                     break;
@@ -67,13 +66,12 @@ class ExcelImportController extends Controller
 
             $headers = [];
             if (!empty($rows[$headerRowIndex])) {
-                $headers = array_map(fn($h) => trim((string) $h), $rows[$headerRowIndex]);
+                $headers = array_map(fn($h) => trim((string)$h), $rows[$headerRowIndex]);
             }
 
             $results = [];
             foreach ($rows as $index => $row) {
-                if ($index <= $headerRowIndex)
-                    continue; // تخطي الهيدر وكل ما قبله
+                if ($index <= $headerRowIndex) continue; // تخطي الهيدر وكل ما قبله
 
                 // إضافة المفاتيح النصية من الهيدر مع تطبيع المسافات لضمان التطابق
                 $fullRow = $row;
@@ -81,44 +79,44 @@ class ExcelImportController extends Controller
                     if ($colName !== '') {
                         // تخزين باسم العمود الأصلي + نسخة منظمة (بمسافة واحدة) لتسهيل البحث
                         $normalizedColName = trim(preg_replace('/\s+/u', ' ', $colName));
-                        $fullRow[$colName] = $row[$colIdx] ?? null;
+                        $fullRow[$colName]          = $row[$colIdx] ?? null;
                         $fullRow[$normalizedColName] = $row[$colIdx] ?? null;
                     }
                 }
 
                 // إضافة بعض المرادفات للبحث عن الوكيل (استخدام كلمات مفتاحية للبحث الجزئي)
-                $agentNameInFile = $this->extractValue($fullRow, ['وكيل', 'مستخدم', 'وسيط', 'agent', 'user']) ?? '';
+                $agentNameInFile  = $this->extractValue($fullRow, ['وكيل', 'مستخدم', 'وسيط', 'agent', 'user']) ?? '';
                 $agencyNameInFile = $this->extractValue($fullRow, ['وكال', 'جهة الإصدار', 'جهة الاصدار', 'agency']) ?? '';
 
                 // إذا كان الصف فارغاً تماماً من البيانات المهمة
                 if (empty(implode('', $row))) {
-                    continue;
+                    continue; 
                 }
 
                 $matchResult = $this->findBestMatch($agentNameInFile, $agencyNameInFile, $agents);
 
                 $results[] = [
-                    'row_index' => $index,
-                    'raw_data' => $fullRow,
+                    'row_index'          => $index,
+                    'raw_data'           => $fullRow,
                     'agent_name_in_file' => $agentNameInFile,
-                    'agency_name_in_file' => $agencyNameInFile,
-                    'match_status' => $matchResult['status'],    // exact | fuzzy | not_found
-                    'match_score' => $matchResult['score'],
-                    'suggested_agent' => $matchResult['agent'],
-                    'all_candidates' => $matchResult['candidates'], // أفضل 3 مرشحين
-                    'selected_agent_id' => $matchResult['agent'] ? $matchResult['agent']['id'] : null,
-                    'action' => $matchResult['status'] === 'exact' ? 'link' : ($matchResult['status'] === 'fuzzy' ? 'review' : 'create'),
+                    'agency_name_in_file'=> $agencyNameInFile,
+                    'match_status'       => $matchResult['status'],    // exact | fuzzy | not_found
+                    'match_score'        => $matchResult['score'],
+                    'suggested_agent'    => $matchResult['agent'],
+                    'all_candidates'     => $matchResult['candidates'], // أفضل 3 مرشحين
+                    'selected_agent_id'  => $matchResult['agent'] ? $matchResult['agent']['id'] : null,
+                    'action'             => $matchResult['status'] === 'exact' ? 'link' : ($matchResult['status'] === 'fuzzy' ? 'review' : 'create'),
                 ];
             }
 
             return response()->json([
-                'success' => true,
-                'total_rows' => count($results),
+                'success'     => true,
+                'total_rows'  => count($results),
                 'exact_count' => collect($results)->where('match_status', 'exact')->count(),
                 'fuzzy_count' => collect($results)->where('match_status', 'fuzzy')->count(),
-                'new_count' => collect($results)->where('match_status', 'not_found')->count(),
-                'results' => $results,
-                'headers' => !empty($rows[0]) ? array_values($rows[0]) : [],
+                'new_count'   => collect($results)->where('match_status', 'not_found')->count(),
+                'results'     => $results,
+                'headers'     => !empty($rows[0]) ? array_values($rows[0]) : [],
             ]);
         } catch (\Exception $e) {
             Log::error('ExcelImportController@analyzeFile: ' . $e->getMessage());
@@ -136,18 +134,18 @@ class ExcelImportController extends Controller
     {
         try {
             $request->validate([
-                'import_type' => 'required|in:insurance,travel,resident,marine,professional,personal,international',
-                'rows' => 'required|array|min:1',
-                'rows.*.raw_data' => 'required|array',
-                'rows.*.selected_agent_id' => 'nullable|integer|exists:branches_agents,id',
-                'rows.*.action' => 'required|in:link,create,create_agent,skip',
-                'rows.*.agent_name_in_file' => 'nullable|string',
+                'import_type'             => 'required|in:insurance,travel,resident,marine,professional,personal,international',
+                'rows'                    => 'required|array|min:1',
+                'rows.*.raw_data'         => 'required|array',
+                'rows.*.selected_agent_id'=> 'nullable|integer|exists:branches_agents,id',
+                'rows.*.action'           => 'required|in:link,create,create_agent,skip',
+                'rows.*.agent_name_in_file'  => 'nullable|string',
                 'rows.*.agency_name_in_file' => 'nullable|string',
             ]);
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
                 'message' => 'خطأ في التحقق',
-                'errors' => $e->errors()
+                'errors'  => $e->errors()
             ], 422);
         }
 
@@ -156,12 +154,12 @@ class ExcelImportController extends Controller
         ini_set('memory_limit', '1G');
 
         $importType = $request->input('import_type');
-        $rows = $request->input('rows');
+        $rows       = $request->input('rows');
 
-        $imported = 0;
-        $skipped = 0;
+        $imported      = 0;
+        $skipped       = 0;
         $agentsCreated = 0;
-        $errors = [];
+        $errors        = [];
 
         // Cache لتجنب إنشاء نفس الوكيل مرتين في نفس الاستيراد
         // key = "agent_name|agency_name" => branch_agent_id
@@ -179,9 +177,9 @@ class ExcelImportController extends Controller
 
                 // إنشاء وكيل جديد تلقائياً من بيانات الملف
                 if ($row['action'] === 'create_agent') {
-                    $agentName = trim($row['agent_name_in_file'] ?? '');
+                    $agentName  = trim($row['agent_name_in_file']  ?? '');
                     $agencyName = trim($row['agency_name_in_file'] ?? '');
-                    $cacheKey = mb_strtolower($agentName . '|' . $agencyName);
+                    $cacheKey   = mb_strtolower($agentName . '|' . $agencyName);
 
                     if (!empty($agentName) || !empty($agencyName)) {
                         if (isset($createdAgentsCache[$cacheKey])) {
@@ -194,7 +192,7 @@ class ExcelImportController extends Controller
                                 $existingAgent = BranchAgent::where('agent_name', $searchName)
                                     ->orWhere('agency_name', $searchName)
                                     ->first();
-
+                                
                                 if ($existingAgent) {
                                     $agentId = $existingAgent->id;
                                     $createdAgentsCache[$cacheKey] = $agentId;
@@ -221,9 +219,9 @@ class ExcelImportController extends Controller
                     $imported++;
                 } catch (\Exception $e) {
                     $errors[] = [
-                        'row' => $index + 1,
+                        'row'     => $index + 1,
                         'message' => $e->getMessage(),
-                        'data' => $row['raw_data'],
+                        'data'    => $row['raw_data'],
                     ];
                 }
             }
@@ -231,21 +229,18 @@ class ExcelImportController extends Controller
             DB::commit();
 
             $msg = "تم استيراد {$imported} وثيقة بنجاح";
-            if ($agentsCreated > 0)
-                $msg .= "، وإنشاء {$agentsCreated} وكيل جديد";
-            if ($skipped > 0)
-                $msg .= "، وتخطي {$skipped}";
-            if (count($errors) > 0)
-                $msg .= "، و" . count($errors) . " خطأ";
+            if ($agentsCreated > 0) $msg .= "، وإنشاء {$agentsCreated} وكيل جديد";
+            if ($skipped > 0)       $msg .= "، وتخطي {$skipped}";
+            if (count($errors) > 0) $msg .= "، و" . count($errors) . " خطأ";
 
             return response()->json([
-                'success' => true,
-                'imported_count' => $imported,
-                'skipped_count' => $skipped,
-                'agents_created' => $agentsCreated,
-                'error_count' => count($errors),
-                'errors' => $errors,
-                'message' => $msg,
+                'success'          => true,
+                'imported_count'   => $imported,
+                'skipped_count'    => $skipped,
+                'agents_created'   => $agentsCreated,
+                'error_count'      => count($errors),
+                'errors'           => $errors,
+                'message'          => $msg,
             ]);
         } catch (\Exception $e) {
             DB::rollBack();
@@ -268,30 +263,30 @@ class ExcelImportController extends Controller
 
         // إنشاء مستخدم مرتبط بكلمة مرور مؤقتة
         $user = User::create([
-            'username' => $username,
-            'name' => $agentName,
-            'password' => Hash::make('Temp@' . rand(10000, 99999)),
-            'is_admin' => false,
-            'authorized_documents' => [],
-            'is_active' => true,
+            'username'            => $username,
+            'name'                => $agentName,
+            'password'            => Hash::make('Temp@' . rand(10000, 99999)),
+            'is_admin'            => false,
+            'authorized_documents'=> [],
+            'is_active'           => true,
         ]);
 
         // توليد كود فريد للوكيل
-        $lastAgent = BranchAgent::orderBy('id', 'desc')->first();
-        $nextNumber = $lastAgent ? (int) substr($lastAgent->code, 2) + 1 : 1;
-        $code = 'BK' . str_pad($nextNumber, 4, '0', STR_PAD_LEFT);
+        $lastAgent  = BranchAgent::orderBy('id', 'desc')->first();
+        $nextNumber = $lastAgent ? (int)substr($lastAgent->code, 2) + 1 : 1;
+        $code       = 'BK' . str_pad($nextNumber, 4, '0', STR_PAD_LEFT);
 
         // إنشاء الوكيل
         $agent = BranchAgent::create([
-            'type' => 'وكيل',
-            'code' => $code,
-            'agency_name' => $agencyName,
-            'agent_name' => $agentName,
-            'city' => 'غير محدد',
-            'contract_date' => now()->toDateString(),
-            'status' => 'غير نشط',   // غير نشط حتى يراجعه الأدمن
-            'user_id' => $user->id,
-            'notes' => 'تم إنشاؤه تلقائياً من استيراد Excel بتاريخ ' . now()->format('Y-m-d H:i'),
+            'type'         => 'وكيل',
+            'code'         => $code,
+            'agency_name'  => $agencyName,
+            'agent_name'   => $agentName,
+            'city'         => 'غير محدد',
+            'contract_date'=> now()->toDateString(),
+            'status'       => 'غير نشط',   // غير نشط حتى يراجعه الأدمن
+            'user_id'      => $user->id,
+            'notes'        => 'تم إنشاؤه تلقائياً من استيراد Excel بتاريخ ' . now()->format('Y-m-d H:i'),
             'authorized_documents' => [],
             'document_percentages' => [],
         ]);
@@ -315,7 +310,7 @@ class ExcelImportController extends Controller
         // نولّد رقم وثيقة فريد
         $lastDoc = InsuranceDocument::orderBy('id', 'desc')->first();
         if ($lastDoc && preg_match('/BKMCI(\d+)/', $lastDoc->insurance_number, $matches)) {
-            $nextNum = (int) $matches[1] + 1;
+            $nextNum = (int)$matches[1] + 1;
         } else {
             $nextNum = 1;
         }
@@ -323,14 +318,14 @@ class ExcelImportController extends Controller
 
         // استخراج الحقول بناءً على عناوين الإكسيل الفعلية
         // ملاحظة: من اللوج تبيّن أن رقم الوثيقة دائماً في العمود [4] واسم المؤمن في [7]
-        $extractedDocNum = trim((string) ($rawData[4] ?? ''));
+        $extractedDocNum = trim((string)($rawData[4] ?? ''));
         if (empty($extractedDocNum)) {
             $extractedDocNum = $this->extractValue($rawData, ['رقم الوثيقة', 'وثيقة', 'insurance']);
         }
         // بحث ذكي: أي نص يحتوي على '-' مثل TR-HA1
         if (empty($extractedDocNum)) {
             foreach ($rawData as $val) {
-                $v = trim((string) $val);
+                $v = trim((string)$val);
                 if (preg_match('/^[A-Za-z]{2,}-[A-Za-z0-9]+$/', $v)) {
                     $extractedDocNum = $v;
                     break;
@@ -339,55 +334,55 @@ class ExcelImportController extends Controller
         }
         $finalInsuranceNum = !empty($extractedDocNum) ? $extractedDocNum : $insuranceNumber;
 
-        $insuredName = trim((string) ($rawData[7] ?? ''));
+        $insuredName = trim((string)($rawData[7] ?? ''));
         if (empty($insuredName)) {
             $insuredName = $this->extractValue($rawData, ['اسم المؤمن له', 'مؤمن', 'الاسم', 'صاحب']);
         }
         $insuredName = !empty($insuredName) ? $insuredName : '-';
 
         $phone = $this->extractValue($rawData, ['هاتف', 'نقال', 'موبايل']) ?? '-';
-
+        
         $extractedIssueDate = $this->parseDate($this->extractValue($rawData, ['تاريخ الاصدار', 'الإصدار', 'اصدار', 'تاريخ'])) ?? now()->toDateString();
         $safeIssueDate = $extractedIssueDate . ' 12:00:00';
-
-        $startDate = $this->parseDate($this->extractValue($rawData, ['تاريخ البداية', 'بداية', 'من تاريخ', 'start'])) ?? $extractedIssueDate;
-        $endDate = $this->parseDate($this->extractValue($rawData, ['تاريخ النهاية', 'نهاية', 'الى تاريخ', 'end']));
-
-        $premium = (float) ($this->extractValue($rawData, ['القسط الصافي', 'قسط', 'صافي', 'premium']) ?? 0);
-        $tax = (float) ($this->extractValue($rawData, ['ضريبة', 'الضريبة']) ?? 1.0);
-        $stamp = (float) ($this->extractValue($rawData, ['دمغة', 'الدمغة']) ?? 0.5);
-        $issueFees = (float) ($this->extractValue($rawData, ['م.الاصدار', 'م اصدار', 'اصدار']) ?? 2.0);
-        $supervision = (float) ($this->extractValue($rawData, ['ورقابة', 'رقابة', 'اشراف']) ?? 0.5);
-        $total = (float) ($this->extractValue($rawData, ['الاجمالي', 'إجمالي', 'مبلغ', 'قيمة', 'total']) ?? ($premium + $tax + $stamp + $issueFees + $supervision));
-
-        $chassisNum = $this->extractValue($rawData, ['هيكل', 'شاصي', 'chassis']) ?? '-';
-        $plateNum = $this->extractValue($rawData, ['رقم اللوحة', 'لوحة', 'مركبة', 'plate']) ?? '-';
-        $notes = $this->extractValue($rawData, ['قوة المحرك', 'محرك', 'حصان', 'ملاحظ', 'بيان', 'notes']);
+        
+        $startDate    = $this->parseDate($this->extractValue($rawData, ['تاريخ البداية', 'بداية', 'من تاريخ', 'start'])) ?? $extractedIssueDate;
+        $endDate      = $this->parseDate($this->extractValue($rawData, ['تاريخ النهاية', 'نهاية', 'الى تاريخ', 'end']));
+        
+        $premium      = (float)($this->extractValue($rawData, ['القسط الصافي', 'قسط', 'صافي', 'premium']) ?? 0);
+        $tax          = (float)($this->extractValue($rawData, ['ضريبة', 'الضريبة']) ?? 1.0);
+        $stamp        = (float)($this->extractValue($rawData, ['دمغة', 'الدمغة']) ?? 0.5);
+        $issueFees    = (float)($this->extractValue($rawData, ['م.الاصدار', 'م اصدار', 'اصدار']) ?? 2.0);
+        $supervision  = (float)($this->extractValue($rawData, ['ورقابة', 'رقابة', 'اشراف']) ?? 0.5);
+        $total        = (float)($this->extractValue($rawData, ['الاجمالي', 'إجمالي', 'مبلغ', 'قيمة', 'total']) ?? ($premium + $tax + $stamp + $issueFees + $supervision));
+        
+        $chassisNum   = $this->extractValue($rawData, ['هيكل', 'شاصي', 'chassis']) ?? '-';
+        $plateNum     = $this->extractValue($rawData, ['رقم اللوحة', 'لوحة', 'مركبة', 'plate']) ?? '-';
+        $notes        = $this->extractValue($rawData, ['قوة المحرك', 'محرك', 'حصان', 'ملاحظ', 'بيان', 'notes']);
 
         $finalStartDate = $startDate;
-        $finalEndDate = $endDate ?? \Carbon\Carbon::parse($finalStartDate)->addYear()->toDateString();
+        $finalEndDate   = $endDate ?? \Carbon\Carbon::parse($finalStartDate)->addYear()->toDateString();
 
         // بناء بيانات الوثيقة
         $docData = [
-            'insurance_type' => 'تأمين إجباري سيارات',
-            'insurance_number' => $finalInsuranceNum,
-            'issue_date' => $safeIssueDate,
-            'start_date' => $finalStartDate,
-            'end_date' => $finalEndDate,
-            'duration' => 'سنة',
-            'insured_name' => $insuredName,
-            'phone' => $phone,
-            'chassis_number' => $chassisNum,
-            'plate_number_manual' => $plateNum,
-            'premium' => $premium,
-            'tax' => $tax,
-            'stamp' => $stamp,
-            'issue_fees' => $issueFees,
-            'supervision_fees' => $supervision,
-            'total' => $total,
-            'branch_agent_id' => $agentId,
-            'notes' => $notes,
-            'print_type' => 'A4',
+            'insurance_type'     => 'تأمين إجباري سيارات',
+            'insurance_number'   => $finalInsuranceNum,
+            'issue_date'         => $safeIssueDate,
+            'start_date'         => $finalStartDate,
+            'end_date'           => $finalEndDate,
+            'duration'           => 'سنة',
+            'insured_name'       => $insuredName,
+            'phone'              => $phone,
+            'chassis_number'     => $chassisNum,
+            'plate_number_manual'=> $plateNum,
+            'premium'            => $premium,
+            'tax'                => $tax,
+            'stamp'              => $stamp,
+            'issue_fees'         => $issueFees,
+            'supervision_fees'   => $supervision,
+            'total'              => $total,
+            'branch_agent_id'    => $agentId,
+            'notes'              => $notes,
+            'print_type'         => 'A4',
         ];
 
         InsuranceDocument::updateOrCreate(
@@ -406,22 +401,22 @@ class ExcelImportController extends Controller
             return $this->matchCache[$cacheKey];
         }
 
-        $agentNameNormalized = $this->normalizeArabic($agentName);
+        $agentNameNormalized  = $this->normalizeArabic($agentName);
         $agencyNameNormalized = $this->normalizeArabic($agencyName);
 
         $candidates = [];
 
         foreach ($agents as $agent) {
-            $dbAgentName = $this->normalizeArabic($agent->agent_name ?? '');
+            $dbAgentName  = $this->normalizeArabic($agent->agent_name ?? '');
             $dbAgencyName = $this->normalizeArabic($agent->agency_name ?? '');
 
             // حساب نسبة التشابه للاسمين
-            $agentScore = !empty($agentNameNormalized) ? $this->similarityScore($agentNameNormalized, $dbAgentName) : 0;
+            $agentScore  = !empty($agentNameNormalized)  ? $this->similarityScore($agentNameNormalized,  $dbAgentName)  : 0;
             $agencyScore = !empty($agencyNameNormalized) ? $this->similarityScore($agencyNameNormalized, $dbAgencyName) : 0;
 
             // إذا كان اسم الوكيل متطابق بنسبة 95% فما فوق، نعطيه الأولوية القصوى ونتجاهل الوكالة إذا كانت غير دقيقة
             if ($agentScore >= 95) {
-                $totalScore = $agentScore;
+                $totalScore = $agentScore; 
             } elseif (!empty($agentNameNormalized) && !empty($agencyNameNormalized)) {
                 $totalScore = ($agentScore * 0.7) + ($agencyScore * 0.3);
             } elseif (!empty($agentNameNormalized)) {
@@ -432,12 +427,12 @@ class ExcelImportController extends Controller
 
             if ($totalScore >= 50) { // فلتر: استبعاد التطابقات الضعيفة جداً
                 $candidates[] = [
-                    'id' => $agent->id,
-                    'agent_name' => $agent->agent_name,
+                    'id'          => $agent->id,
+                    'agent_name'  => $agent->agent_name,
                     'agency_name' => $agent->agency_name,
-                    'code' => $agent->code,
-                    'status' => $agent->status,
-                    'score' => round($totalScore, 1),
+                    'code'        => $agent->code,
+                    'status'      => $agent->status,
+                    'score'       => round($totalScore, 1),
                 ];
             }
         }
@@ -471,10 +466,8 @@ class ExcelImportController extends Controller
      */
     private function similarityScore(string $a, string $b): float
     {
-        if ($a === $b)
-            return 100.0;
-        if (empty($a) || empty($b))
-            return 0.0;
+        if ($a === $b) return 100.0;
+        if (empty($a) || empty($b)) return 0.0;
 
         // الاعتماد الكلي على مطابقة الكلمات (Tokens) لتجنب الأخطاء العشوائية
         $tokenScore = $this->tokenSimilarity($a, $b);
@@ -487,13 +480,12 @@ class ExcelImportController extends Controller
      */
     private function isTokenMatch(string $t1, string $t2): bool
     {
-        if ($t1 === $t2)
-            return true;
+        if ($t1 === $t2) return true;
 
         // إزالة "ال" التعريف من الكلمتين والمقارنة
         $t1_no_al = preg_replace('/^ال/u', '', $t1);
         $t2_no_al = preg_replace('/^ال/u', '', $t2);
-
+        
         if ($t1_no_al === $t2_no_al && mb_strlen($t1_no_al) > 2) {
             return true;
         }
@@ -518,11 +510,10 @@ class ExcelImportController extends Controller
         $tokensA = array_values(array_filter(explode(' ', $a)));
         $tokensB = array_values(array_filter(explode(' ', $b)));
 
-        if (empty($tokensA) || empty($tokensB))
-            return 0.0;
+        if (empty($tokensA) || empty($tokensB)) return 0.0;
 
         $shorter = count($tokensA) < count($tokensB) ? $tokensA : $tokensB;
-        $longer = count($tokensA) < count($tokensB) ? $tokensB : $tokensA;
+        $longer  = count($tokensA) < count($tokensB) ? $tokensB : $tokensA;
 
         $matches = 0;
         foreach ($shorter as $shortToken) {
@@ -540,15 +531,14 @@ class ExcelImportController extends Controller
         }
 
         $precision = $matches / count($shorter);
-        $recall = $matches / count($longer);
+        $recall    = $matches / count($longer);
 
         // إذا كانت كل كلمات الاسم القصير موجودة في الاسم الطويل
         if ($precision == 1.0) {
             return 95.0 + (5.0 * $recall);
         }
 
-        if ($precision + $recall == 0)
-            return 0.0;
+        if ($precision + $recall == 0) return 0.0;
         return (2 * $precision * $recall / ($precision + $recall)) * 100;
     }
 
@@ -605,21 +595,21 @@ class ExcelImportController extends Controller
         // ── الطريقة 1: COM object (Windows + Excel مثبت) ──────────────────
         if (class_exists('COM')) {
             try {
-                $excel = new \COM('Excel.Application');
+                $excel    = new \COM('Excel.Application');
                 $excel->Visible = false;
                 $excel->DisplayAlerts = false;
                 $workbook = $excel->Workbooks->Open(realpath($filePath));
-                $sheet = $workbook->Sheets(1);
+                $sheet    = $workbook->Sheets(1);
 
                 $usedRange = $sheet->UsedRange;
-                $rowCount = $usedRange->Rows->Count;
-                $colCount = $usedRange->Columns->Count;
+                $rowCount  = $usedRange->Rows->Count;
+                $colCount  = $usedRange->Columns->Count;
 
                 $rows = [];
                 for ($r = 1; $r <= $rowCount; $r++) {
                     $row = [];
                     for ($c = 1; $c <= $colCount; $c++) {
-                        $row[] = (string) $sheet->Cells($r, $c)->Value;
+                        $row[] = (string)$sheet->Cells($r, $c)->Value;
                     }
                     $rows[] = $row;
                 }
@@ -709,19 +699,19 @@ class ExcelImportController extends Controller
                         $str = '';
                         // الطريقة 1: نص مباشر في <t>
                         if (isset($si->t)) {
-                            $str = (string) $si->t;
+                            $str = (string)$si->t;
                         }
                         // الطريقة 2: نص موزع على عدة <r><t>
                         if (empty($str) && isset($si->r)) {
                             foreach ($si->r as $r) {
                                 if (isset($r->t)) {
-                                    $str .= (string) $r->t;
+                                    $str .= (string)$r->t;
                                 }
                             }
                         }
                         // الطريقة 3 (fallback): استخراج النص من XML مباشرة
                         if (empty($str)) {
-                            $str = trim(strip_tags((string) $si->asXML()));
+                            $str = trim(strip_tags((string)$si->asXML()));
                         }
                         $sharedStrings[] = $str;
                     }
@@ -747,32 +737,30 @@ class ExcelImportController extends Controller
             }
 
             $maxRow = 0;
-            $cells = [];
+            $cells  = [];
 
             foreach ($xml->sheetData->row as $row) {
-                $rowIndex = (int) $row['r'];
-                if ($rowIndex > $maxRow)
-                    $maxRow = $rowIndex;
+                $rowIndex = (int)$row['r'];
+                if ($rowIndex > $maxRow) $maxRow = $rowIndex;
                 foreach ($row->c as $cell) {
-                    $cellRef = (string) $cell['r'];
+                    $cellRef   = (string)$cell['r'];
                     $colLetter = preg_replace('/[0-9]/', '', $cellRef);
-                    $colIndex = $this->columnLetterToIndex($colLetter);
-                    $type = (string) $cell['t'];
-                    $value = isset($cell->v) ? (string) $cell->v : '';
+                    $colIndex  = $this->columnLetterToIndex($colLetter);
+                    $type      = (string)$cell['t'];
+                    $value     = isset($cell->v) ? (string)$cell->v : '';
 
                     if ($type === 's') {
                         // نص من جدول shared strings
-                        $idx = (int) $value;
+                        $idx = (int)$value;
                         $value = $sharedStrings[$idx] ?? '';
                     } elseif ($type === 'inlineStr') {
                         // نص مضمّن مباشرة في الخلية
                         if (isset($cell->is->t)) {
-                            $value = (string) $cell->is->t;
+                            $value = (string)$cell->is->t;
                         } elseif (isset($cell->is->r)) {
                             $value = '';
                             foreach ($cell->is->r as $r) {
-                                if (isset($r->t))
-                                    $value .= (string) $r->t;
+                                if (isset($r->t)) $value .= (string)$r->t;
                             }
                         } else {
                             $value = trim(strip_tags($cell->asXML()));
@@ -810,8 +798,8 @@ class ExcelImportController extends Controller
     private function columnLetterToIndex(string $letters): int
     {
         $letters = strtoupper($letters);
-        $index = 0;
-        $len = strlen($letters);
+        $index   = 0;
+        $len     = strlen($letters);
         for ($i = 0; $i < $len; $i++) {
             $index = $index * 26 + (ord($letters[$i]) - ord('A') + 1);
         }
@@ -826,28 +814,25 @@ class ExcelImportController extends Controller
         // 1. التطابق التام أولاً
         foreach ($keys as $key) {
             if (array_key_exists($key, $row)) {
-                $val = trim((string) $row[$key]);
-                if ($val !== '')
-                    return $val;
+                $val = trim((string)$row[$key]);
+                if ($val !== '') return $val;
             }
         }
 
         // 2. التطابق الجزئي (البحث عن الكلمة المفتاحية داخل اسم العمود)
         foreach ($keys as $key) {
-            $searchKey = mb_strtolower(preg_replace('/\s+/u', '', $this->normalizeArabic((string) $key)));
-
+            $searchKey = mb_strtolower(preg_replace('/\s+/u', '', $this->normalizeArabic((string)$key)));
+            
             foreach ($row as $rowKey => $rowValue) {
-                $colName = mb_strtolower(preg_replace('/\s+/u', '', $this->normalizeArabic((string) $rowKey)));
-
+                $colName = mb_strtolower(preg_replace('/\s+/u', '', $this->normalizeArabic((string)$rowKey)));
+                
                 // تخطي المفاتيح الرقمية البحتة (الفهارس) لأنها لا تحتوي على أسماء أعمدة
-                if (is_numeric($rowKey) && empty($colName))
-                    continue;
-
+                if (is_numeric($rowKey) && empty($colName)) continue;
+                
                 // إذا كان اسم العمود يحتوي على الكلمة المفتاحية
                 if ($colName !== '' && str_contains($colName, $searchKey)) {
-                    $val = trim((string) $rowValue);
-                    if ($val !== '')
-                        return $val;
+                    $val = trim((string)$rowValue);
+                    if ($val !== '') return $val;
                 }
             }
         }
@@ -860,8 +845,7 @@ class ExcelImportController extends Controller
      */
     private function parseDate(?string $dateStr): ?string
     {
-        if (empty($dateStr))
-            return null;
+        if (empty($dateStr)) return null;
 
         // Excel serial number
         if (is_numeric($dateStr)) {

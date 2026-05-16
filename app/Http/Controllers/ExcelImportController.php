@@ -165,89 +165,79 @@ class ExcelImportController extends Controller
         // key = "agent_name|agency_name" => branch_agent_id
         $createdAgentsCache = [];
 
-        DB::beginTransaction();
-        try {
-            foreach ($rows as $index => $row) {
-                if ($row['action'] === 'skip') {
-                    $skipped++;
-                    continue;
-                }
+        foreach ($rows as $index => $row) {
+            if ($row['action'] === 'skip') {
+                $skipped++;
+                continue;
+            }
 
-                $agentId = $row['selected_agent_id'] ?? null;
+            $agentId = $row['selected_agent_id'] ?? null;
 
-                // إنشاء وكيل جديد تلقائياً من بيانات الملف
-                if ($row['action'] === 'create_agent') {
-                    $agentName  = trim($row['agent_name_in_file']  ?? '');
-                    $agencyName = trim($row['agency_name_in_file'] ?? '');
-                    $cacheKey   = mb_strtolower($agentName . '|' . $agencyName);
+            // إنشاء وكيل جديد تلقائياً من بيانات الملف
+            if ($row['action'] === 'create_agent') {
+                $agentName  = trim($row['agent_name_in_file']  ?? '');
+                $agencyName = trim($row['agency_name_in_file'] ?? '');
+                $cacheKey   = mb_strtolower($agentName . '|' . $agencyName);
 
-                    if (!empty($agentName) || !empty($agencyName)) {
-                        if (isset($createdAgentsCache[$cacheKey])) {
-                            // استخدم الوكيل المُنشأ مسبقاً في نفس الدُفعة
-                            $agentId = $createdAgentsCache[$cacheKey];
-                        } else {
-                            try {
-                                // التحقق مما إذا كان الوكيل قد تم إنشاؤه للتو في دفعة سابقة
-                                $searchName = $agentName ?: $agencyName;
-                                $existingAgent = BranchAgent::where('agent_name', $searchName)
-                                    ->orWhere('agency_name', $searchName)
-                                    ->first();
-                                
-                                if ($existingAgent) {
-                                    $agentId = $existingAgent->id;
-                                    $createdAgentsCache[$cacheKey] = $agentId;
-                                } else {
-                                    $newAgent = $this->createAgentFromRow(
-                                        $agentName ?: 'غير محدد',
-                                        $agentName ?: 'غير محدد'
-                                    );
-                                    $agentId = $newAgent->id;
-                                    $createdAgentsCache[$cacheKey] = $agentId;
-                                    $agentsCreated++;
-                                }
-                            } catch (\Exception $e) {
-                                Log::warning('ExcelImport: failed to create agent for row ' . ($index + 1) . ': ' . $e->getMessage());
-                                // نكمل الاستيراد بدون وكيل
-                                $agentId = null;
+                if (!empty($agentName) || !empty($agencyName)) {
+                    if (isset($createdAgentsCache[$cacheKey])) {
+                        // استخدم الوكيل المُنشأ مسبقاً في نفس الدُفعة
+                        $agentId = $createdAgentsCache[$cacheKey];
+                    } else {
+                        try {
+                            // التحقق مما إذا كان الوكيل قد تم إنشاؤه للتو في دفعة سابقة
+                            $searchName = $agentName ?: $agencyName;
+                            $existingAgent = BranchAgent::where('agent_name', $searchName)
+                                ->orWhere('agency_name', $searchName)
+                                ->first();
+                            
+                            if ($existingAgent) {
+                                $agentId = $existingAgent->id;
+                                $createdAgentsCache[$cacheKey] = $agentId;
+                            } else {
+                                $newAgent = $this->createAgentFromRow(
+                                    $agentName ?: 'غير محدد',
+                                    $agentName ?: 'غير محدد'
+                                );
+                                $agentId = $newAgent->id;
+                                $createdAgentsCache[$cacheKey] = $agentId;
+                                $agentsCreated++;
                             }
+                        } catch (\Exception $e) {
+                            Log::warning('ExcelImport: failed to create agent for row ' . ($index + 1) . ': ' . $e->getMessage());
+                            // نكمل الاستيراد بدون وكيل
+                            $agentId = null;
                         }
                     }
                 }
-
-                try {
-                    $this->importRow($row['raw_data'], $importType, $agentId);
-                    $imported++;
-                } catch (\Exception $e) {
-                    $errors[] = [
-                        'row'     => $index + 1,
-                        'message' => $e->getMessage(),
-                        'data'    => $row['raw_data'],
-                    ];
-                }
             }
 
-            DB::commit();
+            try {
+                $this->importRow($row['raw_data'], $importType, $agentId);
+                $imported++;
+            } catch (\Exception $e) {
+                $errors[] = [
+                    'row'     => $index + 1,
+                    'message' => $e->getMessage(),
+                    'data'    => $row['raw_data'],
+                ];
+            }
+        }
 
-            $msg = "تم استيراد {$imported} وثيقة بنجاح";
-            if ($agentsCreated > 0) $msg .= "، وإنشاء {$agentsCreated} وكيل جديد";
-            if ($skipped > 0)       $msg .= "، وتخطي {$skipped}";
-            if (count($errors) > 0) $msg .= "، و" . count($errors) . " خطأ";
+        $msg = "تم استيراد {$imported} وثيقة بنجاح";
+        if ($agentsCreated > 0) $msg .= "، وإنشاء {$agentsCreated} وكيل جديد";
+        if ($skipped > 0)       $msg .= "، وتخطي {$skipped}";
+        if (count($errors) > 0) $msg .= "، و" . count($errors) . " خطأ";
 
-            return response()->json([
-                'success'          => true,
-                'imported_count'   => $imported,
-                'skipped_count'    => $skipped,
-                'agents_created'   => $agentsCreated,
-                'error_count'      => count($errors),
-                'errors'           => $errors,
-                'message'          => $msg,
-            ]);
-        } catch (\Exception $e) {
-            DB::rollBack();
-            Log::error('ExcelImportController@confirmImport: ' . $e->getMessage());
-            return response()->json([
-                'message' => 'حدث خطأ أثناء الاستيراد: ' . $e->getMessage(),
-            ], 500);
+        return response()->json([
+            'success'          => true,
+            'imported_count'   => $imported,
+            'skipped_count'    => $skipped,
+            'agents_created'   => $agentsCreated,
+            'error_count'      => count($errors),
+            'errors'           => $errors,
+            'message'          => $msg,
+        ]);
         }
     }
 

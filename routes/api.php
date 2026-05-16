@@ -323,120 +323,8 @@ Route::post('/claims/{id}/transfers', [ClaimController::class, 'addTransfer']);
 Route::post('/excel-import/analyze', [\App\Http\Controllers\ExcelImportController::class, 'analyzeFile']);
 Route::post('/excel-import/confirm', [\App\Http\Controllers\ExcelImportController::class, 'confirmImport']);
 Route::get('/excel-import/agents', [\App\Http\Controllers\ExcelImportController::class, 'getAgents']);
-// ─── Check table name and raw insert (للتشخيص العميق) ────────────────────────
-Route::get('/check-table', function () {
-    $model     = new \App\Models\InsuranceDocument();
-    $tableName = $model->getTable();
 
-    $rawBefore    = \Illuminate\Support\Facades\DB::selectOne("SELECT COUNT(*) as cnt FROM `{$tableName}`")->cnt;
-    $eloquentBefore = \App\Models\InsuranceDocument::count();
-
-    $testNum = 'RAW-' . time();
-    $insertError = null;
-
-    try {
-        \Illuminate\Support\Facades\DB::table($tableName)->insert([
-            'insurance_type'      => 'تأمين إجباري سيارات',
-            'insurance_number'    => $testNum,
-            'issue_date'          => now()->format('Y-m-d') . ' 12:00:00',
-            'start_date'          => now()->format('Y-m-d'),
-            'end_date'            => now()->addYear()->format('Y-m-d'),
-            'duration'            => 'سنة',
-            'insured_name'        => 'اختبار خام',
-            'phone'               => '-',
-            'chassis_number'      => '-',
-            'plate_number_manual' => '-',
-            'premium'             => 1.0,
-            'tax'                 => 1.0,
-            'stamp'               => 0.5,
-            'issue_fees'          => 2.0,
-            'supervision_fees'    => 0.5,
-            'total'               => 5.0,
-            'print_type'          => 'A4',
-            'created_at'          => now(),
-            'updated_at'          => now(),
-        ]);
-    } catch (\Exception $e) {
-        $insertError = $e->getMessage();
-    }
-
-    $rawAfter     = \Illuminate\Support\Facades\DB::selectOne("SELECT COUNT(*) as cnt FROM `{$tableName}`")->cnt;
-    $eloquentAfter  = \App\Models\InsuranceDocument::count();
-
-    return response()->json([
-        'table_name'         => $tableName,
-        'raw_count_before'   => $rawBefore,
-        'eloquent_before'    => $eloquentBefore,
-        'raw_count_after'    => $rawAfter,
-        'eloquent_after'     => $eloquentAfter,
-        'net_change_raw'     => $rawAfter - $rawBefore,
-        'net_change_eloquent'=> $eloquentAfter - $eloquentBefore,
-        'insert_error'       => $insertError ?? 'none',
-        'db_name'            => config('database.connections.mysql.database'),
-    ]);
-});
-
-// ─── Recent docs (بدون أي فلتر — لفحص ما هو مخزن فعلاً) ───────────────────
-Route::get('/recent-docs', function () {
-    $today = \Carbon\Carbon::now()->toDateString();
-
-    $total   = \Illuminate\Support\Facades\DB::selectOne("SELECT COUNT(*) as cnt FROM insurance_documents")->cnt;
-    $active  = \Illuminate\Support\Facades\DB::selectOne("SELECT COUNT(*) as cnt FROM insurance_documents WHERE end_date >= ?", [$today])->cnt;
-    $expired = \Illuminate\Support\Facades\DB::selectOne("SELECT COUNT(*) as cnt FROM insurance_documents WHERE end_date < ?", [$today])->cnt;
-    $noDate  = \Illuminate\Support\Facades\DB::selectOne("SELECT COUNT(*) as cnt FROM insurance_documents WHERE end_date IS NULL")->cnt;
-    
-    // فحص ما إذا كانت الأرقام تقرأ فارغة!
-    $emptyNumbers = \Illuminate\Support\Facades\DB::selectOne("SELECT COUNT(*) as cnt FROM insurance_documents WHERE insurance_number = '' OR insurance_number IS NULL")->cnt;
-
-    // جلب آخر السجلات التي تم "تحديثها" للتو (لمعرفة ما السجل الذي يتم الكتابة فوقه)
-    $sample  = \Illuminate\Support\Facades\DB::select(
-        "SELECT id, insurance_number, insured_name, insurance_type, issue_date, start_date, end_date, created_at, updated_at
-         FROM insurance_documents ORDER BY updated_at DESC LIMIT 10"
-    );
-
-    return response()->json([
-        'server_today'     => $today,
-        'total_count'      => $total,
-        'active_count'     => $active,
-        'expired_count'    => $expired,
-        'empty_number_cnt' => $emptyNumbers,
-        'last_10_updated'  => $sample,
-    ], 200, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
-});
-
-// ─── قراءة الأخطاء الصامتة من السيرفر ───────────────────────────
-Route::get('/read-logs', function () {
-    $logFile = storage_path('logs/laravel.log');
-    if (!file_exists($logFile)) {
-        return "No log file found.";
-    }
-    // قراءة آخر 200 سطر
-    $file = file($logFile);
-    $tail = array_slice($file, -200);
-    return response("<pre style='direction:ltr; text-align:left;'>" . htmlspecialchars(implode("", $tail)) . "</pre>");
-});
-
-// ─── البحث عن الوثائق المستوردة ───────────────────────────
-Route::get('/find-imported', function (\Illuminate\Http\Request $request) {
-    // سنبحث عن أي وثيقة تبدأ بـ TR- أو أي رقم وثيقة نمرره
-    $query = $request->query('q', 'TR-W');
-    
-    $results = \Illuminate\Support\Facades\DB::select(
-        "SELECT id, insurance_number, insured_name, insurance_type, issue_date, start_date, end_date, branch_agent_id
-         FROM insurance_documents 
-         WHERE insurance_number LIKE ? 
-         LIMIT 20",
-        ["%{$query}%"]
-    );
-
-    return response()->json([
-        'search_query' => $query,
-        'found_count'  => count($results),
-        'results'      => $results
-    ]);
-});
-
-
+// Inventory & Stores Routes
 Route::prefix('inventory')->group(function () {
     Route::get('/items', [InventoryController::class, 'itemsIndex']);
     Route::post('/items', [InventoryController::class, 'storeItem']);
@@ -447,4 +335,58 @@ Route::prefix('inventory')->group(function () {
     Route::get('/movements', [InventoryController::class, 'movementsIndex']);
     Route::post('/assign-custody', [InventoryController::class, 'assignCustody']);
     Route::post('/return-custody/{id}', [InventoryController::class, 'returnCustody']);
+});
+
+// ─── مسار اختبار الاستيراد المباشر (تتبع الأخطاء الصامتة) ─────────────────
+Route::get('/test-import-row', function () {
+    try {
+        $docData = [
+            'insurance_type'     => 'تأمين إجباري سيارات',
+            'insurance_number'   => 'TR-TEST-' . time(),
+            'issue_date'         => now()->toDateString() . ' 12:00:00',
+            'start_date'         => now()->toDateString(),
+            'end_date'           => now()->addYear()->toDateString(),
+            'duration'           => 'سنة',
+            'insured_name'       => 'Test Import Name',
+            'phone'              => '-',
+            'chassis_number'     => '-',
+            'plate_number_manual'=> '-',
+            'premium'            => 10,
+            'tax'                => 1,
+            'stamp'              => 0.5,
+            'issue_fees'         => 2,
+            'supervision_fees'   => 0.5,
+            'total'              => 14,
+            'branch_agent_id'    => null,
+            'notes'              => 'Test',
+            'print_type'         => 'A4',
+        ];
+
+        $doc = \App\Models\InsuranceDocument::updateOrCreate(
+            ['insurance_number' => $docData['insurance_number']],
+            $docData
+        );
+
+        return response()->json([
+            'success' => true,
+            'was_recently_created' => $doc->wasRecentlyCreated,
+            'is_dirty' => $doc->isDirty(),
+            'document_id' => $doc->id,
+            'saved_data' => $doc->toArray()
+        ]);
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'error_class' => get_class($e),
+            'message' => $e->getMessage(),
+            'trace' => $e->getTraceAsString()
+        ], 500);
+    } catch (\Throwable $t) {
+        return response()->json([
+            'success' => false,
+            'error_class' => get_class($t),
+            'message' => $t->getMessage(),
+            'trace' => $t->getTraceAsString()
+        ], 500);
+    }
 });

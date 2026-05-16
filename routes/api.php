@@ -323,8 +323,59 @@ Route::post('/claims/{id}/transfers', [ClaimController::class, 'addTransfer']);
 Route::post('/excel-import/analyze', [\App\Http\Controllers\ExcelImportController::class, 'analyzeFile']);
 Route::post('/excel-import/confirm', [\App\Http\Controllers\ExcelImportController::class, 'confirmImport']);
 Route::get('/excel-import/agents', [\App\Http\Controllers\ExcelImportController::class, 'getAgents']);
+// ─── Check table name and raw insert (للتشخيص العميق) ────────────────────────
+Route::get('/check-table', function () {
+    $model     = new \App\Models\InsuranceDocument();
+    $tableName = $model->getTable();
 
-// Inventory & Stores Routes
+    $rawBefore    = \Illuminate\Support\Facades\DB::selectOne("SELECT COUNT(*) as cnt FROM `{$tableName}`")->cnt;
+    $eloquentBefore = \App\Models\InsuranceDocument::count();
+
+    $testNum = 'RAW-' . time();
+    $insertError = null;
+
+    try {
+        \Illuminate\Support\Facades\DB::table($tableName)->insert([
+            'insurance_type'      => 'تأمين إجباري سيارات',
+            'insurance_number'    => $testNum,
+            'issue_date'          => now()->format('Y-m-d') . ' 12:00:00',
+            'start_date'          => now()->format('Y-m-d'),
+            'end_date'            => now()->addYear()->format('Y-m-d'),
+            'duration'            => 'سنة',
+            'insured_name'        => 'اختبار خام',
+            'phone'               => '-',
+            'chassis_number'      => '-',
+            'plate_number_manual' => '-',
+            'premium'             => 1.0,
+            'tax'                 => 1.0,
+            'stamp'               => 0.5,
+            'issue_fees'          => 2.0,
+            'supervision_fees'    => 0.5,
+            'total'               => 5.0,
+            'print_type'          => 'A4',
+            'created_at'          => now(),
+            'updated_at'          => now(),
+        ]);
+    } catch (\Exception $e) {
+        $insertError = $e->getMessage();
+    }
+
+    $rawAfter     = \Illuminate\Support\Facades\DB::selectOne("SELECT COUNT(*) as cnt FROM `{$tableName}`")->cnt;
+    $eloquentAfter  = \App\Models\InsuranceDocument::count();
+
+    return response()->json([
+        'table_name'         => $tableName,
+        'raw_count_before'   => $rawBefore,
+        'eloquent_before'    => $eloquentBefore,
+        'raw_count_after'    => $rawAfter,
+        'eloquent_after'     => $eloquentAfter,
+        'net_change_raw'     => $rawAfter - $rawBefore,
+        'net_change_eloquent'=> $eloquentAfter - $eloquentBefore,
+        'insert_error'       => $insertError ?? 'none',
+        'db_name'            => config('database.connections.mysql.database'),
+    ]);
+});
+
 Route::prefix('inventory')->group(function () {
     Route::get('/items', [InventoryController::class, 'itemsIndex']);
     Route::post('/items', [InventoryController::class, 'storeItem']);

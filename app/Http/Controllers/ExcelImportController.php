@@ -161,34 +161,10 @@ class ExcelImportController extends Controller
         $skipped       = 0;
         $agentsCreated = 0;
         $errors        = [];
-        $batchSize     = 100; // حفظ كل 100 سجل في transaction مستقلة
 
         $createdAgentsCache = [];
-
-        $batch = [];
-
-        $commitBatch = function() use (&$batch, &$imported, &$errors) {
-            if (empty($batch)) return;
-            DB::beginTransaction();
-            try {
-                foreach ($batch as [$rawData, $importType2, $agentId, $index]) {
-                    try {
-                        $this->importRow($rawData, $importType2, $agentId);
-                        $imported++;
-                    } catch (\Exception $e) {
-                        $errors[] = [
-                            'row'     => $index + 1,
-                            'message' => $e->getMessage(),
-                        ];
-                    }
-                }
-                DB::commit();
-            } catch (\Exception $e) {
-                DB::rollBack();
-                Log::error('ExcelImport batch failed: ' . $e->getMessage());
-            }
-            $batch = [];
-        };
+        $countBefore = \App\Models\InsuranceDocument::count();
+        Log::info("ExcelImport: START - rows=" . count($rows) . ", db_count_before={$countBefore}");
 
         foreach ($rows as $index => $row) {
             if ($row['action'] === 'skip') {
@@ -212,7 +188,6 @@ class ExcelImportController extends Controller
                             $existingAgent = BranchAgent::where('agent_name', $searchName)
                                 ->orWhere('agency_name', $searchName)
                                 ->first();
-
                             if ($existingAgent) {
                                 $agentId = $existingAgent->id;
                             } else {
@@ -225,23 +200,32 @@ class ExcelImportController extends Controller
                             }
                             $createdAgentsCache[$cacheKey] = $agentId;
                         } catch (\Exception $e) {
-                            Log::warning('ExcelImport: failed to create agent for row ' . ($index + 1) . ': ' . $e->getMessage());
+                            Log::warning('ExcelImport: agent create failed row ' . ($index + 1) . ': ' . $e->getMessage());
                             $agentId = null;
                         }
                     }
                 }
             }
 
-            $batch[] = [$row['raw_data'], $importType, $agentId, $index];
+            try {
+                $this->importRow($row['raw_data'], $importType, $agentId);
+                $imported++;
 
-            // حفظ كل 100 سجل فوراً لتجنب rollback عند انقطاع الاتصال
-            if (count($batch) >= $batchSize) {
-                $commitBatch();
+                // لوج كل 500 سجل
+                if ($imported % 500 === 0) {
+                    Log::info("ExcelImport: progress - imported={$imported}");
+                }
+            } catch (\Exception $e) {
+                $errors[] = [
+                    'row'     => $index + 1,
+                    'message' => $e->getMessage(),
+                ];
+                Log::warning("ExcelImport: row " . ($index + 1) . " failed: " . $e->getMessage());
             }
         }
 
-        // حفظ المتبقي
-        $commitBatch();
+        $countAfter = \App\Models\InsuranceDocument::count();
+        Log::info("ExcelImport: DONE - imported={$imported}, errors=" . count($errors) . ", db_count_after={$countAfter}, net_change=" . ($countAfter - $countBefore));
 
         $msg = "تم استيراد {$imported} وثيقة بنجاح";
         if ($agentsCreated > 0) $msg .= "، وإنشاء {$agentsCreated} وكيل جديد";
@@ -256,6 +240,7 @@ class ExcelImportController extends Controller
             'error_count'      => count($errors),
             'errors'           => $errors,
             'message'          => $msg,
+            'db_net_change'    => $countAfter - $countBefore,
         ]);
     }
 

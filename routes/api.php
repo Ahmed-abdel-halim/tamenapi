@@ -314,10 +314,51 @@ Route::get('/claims/search-documents', [ClaimController::class, 'searchDocuments
 Route::apiResource('claims', ClaimController::class)->only(['index', 'store', 'show', 'update', 'destroy']);
 Route::post('/claims/{id}/transfers', [ClaimController::class, 'addTransfer']);
 
-// ─── Excel Import Routes (استيراد ملفات Excel) ──────────────────────────────
 Route::post('/excel-import/analyze', [\App\Http\Controllers\ExcelImportController::class, 'analyzeFile']);
 Route::post('/excel-import/confirm', [\App\Http\Controllers\ExcelImportController::class, 'confirmImport']);
 Route::get('/excel-import/agents',   [\App\Http\Controllers\ExcelImportController::class, 'getAgents']);
+
+// ─── Diagnostics (مؤقت للتشخيص) ─────────────────────────────────────────────
+Route::get('/diagnostics', function () {
+    $checks = [];
+
+    // PHP extensions
+    $checks['zip_extension']       = extension_loaded('zip') ? 'OK' : 'MISSING - Cannot read xlsx!';
+    $checks['simplexml_extension'] = extension_loaded('simplexml') ? 'OK' : 'MISSING';
+    $checks['pdo_mysql']           = extension_loaded('pdo_mysql') ? 'OK' : 'MISSING';
+
+    // PHP limits
+    $checks['memory_limit']        = ini_get('memory_limit');
+    $checks['max_execution_time']  = ini_get('max_execution_time') . 's';
+    $checks['upload_max_filesize'] = ini_get('upload_max_filesize');
+    $checks['post_max_size']       = ini_get('post_max_size');
+
+    // Database connection
+    try {
+        $count = \App\Models\InsuranceDocument::count();
+        $checks['db_connection']     = 'OK';
+        $checks['documents_count']   = $count;
+        $checks['table_exists']      = 'YES';
+    } catch (\Exception $e) {
+        $checks['db_connection']     = 'ERROR: ' . $e->getMessage();
+        $checks['table_exists']      = 'UNKNOWN';
+    }
+
+    // Storage writable
+    $checks['storage_writable'] = is_writable(storage_path()) ? 'OK' : 'NOT WRITABLE';
+
+    // PHP version
+    $checks['php_version'] = PHP_VERSION;
+
+    // .env APP_ENV
+    $checks['app_env']  = config('app.env');
+    $checks['app_url']  = config('app.url');
+    $checks['db_host']  = config('database.connections.mysql.host');
+    $checks['db_name']  = config('database.connections.mysql.database');
+
+    return response()->json($checks, 200, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+});
+
 
 // Inventory & Stores Routes
 Route::prefix('inventory')->group(function () {

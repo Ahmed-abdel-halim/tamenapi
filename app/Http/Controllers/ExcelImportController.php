@@ -151,6 +151,7 @@ class ExcelImportController extends Controller
 
         // إيقاف حدود الوقت لمعالجة آلاف السجلات
         set_time_limit(0);
+        ignore_user_abort(true); // الاستمرار حتى لو انقطع اتصال nginx
         ini_set('memory_limit', '1G');
 
         $importType = $request->input('import_type');
@@ -160,96 +161,104 @@ class ExcelImportController extends Controller
         $skipped       = 0;
         $agentsCreated = 0;
         $errors        = [];
+        $batchSize     = 100; // حفظ كل 100 سجل في transaction مستقلة
 
-        // Cache لتجنب إنشاء نفس الوكيل مرتين في نفس الاستيراد
-        // key = "agent_name|agency_name" => branch_agent_id
         $createdAgentsCache = [];
 
-        DB::beginTransaction();
-        try {
-            foreach ($rows as $index => $row) {
-                if ($row['action'] === 'skip') {
-                    $skipped++;
-                    continue;
+        $batch = [];
+
+        $commitBatch = function() use (&$batch, &$imported, &$errors) {
+            if (empty($batch)) return;
+            DB::beginTransaction();
+            try {
+                foreach ($batch as [$rawData, $importType2, $agentId, $index]) {
+                    try {
+                        $this->importRow($rawData, $importType2, $agentId);
+                        $imported++;
+                    } catch (\Exception $e) {
+                        $errors[] = [
+                            'row'     => $index + 1,
+                            'message' => $e->getMessage(),
+                        ];
+                    }
                 }
+                DB::commit();
+            } catch (\Exception $e) {
+                DB::rollBack();
+                Log::error('ExcelImport batch failed: ' . $e->getMessage());
+            }
+            $batch = [];
+        };
 
-                $agentId = $row['selected_agent_id'] ?? null;
+        foreach ($rows as $index => $row) {
+            if ($row['action'] === 'skip') {
+                $skipped++;
+                continue;
+            }
 
-                // إنشاء وكيل جديد تلقائياً من بيانات الملف
-                if ($row['action'] === 'create_agent') {
-                    $agentName  = trim($row['agent_name_in_file']  ?? '');
-                    $agencyName = trim($row['agency_name_in_file'] ?? '');
-                    $cacheKey   = mb_strtolower($agentName . '|' . $agencyName);
+            $agentId = $row['selected_agent_id'] ?? null;
 
-                    if (!empty($agentName) || !empty($agencyName)) {
-                        if (isset($createdAgentsCache[$cacheKey])) {
-                            // استخدم الوكيل المُنشأ مسبقاً في نفس الدُفعة
-                            $agentId = $createdAgentsCache[$cacheKey];
-                        } else {
-                            try {
-                                // التحقق مما إذا كان الوكيل قد تم إنشاؤه للتو في دفعة سابقة
-                                $searchName = $agentName ?: $agencyName;
-                                $existingAgent = BranchAgent::where('agent_name', $searchName)
-                                    ->orWhere('agency_name', $searchName)
-                                    ->first();
-                                
-                                if ($existingAgent) {
-                                    $agentId = $existingAgent->id;
-                                    $createdAgentsCache[$cacheKey] = $agentId;
-                                } else {
-                                    $newAgent = $this->createAgentFromRow(
-                                        $agentName ?: 'غير محدد',
-                                        $agentName ?: 'غير محدد'
-                                    );
-                                    $agentId = $newAgent->id;
-                                    $createdAgentsCache[$cacheKey] = $agentId;
-                                    $agentsCreated++;
-                                }
-                            } catch (\Exception $e) {
-                                Log::warning('ExcelImport: failed to create agent for row ' . ($index + 1) . ': ' . $e->getMessage());
-                                // نكمل الاستيراد بدون وكيل
-                                $agentId = null;
+            if ($row['action'] === 'create_agent') {
+                $agentName  = trim($row['agent_name_in_file']  ?? '');
+                $agencyName = trim($row['agency_name_in_file'] ?? '');
+                $cacheKey   = mb_strtolower($agentName . '|' . $agencyName);
+
+                if (!empty($agentName) || !empty($agencyName)) {
+                    if (isset($createdAgentsCache[$cacheKey])) {
+                        $agentId = $createdAgentsCache[$cacheKey];
+                    } else {
+                        try {
+                            $searchName    = $agentName ?: $agencyName;
+                            $existingAgent = BranchAgent::where('agent_name', $searchName)
+                                ->orWhere('agency_name', $searchName)
+                                ->first();
+
+                            if ($existingAgent) {
+                                $agentId = $existingAgent->id;
+                            } else {
+                                $newAgent = $this->createAgentFromRow(
+                                    $agentName ?: 'غير محدد',
+                                    $agentName ?: 'غير محدد'
+                                );
+                                $agentId = $newAgent->id;
+                                $agentsCreated++;
                             }
+                            $createdAgentsCache[$cacheKey] = $agentId;
+                        } catch (\Exception $e) {
+                            Log::warning('ExcelImport: failed to create agent for row ' . ($index + 1) . ': ' . $e->getMessage());
+                            $agentId = null;
                         }
                     }
                 }
-
-                try {
-                    $this->importRow($row['raw_data'], $importType, $agentId);
-                    $imported++;
-                } catch (\Exception $e) {
-                    $errors[] = [
-                        'row'     => $index + 1,
-                        'message' => $e->getMessage(),
-                        'data'    => $row['raw_data'],
-                    ];
-                }
             }
 
-            DB::commit();
+            $batch[] = [$row['raw_data'], $importType, $agentId, $index];
 
-            $msg = "تم استيراد {$imported} وثيقة بنجاح";
-            if ($agentsCreated > 0) $msg .= "، وإنشاء {$agentsCreated} وكيل جديد";
-            if ($skipped > 0)       $msg .= "، وتخطي {$skipped}";
-            if (count($errors) > 0) $msg .= "، و" . count($errors) . " خطأ";
-
-            return response()->json([
-                'success'          => true,
-                'imported_count'   => $imported,
-                'skipped_count'    => $skipped,
-                'agents_created'   => $agentsCreated,
-                'error_count'      => count($errors),
-                'errors'           => $errors,
-                'message'          => $msg,
-            ]);
-        } catch (\Exception $e) {
-            DB::rollBack();
-            Log::error('ExcelImportController@confirmImport: ' . $e->getMessage());
-            return response()->json([
-                'message' => 'حدث خطأ أثناء الاستيراد: ' . $e->getMessage(),
-            ], 500);
+            // حفظ كل 100 سجل فوراً لتجنب rollback عند انقطاع الاتصال
+            if (count($batch) >= $batchSize) {
+                $commitBatch();
+            }
         }
+
+        // حفظ المتبقي
+        $commitBatch();
+
+        $msg = "تم استيراد {$imported} وثيقة بنجاح";
+        if ($agentsCreated > 0) $msg .= "، وإنشاء {$agentsCreated} وكيل جديد";
+        if ($skipped > 0)       $msg .= "، وتخطي {$skipped}";
+        if (count($errors) > 0) $msg .= "، و" . count($errors) . " خطأ";
+
+        return response()->json([
+            'success'          => true,
+            'imported_count'   => $imported,
+            'skipped_count'    => $skipped,
+            'agents_created'   => $agentsCreated,
+            'error_count'      => count($errors),
+            'errors'           => $errors,
+            'message'          => $msg,
+        ]);
     }
+
 
     /**
      * إنشاء وكيل جديد تلقائياً من بيانات الملف

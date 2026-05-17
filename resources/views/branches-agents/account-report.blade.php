@@ -268,72 +268,72 @@
                 <div class="section">
                     <table class="two-column-table">
                         <tr style="vertical-align:top;">
-                            <td colspan="10" style="width:480px;height:14px;line-height:13px;direction:rtl;text-align:right;vertical-align:middle;font-size:12px;font-weight:bold;padding:6px;">
+                            <td colspan="10" style="width:635px;height:14px;line-height:13px;direction:rtl;text-align:right;vertical-align:middle;font-size:12px;font-weight:bold;padding:6px;">
                                 <nobr>{{ $categoryLabel }}</nobr>
                             </td>
                         </tr>
                         <tr style="vertical-align:top;">
-                            <td colspan="1" style="width:40px;height:11px;line-height:10px;direction:rtl;text-align:center;vertical-align:middle;font-size:10px;font-weight:bold;">
+                            <td colspan="1" style="width:25px;height:11px;line-height:10px;direction:rtl;text-align:center;vertical-align:middle;font-size:10px;font-weight:bold;">
                                 <nobr>#</nobr>
                             </td>
                             <td colspan="1" style="width:80px;height:11px;line-height:10px;direction:rtl;text-align:center;vertical-align:middle;font-size:10px;font-weight:bold;">
                                 <nobr>الفئة</nobr>
                             </td>
-                            <td colspan="1" style="width:80px;height:11px;line-height:10px;direction:rtl;text-align:center;vertical-align:middle;font-size:10px;font-weight:bold;">
+                            <td colspan="1" style="width:100px;height:11px;line-height:10px;direction:rtl;text-align:center;vertical-align:middle;font-size:10px;font-weight:bold;">
                                 <nobr>اسم المؤمن</nobr>
                             </td>
-                            <td colspan="1" style="width:60px;height:11px;line-height:10px;direction:rtl;text-align:center;vertical-align:middle;font-size:10px;font-weight:bold;">
+                            <td colspan="1" style="width:40px;height:11px;line-height:10px;direction:rtl;text-align:center;vertical-align:middle;font-size:10px;font-weight:bold;">
                                 <nobr>رقم الهاتف</nobr>
                             </td>
-                            <td colspan="1" style="width:70px;height:11px;line-height:10px;direction:rtl;text-align:center;vertical-align:middle;font-size:10px;font-weight:bold;">
+                            <td colspan="1" style="width:65px;height:11px;line-height:10px;direction:rtl;text-align:center;vertical-align:middle;font-size:10px;font-weight:bold;">
                                 <nobr>كود التأمين</nobr>
                             </td>
-                            <td colspan="1" style="width:60px;height:11px;line-height:10px;direction:rtl;text-align:center;vertical-align:middle;font-size:10px;font-weight:bold;">
+                            <td colspan="1" style="width:55px;height:11px;line-height:10px;direction:rtl;text-align:center;vertical-align:middle;font-size:10px;font-weight:bold;">
                                 <nobr>نسبة الوكيل</nobr>
                             </td>
-                            <td colspan="1" style="width:70px;height:11px;line-height:10px;direction:rtl;text-align:center;vertical-align:middle;font-size:10px;font-weight:bold;">
+                            <td colspan="1" style="width:65px;height:11px;line-height:10px;direction:rtl;text-align:center;vertical-align:middle;font-size:10px;font-weight:bold;">
                                 <nobr>القيمة للوكيل</nobr>
                             </td>
-                            <td colspan="1" style="width:70px;height:11px;line-height:10px;direction:rtl;text-align:center;vertical-align:middle;font-size:10px;font-weight:bold;">
+                            <td colspan="1" style="width:65px;height:11px;line-height:10px;direction:rtl;text-align:center;vertical-align:middle;font-size:10px;font-weight:bold;">
                                 <nobr>القيمة للشركة</nobr>
                             </td>
-                            <td colspan="1" style="width:70px;height:11px;line-height:10px;direction:rtl;text-align:center;vertical-align:middle;font-size:10px;font-weight:bold;">
+                            <td colspan="1" style="width:65px;height:11px;line-height:10px;direction:rtl;text-align:center;vertical-align:middle;font-size:10px;font-weight:bold;">
                                 <nobr>قيمة التأمين</nobr>
                             </td>
-                            <td colspan="1" style="width:60px;height:11px;line-height:10px;direction:rtl;text-align:center;vertical-align:middle;font-size:10px;font-weight:bold;">
+                            <td colspan="1" style="width:75px;height:11px;line-height:10px;direction:rtl;text-align:center;vertical-align:middle;font-size:10px;font-weight:bold;">
                                 <nobr>التاريخ</nobr>
                             </td>
                         </tr>
                         @foreach($documentsByCategory[$categoryKey] as $doc)
                         <tr style="vertical-align:top;">
-                            <td colspan="1" style="width:40px;height:11px;line-height:10px;direction:rtl;text-align:center;vertical-align:middle;font-size:10px;font-weight:normal;">
+                            <td colspan="1" style="width:25px;height:11px;line-height:10px;direction:rtl;text-align:center;vertical-align:middle;font-size:10px;font-weight:normal;">
                                 <nobr>{{ $counter++ }}</nobr>
                             </td>
                             <td colspan="1" style="width:80px;height:11px;line-height:10px;direction:rtl;text-align:center;vertical-align:middle;font-size:10px;font-weight:normal;">
                                 <nobr>{{ $doc['category'] }}</nobr>
                             </td>
-                            <td colspan="1" style="width:80px;height:11px;line-height:10px;direction:rtl;text-align:center;vertical-align:middle;font-size:10px;font-weight:normal;">
-                                <nobr>{{ $doc['insured_name'] }}</nobr>
+                            <td colspan="1" style="width:100px;height:auto;line-height:12px;direction:rtl;text-align:center;vertical-align:middle;font-size:10px;font-weight:normal;padding:2px 4px;">
+                                {{ $doc['insured_name'] }}
                             </td>
-                            <td colspan="1" style="width:60px;height:11px;line-height:10px;direction:rtl;text-align:center;vertical-align:middle;font-size:10px;font-weight:normal;">
+                            <td colspan="1" style="width:40px;height:11px;line-height:10px;direction:rtl;text-align:center;vertical-align:middle;font-size:10px;font-weight:normal;">
                                 <nobr>{{ $doc['phone'] }}</nobr>
                             </td>
-                            <td colspan="1" style="width:70px;height:11px;line-height:10px;direction:rtl;text-align:center;vertical-align:middle;font-size:10px;font-weight:normal;">
+                            <td colspan="1" style="width:65px;height:11px;line-height:10px;direction:rtl;text-align:center;vertical-align:middle;font-size:10px;font-weight:normal;">
                                 <nobr>{{ $doc['document_number'] }}</nobr>
                             </td>
-                            <td colspan="1" style="width:60px;height:11px;line-height:10px;direction:rtl;text-align:center;vertical-align:middle;font-size:10px;font-weight:normal;">
+                            <td colspan="1" style="width:55px;height:11px;line-height:10px;direction:rtl;text-align:center;vertical-align:middle;font-size:10px;font-weight:normal;">
                                 <nobr>{{ number_format($doc['percentage'], 2) }}%</nobr>
                             </td>
-                            <td colspan="1" style="width:70px;height:11px;line-height:10px;direction:rtl;text-align:center;vertical-align:middle;font-size:10px;font-weight:normal;">
+                            <td colspan="1" style="width:65px;height:11px;line-height:10px;direction:rtl;text-align:center;vertical-align:middle;font-size:10px;font-weight:normal;">
                                 <nobr>{{ number_format($doc['agent_amount'], 3) }}</nobr>
                             </td>
-                            <td colspan="1" style="width:70px;height:11px;line-height:10px;direction:rtl;text-align:center;vertical-align:middle;font-size:10px;font-weight:normal;">
+                            <td colspan="1" style="width:65px;height:11px;line-height:10px;direction:rtl;text-align:center;vertical-align:middle;font-size:10px;font-weight:normal;">
                                 <nobr>{{ number_format($doc['company_amount'], 3) }}</nobr>
                             </td>
-                            <td colspan="1" style="width:70px;height:11px;line-height:10px;direction:rtl;text-align:center;vertical-align:middle;font-size:10px;font-weight:normal;">
+                            <td colspan="1" style="width:65px;height:11px;line-height:10px;direction:rtl;text-align:center;vertical-align:middle;font-size:10px;font-weight:normal;">
                                 <nobr>{{ number_format($doc['total'], 3) }}</nobr>
                             </td>
-                            <td colspan="1" style="width:60px;height:11px;line-height:10px;direction:rtl;text-align:center;vertical-align:middle;font-size:10px;font-weight:normal;">
+                            <td colspan="1" style="width:75px;height:11px;line-height:10px;direction:rtl;text-align:center;vertical-align:middle;font-size:10px;font-weight:normal;">
                                 <nobr>{{ $doc['date'] ? \Carbon\Carbon::parse($doc['date'])->format('d/m/Y') : '-' }}</nobr>
                             </td>
                         </tr>

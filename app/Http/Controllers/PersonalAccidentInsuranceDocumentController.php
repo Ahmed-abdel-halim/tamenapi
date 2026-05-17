@@ -81,7 +81,8 @@ class PersonalAccidentInsuranceDocumentController extends Controller
             }
 
             $perPage = $request->query('per_page', 10);
-            $documents = $query->orderBy('created_at', 'desc')
+            $documents = $query->orderBy('issue_date', 'desc')
+                ->orderBy('id', 'desc')
                 ->paginate($perPage);
 
             $documents->getCollection()->transform(function ($document) use ($isAdmin) {
@@ -142,13 +143,18 @@ class PersonalAccidentInsuranceDocumentController extends Controller
 
         try {
             // توليد رقم التأمين التلقائي MLPSA00001
-            $lastDocument = PersonalAccidentInsuranceDocument::orderBy('id', 'desc')->first();
+            $lastDocument = PersonalAccidentInsuranceDocument::where('insurance_number', 'like', 'MLPSA%')
+                ->orderBy('id', 'desc')
+                ->first();
             if ($lastDocument && preg_match('/MLPSA(\d+)/', $lastDocument->insurance_number, $matches)) {
                 $nextNumber = (int)$matches[1] + 1;
             } else {
                 $nextNumber = 1;
             }
-            $insuranceNumber = 'MLPSA' . str_pad($nextNumber, 5, '0', STR_PAD_LEFT);
+            do {
+                $insuranceNumber = 'MLPSA' . str_pad($nextNumber, 5, '0', STR_PAD_LEFT);
+                $nextNumber++;
+            } while (PersonalAccidentInsuranceDocument::where('insurance_number', $insuranceNumber)->exists());
 
             // الحصول على branch_agent_id من المستخدم الحالي
             $branchAgentId = null;

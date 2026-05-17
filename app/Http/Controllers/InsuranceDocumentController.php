@@ -83,7 +83,8 @@ class InsuranceDocumentController extends Controller
             }
 
             $perPage = $request->query('per_page', 10);
-            $documents = $query->orderBy('created_at', 'desc')
+            $documents = $query->orderBy('issue_date', 'desc')
+                ->orderBy('id', 'desc')
                 ->paginate($perPage);
 
             $documents->getCollection()->transform(function ($document) use ($isAdmin) {
@@ -186,13 +187,18 @@ class InsuranceDocumentController extends Controller
 
         try {
             // توليد رقم التأمين التلقائي
-            $lastDocument = InsuranceDocument::orderBy('id', 'desc')->first();
+            $lastDocument = InsuranceDocument::where('insurance_number', 'like', 'BKMCI%')
+                ->orderBy('id', 'desc')
+                ->first();
             if ($lastDocument && preg_match('/BKMCI(\d+)/', $lastDocument->insurance_number, $matches)) {
                 $nextNumber = (int)$matches[1] + 1;
             } else {
                 $nextNumber = 1;
             }
-            $insuranceNumber = 'BKMCI' . str_pad($nextNumber, 3, '0', STR_PAD_LEFT);
+            do {
+                $insuranceNumber = 'BKMCI' . str_pad($nextNumber, 3, '0', STR_PAD_LEFT);
+                $nextNumber++;
+            } while (InsuranceDocument::where('insurance_number', $insuranceNumber)->exists());
 
             // حساب نهاية التأمين إذا تم تحديد المدة
             $endDate = $validated['end_date'] ?? null;

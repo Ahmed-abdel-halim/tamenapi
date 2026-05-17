@@ -85,7 +85,8 @@ class TravelInsuranceDocumentController extends Controller
             }
 
             $perPage = $request->query('per_page', 10);
-            $documents = $query->orderBy('created_at', 'desc')
+            $documents = $query->orderBy('issue_date', 'desc')
+                ->orderBy('id', 'desc')
                 ->paginate($perPage);
 
             $documents->getCollection()->transform(function ($document) use ($isAdmin) {
@@ -152,13 +153,18 @@ class TravelInsuranceDocumentController extends Controller
 
         try {
             // توليد رقم التأمين التلقائي
-            $lastDocument = TravelInsuranceDocument::orderBy('id', 'desc')->first();
+            $lastDocument = TravelInsuranceDocument::where('insurance_number', 'like', 'BKTRV%')
+                ->orderBy('id', 'desc')
+                ->first();
             if ($lastDocument && preg_match('/BKTRV(\d+)/', $lastDocument->insurance_number, $matches)) {
                 $nextNumber = (int) $matches[1] + 1;
             } else {
                 $nextNumber = 1;
             }
-            $insuranceNumber = 'BKTRV' . str_pad($nextNumber, 5, '0', STR_PAD_LEFT);
+            do {
+                $insuranceNumber = 'BKTRV' . str_pad($nextNumber, 5, '0', STR_PAD_LEFT);
+                $nextNumber++;
+            } while (TravelInsuranceDocument::where('insurance_number', $insuranceNumber)->exists());
 
             // الحصول على branch_agent_id من المستخدم الحالي
             $branchAgentId = null;

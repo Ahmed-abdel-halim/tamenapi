@@ -79,7 +79,8 @@ class InternationalInsuranceDocumentController extends Controller
             }
 
             $perPage = $request->query('per_page', 10);
-            $documents = $query->orderBy('created_at', 'desc')
+            $documents = $query->orderBy('issue_date', 'desc')
+                ->orderBy('id', 'desc')
                 ->paginate($perPage);
 
             $documents->getCollection()->transform(function ($document) use ($isAdmin) {
@@ -145,13 +146,18 @@ class InternationalInsuranceDocumentController extends Controller
 
         try {
             // توليد رقم الوثيقة LBY0001
-            $lastDocument = InternationalInsuranceDocument::orderBy('id', 'desc')->first();
+            $lastDocument = InternationalInsuranceDocument::where('document_number', 'like', 'LBY%')
+                ->orderBy('id', 'desc')
+                ->first();
             if ($lastDocument && preg_match('/LBY(\d+)/', $lastDocument->document_number, $matches)) {
                 $nextNumber = (int)$matches[1] + 1;
             } else {
                 $nextNumber = 1;
             }
-            $documentNumber = 'LBY' . str_pad($nextNumber, 4, '0', STR_PAD_LEFT);
+            do {
+                $documentNumber = 'LBY' . str_pad($nextNumber, 4, '0', STR_PAD_LEFT);
+                $nextNumber++;
+            } while (InternationalInsuranceDocument::where('document_number', $documentNumber)->exists());
 
             // الحصول على branch_agent_id من المستخدم الحالي
             $branchAgentId = null;

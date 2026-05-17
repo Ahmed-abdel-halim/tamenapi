@@ -302,13 +302,18 @@ class ExcelImportController extends Controller
         }
 
         // نولّد رقم وثيقة فريد
-        $lastDoc = InsuranceDocument::orderBy('id', 'desc')->first();
+        $lastDoc = InsuranceDocument::where('insurance_number', 'like', 'BKMCI%')
+            ->orderBy('id', 'desc')
+            ->first();
         if ($lastDoc && preg_match('/BKMCI(\d+)/', $lastDoc->insurance_number, $matches)) {
             $nextNum = (int)$matches[1] + 1;
         } else {
             $nextNum = 1;
         }
-        $insuranceNumber = 'BKMCI' . str_pad($nextNum, 3, '0', STR_PAD_LEFT);
+        do {
+            $insuranceNumber = 'BKMCI' . str_pad($nextNum, 3, '0', STR_PAD_LEFT);
+            $nextNum++;
+        } while (InsuranceDocument::where('insurance_number', $insuranceNumber)->exists());
 
         // استخراج الحقول بناءً على عناوين الإكسيل الفعلية
         // ملاحظة: من اللوج تبيّن أن رقم الوثيقة دائماً في العمود [4] واسم المؤمن في [7]

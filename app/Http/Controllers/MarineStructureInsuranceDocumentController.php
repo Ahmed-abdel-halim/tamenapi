@@ -81,7 +81,8 @@ class MarineStructureInsuranceDocumentController extends Controller
             }
 
             $perPage = $request->query('per_page', 10);
-            $documents = $query->orderBy('created_at', 'desc')
+            $documents = $query->orderBy('issue_date', 'desc')
+                ->orderBy('id', 'desc')
                 ->paginate($perPage);
 
             $documents->getCollection()->transform(function ($document) use ($isAdmin) {
@@ -159,13 +160,18 @@ class MarineStructureInsuranceDocumentController extends Controller
 
         try {
             // توليد رقم التأمين التلقائي
-            $lastDocument = MarineStructureInsuranceDocument::orderBy('id', 'desc')->first();
+            $lastDocument = MarineStructureInsuranceDocument::where('insurance_number', 'like', 'MLMAR%')
+                ->orderBy('id', 'desc')
+                ->first();
             if ($lastDocument && preg_match('/MLMAR(\d+)/', $lastDocument->insurance_number, $matches)) {
                 $nextNumber = (int)$matches[1] + 1;
             } else {
                 $nextNumber = 1;
             }
-            $insuranceNumber = 'MLMAR' . str_pad($nextNumber, 5, '0', STR_PAD_LEFT);
+            do {
+                $insuranceNumber = 'MLMAR' . str_pad($nextNumber, 5, '0', STR_PAD_LEFT);
+                $nextNumber++;
+            } while (MarineStructureInsuranceDocument::where('insurance_number', $insuranceNumber)->exists());
 
             // حساب نهاية التأمين إذا لم يتم تحديدها
             $endDate = $validated['end_date'] ?? null;

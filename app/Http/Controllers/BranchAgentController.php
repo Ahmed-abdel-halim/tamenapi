@@ -132,9 +132,18 @@ class BranchAgentController extends Controller
             ]);
 
             // توليد الكود التلقائي
-            $lastAgent = BranchAgent::orderBy('id', 'desc')->first();
-            $nextNumber = $lastAgent ? (int)substr($lastAgent->code, 2) + 1 : 1;
-            $code = 'BK' . str_pad($nextNumber, 4, '0', STR_PAD_LEFT);
+            $lastAgent = BranchAgent::where('code', 'like', 'BK%')
+                ->orderBy('id', 'desc')
+                ->first();
+            if ($lastAgent) {
+                $nextNumber = (int)substr($lastAgent->code, 2) + 1;
+            } else {
+                $nextNumber = 1;
+            }
+            do {
+                $code = 'BK' . str_pad($nextNumber, 4, '0', STR_PAD_LEFT);
+                $nextNumber++;
+            } while (BranchAgent::where('code', $code)->exists());
 
             // رفع الصور
             $personalPhoto = null;
@@ -322,9 +331,18 @@ class BranchAgentController extends Controller
             ]);
 
             // توليد الكود التلقائي
-            $lastAgent = BranchAgent::orderBy('id', 'desc')->first();
-            $nextNumber = $lastAgent ? (int)substr($lastAgent->code, 2) + 1 : 1;
-            $code = 'BK' . str_pad($nextNumber, 4, '0', STR_PAD_LEFT);
+            $lastAgent = BranchAgent::where('code', 'like', 'BK%')
+                ->orderBy('id', 'desc')
+                ->first();
+            if ($lastAgent) {
+                $nextNumber = (int)substr($lastAgent->code, 2) + 1;
+            } else {
+                $nextNumber = 1;
+            }
+            do {
+                $code = 'BK' . str_pad($nextNumber, 4, '0', STR_PAD_LEFT);
+                $nextNumber++;
+            } while (BranchAgent::where('code', $code)->exists());
 
             // رفع الصور
             $uploadedDocs = [];
@@ -2231,7 +2249,7 @@ class BranchAgentController extends Controller
 
             // ترتيب جميع الوثائق حسب التاريخ (الأحدث أولاً) وأخذ آخر 5
             $latestDocuments = $allDocuments
-                ->sortByDesc('created_at')
+                ->sortByDesc('issue_date')
                 ->take(5)
                 ->values()
                 ->map(function ($doc) {

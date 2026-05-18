@@ -825,14 +825,14 @@ class BranchAgentController extends Controller
             $fromDate = $request->get('from_date');
             $toDate = $request->get('to_date');
 
-            $applyCreatedAtFilter = function ($query) use ($type, $year, $month, $fromDate, $toDate) {
+            $applyDateFilter = function ($query, $column = 'issue_date') use ($type, $year, $month, $fromDate, $toDate) {
                 if ($type === 'range' && $fromDate && $toDate) {
-                    return $query->whereDate('created_at', '>=', $fromDate)
-                        ->whereDate('created_at', '<=', $toDate);
+                    return $query->whereDate($column, '>=', $fromDate)
+                        ->whereDate($column, '<=', $toDate);
                 }
                 if ($type === 'monthly' && $year && $month) {
-                    return $query->whereYear('created_at', $year)
-                        ->whereMonth('created_at', $month);
+                    return $query->whereYear($column, $year)
+                        ->whereMonth($column, $month);
                 }
                 return $query;
             };
@@ -851,55 +851,75 @@ class BranchAgentController extends Controller
 
             // جلب جميع وثائق التأمين المرتبطة بالوكيل
             $insuranceDocuments = DB::table('insurance_documents')
-                ->select('id', 'insurance_type', 'insurance_number', 'premium', 'total', 'phone', 'insured_name', 'created_at')
+                ->select('id', 'insurance_type', 'insurance_number', 'premium', 'total', 'phone', 'insured_name', 'created_at', 'issue_date')
                 ->where('branch_agent_id', $id)
-                ->when($type === 'monthly' || $type === 'range', $applyCreatedAtFilter)
+                ->when($type === 'monthly' || $type === 'range', function ($q) use ($applyDateFilter) {
+                    return $applyDateFilter($q, 'issue_date');
+                })
                 ->get();
 
             $internationalInsuranceDocuments = DB::table('international_insurance_documents')
                 ->where('branch_agent_id', $id)
-                ->when($type === 'monthly' || $type === 'range', $applyCreatedAtFilter)
+                ->when($type === 'monthly' || $type === 'range', function ($q) use ($applyDateFilter) {
+                    return $applyDateFilter($q, 'issue_date');
+                })
                 ->get();
 
             $travelInsuranceDocuments = DB::table('travel_insurance_documents')
                 ->where('branch_agent_id', $id)
-                ->when($type === 'monthly' || $type === 'range', $applyCreatedAtFilter)
+                ->when($type === 'monthly' || $type === 'range', function ($q) use ($applyDateFilter) {
+                    return $applyDateFilter($q, 'issue_date');
+                })
                 ->get();
 
             $residentInsuranceDocuments = DB::table('resident_insurance_documents')
                 ->where('branch_agent_id', $id)
-                ->when($type === 'monthly' || $type === 'range', $applyCreatedAtFilter)
+                ->when($type === 'monthly' || $type === 'range', function ($q) use ($applyDateFilter) {
+                    return $applyDateFilter($q, 'issue_date');
+                })
                 ->get();
 
             $marineStructureInsuranceDocuments = DB::table('marine_structure_insurance_documents')
                 ->where('branch_agent_id', $id)
-                ->when($type === 'monthly' || $type === 'range', $applyCreatedAtFilter)
+                ->when($type === 'monthly' || $type === 'range', function ($q) use ($applyDateFilter) {
+                    return $applyDateFilter($q, 'issue_date');
+                })
                 ->get();
 
             $professionalLiabilityInsuranceDocuments = DB::table('professional_liability_insurance_documents')
                 ->where('branch_agent_id', $id)
-                ->when($type === 'monthly' || $type === 'range', $applyCreatedAtFilter)
+                ->when($type === 'monthly' || $type === 'range', function ($q) use ($applyDateFilter) {
+                    return $applyDateFilter($q, 'issue_date');
+                })
                 ->get();
 
             $personalAccidentInsuranceDocuments = DB::table('personal_accident_insurance_documents')
-                ->select('id', 'insurance_number', 'premium', 'total', 'phone', 'name', 'created_at')
+                ->select('id', 'insurance_number', 'premium', 'total', 'phone', 'name', 'created_at', 'issue_date')
                 ->where('branch_agent_id', $id)
-                ->when($type === 'monthly' || $type === 'range', $applyCreatedAtFilter)
+                ->when($type === 'monthly' || $type === 'range', function ($q) use ($applyDateFilter) {
+                    return $applyDateFilter($q, 'issue_date');
+                })
                 ->get();
 
             $schoolStudentInsuranceDocuments = DB::table('school_student_insurance_documents')
                 ->where('branch_agent_id', $id)
-                ->when($type === 'monthly' || $type === 'range', $applyCreatedAtFilter)
+                ->when($type === 'monthly' || $type === 'range', function ($q) use ($applyDateFilter) {
+                    return $applyDateFilter($q, 'start_date');
+                })
                 ->get();
 
             $cargoInsuranceDocuments = DB::table('cargo_insurance_documents')
                 ->where('branch_agent_id', $id)
-                ->when($type === 'monthly' || $type === 'range', $applyCreatedAtFilter)
+                ->when($type === 'monthly' || $type === 'range', function ($q) use ($applyDateFilter) {
+                    return $applyDateFilter($q, 'created_at');
+                })
                 ->get();
 
             $cashInTransitInsuranceDocuments = DB::table('cash_in_transit_insurance_documents')
                 ->where('branch_agent_id', $id)
-                ->when($type === 'monthly' || $type === 'range', $applyCreatedAtFilter)
+                ->when($type === 'monthly' || $type === 'range', function ($q) use ($applyDateFilter) {
+                    return $applyDateFilter($q, 'start_date');
+                })
                 ->get();
 
             // جلب إيصالات القبض (Payment Vouchers) لخصمها من الرصيد
@@ -971,7 +991,7 @@ class BranchAgentController extends Controller
                     'percentage' => $percentage,
                     'phone' => $doc->phone ?? '-',
                     'insured_name' => $doc->insured_name ?? '-',
-                    'date' => $doc->created_at ?? null,
+                    'date' => $doc->issue_date ?? $doc->created_at ?? null,
                 ];
             }
 
@@ -999,7 +1019,7 @@ class BranchAgentController extends Controller
                     'percentage' => $percentage,
                     'phone' => $doc->phone ?? '-',
                     'insured_name' => $doc->insured_name ?? '-',
-                    'date' => $doc->created_at ?? null,
+                    'date' => $doc->issue_date ?? $doc->created_at ?? null,
                 ];
             }
 
@@ -1034,7 +1054,7 @@ class BranchAgentController extends Controller
                     'percentage' => $percentage,
                     'phone' => $mainPassenger->phone ?? '-',
                     'insured_name' => $mainPassenger->name_ar ?? '-',
-                    'date' => $doc->created_at ?? null,
+                    'date' => $doc->issue_date ?? $doc->created_at ?? null,
                 ];
             }
 
@@ -1068,7 +1088,7 @@ class BranchAgentController extends Controller
                     'percentage' => $percentage,
                     'phone' => $mainPassenger->phone ?? '-',
                     'insured_name' => $mainPassenger->name_ar ?? '-',
-                    'date' => $doc->created_at ?? null,
+                    'date' => $doc->issue_date ?? $doc->created_at ?? null,
                 ];
             }
 
@@ -1096,7 +1116,7 @@ class BranchAgentController extends Controller
                     'percentage' => $percentage,
                     'phone' => $doc->phone ?? '-',
                     'insured_name' => $doc->insured_name ?? '-',
-                    'date' => $doc->created_at ?? null,
+                    'date' => $doc->issue_date ?? $doc->created_at ?? null,
                 ];
             }
 
@@ -1124,7 +1144,7 @@ class BranchAgentController extends Controller
                     'percentage' => $percentage,
                     'phone' => $doc->phone ?? '-',
                     'insured_name' => $doc->insured_name ?? '-',
-                    'date' => $doc->created_at ?? null,
+                    'date' => $doc->issue_date ?? $doc->created_at ?? null,
                 ];
             }
 
@@ -1155,7 +1175,7 @@ class BranchAgentController extends Controller
                     'percentage' => $percentage,
                     'phone' => $doc->phone ?? '-',
                     'insured_name' => $insuredName,
-                    'date' => $doc->created_at ?? null,
+                    'date' => $doc->issue_date ?? $doc->created_at ?? null,
                 ];
             }
 
@@ -1182,7 +1202,7 @@ class BranchAgentController extends Controller
                     'percentage' => $percentage,
                     'phone' => $doc->phone ?? '-',
                     'insured_name' => $doc->insured_name ?? '-',
-                    'date' => $doc->created_at ?? null,
+                    'date' => $doc->start_date ?? $doc->created_at ?? null,
                 ];
             }
 
@@ -1236,7 +1256,7 @@ class BranchAgentController extends Controller
                     'percentage' => $percentage,
                     'phone' => $doc->phone ?? '-',
                     'insured_name' => $doc->insured_name ?? '-',
-                    'date' => $doc->created_at ?? null,
+                    'date' => $doc->start_date ?? $doc->created_at ?? null,
                 ];
             }
 
@@ -1376,20 +1396,22 @@ class BranchAgentController extends Controller
                 return InsuranceTypeService::matchesFilter($docInsuranceTypeLabel, $insuranceTypeFilter ?? 'all');
             };
 
-            $applyCreatedAtFilter = function ($query) use ($type, $year, $month, $fromDate, $toDate) {
+            $applyDateFilter = function ($query, $column = 'issue_date') use ($type, $year, $month, $fromDate, $toDate) {
                 if ($type === 'range' && $fromDate && $toDate) {
-                    return $query->whereDate('created_at', '>=', $fromDate)
-                        ->whereDate('created_at', '<=', $toDate);
+                    return $query->whereDate($column, '>=', $fromDate)
+                        ->whereDate($column, '<=', $toDate);
                 }
-                return $query->whereYear('created_at', $year)
-                    ->whereMonth('created_at', $month);
+                return $query->whereYear($column, $year)
+                    ->whereMonth($column, $month);
             };
 
             // جلب جميع وثائق التأمين للشهر المحدد
             $insuranceDocuments = DB::table('insurance_documents')
                 ->select('id', 'insurance_type', 'insurance_number', 'premium', 'total', 'phone', 'insured_name', 'created_at', 'issue_date')
                 ->where('branch_agent_id', $branchAgentId)
-                ->where($applyCreatedAtFilter)
+                ->where(function($q) use ($applyDateFilter) {
+                    return $applyDateFilter($q, 'issue_date');
+                })
                 ->get();
 
             foreach ($insuranceDocuments as $doc) {
@@ -1445,7 +1467,9 @@ class BranchAgentController extends Controller
             // International Insurance
             $internationalDocs = DB::table('international_insurance_documents')
                 ->where('branch_agent_id', $branchAgentId)
-                ->where($applyCreatedAtFilter)
+                ->where(function($q) use ($applyDateFilter) {
+                    return $applyDateFilter($q, 'issue_date');
+                })
                 ->get();
 
             foreach ($internationalDocs as $doc) {
@@ -1479,7 +1503,9 @@ class BranchAgentController extends Controller
             // Travel Insurance
             $travelDocs = DB::table('travel_insurance_documents')
                 ->where('branch_agent_id', $branchAgentId)
-                ->where($applyCreatedAtFilter)
+                ->where(function($q) use ($applyDateFilter) {
+                    return $applyDateFilter($q, 'issue_date');
+                })
                 ->get();
 
             foreach ($travelDocs as $doc) {
@@ -1519,7 +1545,9 @@ class BranchAgentController extends Controller
             // Resident Insurance
             $residentDocs = DB::table('resident_insurance_documents')
                 ->where('branch_agent_id', $branchAgentId)
-                ->where($applyCreatedAtFilter)
+                ->where(function($q) use ($applyDateFilter) {
+                    return $applyDateFilter($q, 'issue_date');
+                })
                 ->get();
 
             foreach ($residentDocs as $doc) {
@@ -1558,7 +1586,9 @@ class BranchAgentController extends Controller
             // Marine Structure Insurance
             $marineDocs = DB::table('marine_structure_insurance_documents')
                 ->where('branch_agent_id', $branchAgentId)
-                ->where($applyCreatedAtFilter)
+                ->where(function($q) use ($applyDateFilter) {
+                    return $applyDateFilter($q, 'issue_date');
+                })
                 ->get();
 
             foreach ($marineDocs as $doc) {
@@ -1592,7 +1622,9 @@ class BranchAgentController extends Controller
             // Professional Liability Insurance
             $professionalDocs = DB::table('professional_liability_insurance_documents')
                 ->where('branch_agent_id', $branchAgentId)
-                ->where($applyCreatedAtFilter)
+                ->where(function($q) use ($applyDateFilter) {
+                    return $applyDateFilter($q, 'issue_date');
+                })
                 ->get();
 
             foreach ($professionalDocs as $doc) {
@@ -1626,7 +1658,9 @@ class BranchAgentController extends Controller
             // Personal Accident Insurance
             $personalAccidentDocs = DB::table('personal_accident_insurance_documents')
                 ->where('branch_agent_id', $branchAgentId)
-                ->where($applyCreatedAtFilter)
+                ->where(function($q) use ($applyDateFilter) {
+                    return $applyDateFilter($q, 'issue_date');
+                })
                 ->get();
 
             foreach ($personalAccidentDocs as $doc) {
@@ -1662,7 +1696,9 @@ class BranchAgentController extends Controller
             // School Student Insurance
             $schoolStudentDocs = DB::table('school_student_insurance_documents')
                 ->where('branch_agent_id', $branchAgentId)
-                ->where($applyCreatedAtFilter)
+                ->where(function($q) use ($applyDateFilter) {
+                    return $applyDateFilter($q, 'start_date');
+                })
                 ->get();
 
             foreach ($schoolStudentDocs as $doc) {
@@ -1695,7 +1731,9 @@ class BranchAgentController extends Controller
             // Cargo Insurance
             $cargoDocs = DB::table('cargo_insurance_documents')
                 ->where('branch_agent_id', $branchAgentId)
-                ->where($applyCreatedAtFilter)
+                ->where(function($q) use ($applyDateFilter) {
+                    return $applyDateFilter($q, 'created_at');
+                })
                 ->get();
 
             foreach ($cargoDocs as $doc) {
@@ -1728,7 +1766,9 @@ class BranchAgentController extends Controller
             // Cash In Transit Insurance
             $cashInTransitDocs = DB::table('cash_in_transit_insurance_documents')
                 ->where('branch_agent_id', $branchAgentId)
-                ->where($applyCreatedAtFilter)
+                ->where(function($q) use ($applyDateFilter) {
+                    return $applyDateFilter($q, 'start_date');
+                })
                 ->get();
 
             foreach ($cashInTransitDocs as $doc) {

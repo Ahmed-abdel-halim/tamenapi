@@ -336,3 +336,27 @@ Route::prefix('inventory')->group(function () {
     Route::post('/assign-custody', [InventoryController::class, 'assignCustody']);
     Route::post('/return-custody/{id}', [InventoryController::class, 'returnCustody']);
 });
+
+// ─── Treasury Routes (الخزنة) ─────────────────────────────────────────────────
+Route::get('/treasury', [\App\Http\Controllers\TreasuryController::class, 'index']);
+Route::post('/treasury', [\App\Http\Controllers\TreasuryController::class, 'store']);
+Route::get('/treasury/balance', [\App\Http\Controllers\TreasuryController::class, 'balance']);
+Route::get('/treasury/daily-report', [\App\Http\Controllers\TreasuryController::class, 'dailyReport']);
+Route::get('/treasury/{id}', [\App\Http\Controllers\TreasuryController::class, 'show']);
+Route::post('/treasury/{id}', [\App\Http\Controllers\TreasuryController::class, 'update']);
+Route::delete('/treasury/{id}', [\App\Http\Controllers\TreasuryController::class, 'destroy']);
+
+// ─── POS Machines Routes (ماكينات البطاقة) ───────────────────────────────────
+Route::get('/pos-machines', [\App\Http\Controllers\PosMachineController::class, 'index']);
+Route::post('/pos-machines', [\App\Http\Controllers\PosMachineController::class, 'store']);
+Route::put('/pos-machines/{id}', [\App\Http\Controllers\PosMachineController::class, 'update']);
+Route::delete('/pos-machines/{id}', [\App\Http\Controllers\PosMachineController::class, 'destroy']);
+Route::post('/pos-machines/{id}/toggle-active', [\App\Http\Controllers\PosMachineController::class, 'toggleActive']);
+Route::get('/pos-machines/dashboard', [\App\Http\Controllers\PosMachineController::class, 'dashboard']);
+
+// ─── POS Transactions Routes ──────────────────────────────────────────────────
+Route::get('/pos-transactions', [\App\Http\Controllers\PosMachineController::class, 'transactions']);
+Route::post('/pos-transactions', [\App\Http\Controllers\PosMachineController::class, 'storeTransaction']);
+Route::post('/pos-transactions/{id}', [\App\Http\Controllers\PosMachineController::class, 'updateTransaction']);
+Route::delete('/pos-transactions/{id}', [\App\Http\Controllers\PosMachineController::class, 'destroyTransaction']);
+Route::post('/pos-transactions/{id}/reconcile', [\App\Http\Controllers\PosMachineController::class, 'toggleReconcile']);

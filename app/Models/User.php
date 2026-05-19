@@ -55,6 +55,7 @@ class User extends Authenticatable
         'working_days_from',
         'working_days_to',
         'contract_type',
+        'contract_duration',
         'contract_conditions',
         'housing_allowance',
         'transportation_allowance',

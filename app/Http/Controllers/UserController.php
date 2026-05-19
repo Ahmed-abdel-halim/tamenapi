@@ -19,6 +19,11 @@ class UserController extends Controller
         // استبعاد أي مستخدم مرتبط ببيانات وكيل أو فرع من قائمة الموظفين
         $query->whereDoesntHave('branchAgent');
 
+        // الفرز حسب الأقدمية (تاريخ مباشرة العمل)
+        $query->orderByRaw('CASE WHEN start_date IS NULL THEN 1 ELSE 0 END')
+              ->orderBy('start_date', 'asc')
+              ->orderBy('id', 'asc');
+
         // الفلترة حسب درجة الوصول (الكل، مدير، موظف عادي)
         if ($request->has('role') && $request->role !== 'all') {
             if ($request->role === 'admin') {
@@ -122,6 +127,7 @@ class UserController extends Controller
             'working_days_from' => 'nullable|string',
             'working_days_to' => 'nullable|string',
             'contract_type' => 'nullable|string',
+            'contract_duration' => 'nullable|string',
             'contract_conditions' => 'nullable|string',
             'housing_allowance' => 'nullable|numeric',
             'transportation_allowance' => 'nullable|numeric',
@@ -145,6 +151,18 @@ class UserController extends Controller
         ]);
 
         $data = $validated;
+
+        // توليد الرقم المالي والوظيفي تلقائياً إذا تم تركه فارغاً
+        $nextId = (User::max('id') ?? 0) + 1;
+        $currentYear = date('Y');
+
+        if (empty($data['financial_number'])) {
+            $data['financial_number'] = "MLI" . $nextId;
+        }
+        if (empty($data['job_number'])) {
+            $data['job_number'] = $nextId . "-" . $currentYear;
+        }
+
         $data['password'] = Hash::make($request->password);
         $data['is_admin'] = $request->is_admin ?? false;
 
@@ -246,6 +264,7 @@ class UserController extends Controller
             'working_days_from' => 'nullable|string',
             'working_days_to' => 'nullable|string',
             'contract_type' => 'nullable|string',
+            'contract_duration' => 'nullable|string',
             'contract_conditions' => 'nullable|string',
             'housing_allowance' => 'nullable|numeric',
             'transportation_allowance' => 'nullable|numeric',

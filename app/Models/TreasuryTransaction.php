@@ -23,7 +23,7 @@ class TreasuryTransaction extends Model
 
     protected $casts = [
         'amount' => 'float',
-        'transaction_date' => 'date',
+        'transaction_date' => 'date:Y-m-d',
     ];
 
     public function branchAgent()

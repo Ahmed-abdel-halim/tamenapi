@@ -29,4 +29,10 @@ class BankTransaction extends Model
         'payer_name',
         'payer_phone'
     ];
+
+    protected $casts = [
+        'amount' => 'float',
+        'reconciled' => 'boolean',
+        'transaction_date' => 'date:Y-m-d',
+    ];
 }

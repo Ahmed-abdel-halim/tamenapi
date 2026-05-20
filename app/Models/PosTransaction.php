@@ -20,7 +20,7 @@ class PosTransaction extends Model
     protected $casts = [
         'amount' => 'float',
         'is_reconciled' => 'boolean',
-        'transaction_date' => 'date',
+        'transaction_date' => 'date:Y-m-d',
     ];
 
     public function machine()

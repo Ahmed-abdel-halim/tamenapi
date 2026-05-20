@@ -18,7 +18,8 @@ class RestrictDeletionsToAdmin
     {
         // Check if the request is a DELETE request
         if ($request->isMethod('delete')) {
-            $user = auth()->user();
+            // Attempt standard auth, fallback to sanctum guard for non-middleware routes, or custom X-User-Id header
+            $user = auth()->user() ?? auth('sanctum')->user();
 
             // Fallback user identification matching the app's standard check (CheckBlockedAgent style)
             if (!$user) {

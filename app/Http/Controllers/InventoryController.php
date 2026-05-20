@@ -78,9 +78,27 @@ class InventoryController extends Controller
 
     public function destroyItem($id)
     {
-        $item = StoreItem::findOrFail($id);
-        $item->delete();
-        return response()->json(['message' => 'تم حذف الصنف بنجاح']);
+        DB::beginTransaction();
+        try {
+            $item = StoreItem::findOrFail($id);
+
+            // Delete all associated records to allow cascading delete
+            InventoryStock::where('item_id', $id)->delete();
+            FixedCustody::where('item_id', $id)->delete();
+            CustodyMovement::where('item_id', $id)->delete();
+
+            $item->delete();
+
+            DB::commit();
+            return response()->json(['message' => 'تم حذف الصنف وكل السجلات المرتبطة به بنجاح']);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Error deleting inventory item ID ' . $id . ': ' . $e->getMessage());
+            return response()->json([
+                'message' => 'تعذر حذف الصنف لوجود خطأ في النظام',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 
     // --- Stock Management ---

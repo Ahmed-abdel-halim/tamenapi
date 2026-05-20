@@ -11,6 +11,7 @@ class TreasuryTransaction extends Model
         'type',
         'amount',
         'description',
+        'supplier_phone',
         'source',
         'reference_number',
         'voucher_image',

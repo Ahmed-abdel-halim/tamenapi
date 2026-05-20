@@ -223,6 +223,14 @@ Route::apiResource('commissions', \App\Http\Controllers\CommissionController::cl
 Route::post('/commissions/{id}/pay', [\App\Http\Controllers\CommissionController::class, 'markAsPaid']);
 Route::apiResource('bank-transactions', \App\Http\Controllers\BankTransactionController::class);
 Route::post('/bank-transactions/{id}/reconcile', [\App\Http\Controllers\BankTransactionController::class, 'toggleReconcile']);
+
+// Bank Settings (Dynamic Banks and Transaction Types)
+Route::get('/bank-settings/banks', [\App\Http\Controllers\BankSettingsController::class, 'getBanks']);
+Route::post('/bank-settings/banks', [\App\Http\Controllers\BankSettingsController::class, 'storeBank']);
+Route::delete('/bank-settings/banks/{id}', [\App\Http\Controllers\BankSettingsController::class, 'deleteBank']);
+Route::get('/bank-settings/transaction-types', [\App\Http\Controllers\BankSettingsController::class, 'getTransactionTypes']);
+Route::post('/bank-settings/transaction-types', [\App\Http\Controllers\BankSettingsController::class, 'storeTransactionType']);
+Route::delete('/bank-settings/transaction-types/{id}', [\App\Http\Controllers\BankSettingsController::class, 'deleteTransactionType']);
 Route::apiResource('financial-archive', \App\Http\Controllers\FinancialArchiveController::class);
 Route::get('/dashboard/statistics', [BranchAgentController::class, 'getStatistics']);
 Route::get('/dashboard/latest-documents', [BranchAgentController::class, 'getLatestDocuments']);
@@ -312,7 +320,6 @@ Route::get('/run-migrations', function () {
         return "Error: " . $e->getMessage();
     }
 });
-
 
 Route::get('/claims/document-info', [ClaimController::class, 'fetchDocumentInfo']);
 Route::get('/claims/search-documents', [ClaimController::class, 'searchDocuments']);

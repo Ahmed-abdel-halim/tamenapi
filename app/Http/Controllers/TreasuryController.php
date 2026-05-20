@@ -30,6 +30,7 @@ class TreasuryController extends Controller
             $query->where(function ($q) use ($search) {
                 $q->where('description', 'like', "%{$search}%")
                   ->orWhere('source', 'like', "%{$search}%")
+                  ->orWhere('supplier_phone', 'like', "%{$search}%")
                   ->orWhere('reference_number', 'like', "%{$search}%");
             });
         }
@@ -72,6 +73,7 @@ class TreasuryController extends Controller
             'type'                => 'required|in:income,expense',
             'amount'              => 'required|numeric|min:0.01',
             'description'         => 'required|string',
+            'supplier_phone'      => 'nullable|string',
             'source'              => 'nullable|string',
             'reference_number'    => 'nullable|string',
             'branch_agent_id'     => 'nullable|integer',

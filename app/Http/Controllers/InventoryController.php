@@ -135,6 +135,10 @@ class InventoryController extends Controller
             $query->where('recipient_type', $type);
         }
 
+        if ($request->has('recipient_id')) {
+            $query->where('recipient_id', $request->recipient_id);
+        }
+
         return response()->json($query->orderBy('assigned_at', 'desc')->get());
     }
 

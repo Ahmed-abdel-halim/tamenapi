@@ -34,6 +34,9 @@ return new class extends Migration
             if (!Schema::hasColumn('bank_transactions', 'payer_name')) {
                 $table->string('payer_name')->nullable()->after('voucher_image');
             }
+            if (!Schema::hasColumn('bank_transactions', 'payer_phone')) {
+                $table->string('payer_phone')->nullable()->after('payer_name');
+            }
         });
 
         // 2. جدول معاملات الخزنة
@@ -97,7 +100,7 @@ return new class extends Migration
         Schema::table('bank_transactions', function (Blueprint $table) {
             $cols = ['transaction_type','source_bank','destination_bank',
                      'agent_name','branch_agent_id','payment_method',
-                     'voucher_image','payer_name'];
+                     'voucher_image','payer_name','payer_phone'];
             $existing = array_filter($cols, fn($c) => Schema::hasColumn('bank_transactions', $c));
             if ($existing) $table->dropColumn(array_values($existing));
         });

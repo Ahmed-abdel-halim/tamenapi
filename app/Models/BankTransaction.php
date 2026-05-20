@@ -27,7 +27,8 @@ class BankTransaction extends Model
         'payment_method',
         'voucher_image',
         'payer_name',
-        'payer_phone'
+        'payer_phone',
+        'source_account_number'
     ];
 
     protected $casts = [

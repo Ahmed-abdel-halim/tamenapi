@@ -227,7 +227,12 @@ Route::post('/bank-transactions/{id}/reconcile', [\App\Http\Controllers\BankTran
 // Bank Settings (Dynamic Banks and Transaction Types)
 Route::get('/bank-settings/banks', [\App\Http\Controllers\BankSettingsController::class, 'getBanks']);
 Route::post('/bank-settings/banks', [\App\Http\Controllers\BankSettingsController::class, 'storeBank']);
+Route::put('/bank-settings/banks/{id}', [\App\Http\Controllers\BankSettingsController::class, 'updateBank']);
 Route::delete('/bank-settings/banks/{id}', [\App\Http\Controllers\BankSettingsController::class, 'deleteBank']);
+Route::get('/bank-settings/source-banks', [\App\Http\Controllers\BankSettingsController::class, 'getSourceBanks']);
+Route::post('/bank-settings/source-banks', [\App\Http\Controllers\BankSettingsController::class, 'storeSourceBank']);
+Route::put('/bank-settings/source-banks/{id}', [\App\Http\Controllers\BankSettingsController::class, 'updateSourceBank']);
+Route::delete('/bank-settings/source-banks/{id}', [\App\Http\Controllers\BankSettingsController::class, 'deleteSourceBank']);
 Route::get('/bank-settings/transaction-types', [\App\Http\Controllers\BankSettingsController::class, 'getTransactionTypes']);
 Route::post('/bank-settings/transaction-types', [\App\Http\Controllers\BankSettingsController::class, 'storeTransactionType']);
 Route::delete('/bank-settings/transaction-types/{id}', [\App\Http\Controllers\BankSettingsController::class, 'deleteTransactionType']);

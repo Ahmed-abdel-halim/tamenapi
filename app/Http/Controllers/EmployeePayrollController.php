@@ -83,6 +83,8 @@ class EmployeePayrollController extends Controller
             }
         }
 
+        $user = User::findOrFail($validated['user_id']);
+
         $tax_pct = (float) ($user->tax_percentage ?? 10.0);
         $ss_pct = (float) ($user->social_security_percentage ?? 19.475);
 

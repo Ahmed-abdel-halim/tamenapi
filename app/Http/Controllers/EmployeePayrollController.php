@@ -126,11 +126,32 @@ class EmployeePayrollController extends Controller
         return response()->json($payroll->fresh(['user:id,name,username,email,salary', 'processor:id,name']));
     }
 
-    public function employees()
+    public function employees(Request $request)
     {
-        $employees = User::with('branchAgent:id,user_id')
-            ->where('is_active', true)
-            ->select('id', 'name', 'username', 'email', 'salary', 'is_admin', 'tax_percentage', 'social_security_percentage', 'apply_tax', 'apply_social_security')
+        $query = User::with('branchAgent:id,user_id')
+            ->where('is_active', true);
+
+        if ($request->filled('year') && $request->filled('month')) {
+            $year = (int) $request->input('year');
+            $month = (int) $request->input('month');
+            $monthStart = sprintf('%04d-%02d-01', $year, $month);
+            $monthEnd = date('Y-m-t', strtotime($monthStart));
+
+            $query->where(function ($q) use ($monthEnd) {
+                $q->whereNull('start_date')
+                  ->orWhere('start_date', '<=', $monthEnd);
+            })->where(function ($q) use ($monthStart) {
+                $q->whereNull('end_date')
+                  ->orWhere('end_date', '>=', $monthStart);
+            });
+        }
+
+        $employees = $query->select(
+                'id', 'name', 'username', 'email', 'salary', 'is_admin', 
+                'tax_percentage', 'social_security_percentage', 'apply_tax', 'apply_social_security',
+                'housing_allowance', 'transportation_allowance', 'communication_allowance', 'fixed_bonuses', 'fixed_fines',
+                'start_date', 'end_date'
+            )
             ->get()
             ->filter(function ($u) {
                 return !$u->branchAgent;
@@ -154,9 +175,25 @@ class EmployeePayrollController extends Controller
         $year = $validated['year'];
         $month = $validated['month'];
 
+        $monthStart = sprintf('%04d-%02d-01', $year, $month);
+        $monthEnd = date('Y-m-t', strtotime($monthStart));
+
         $employees = User::with('branchAgent:id,user_id')
             ->where('is_active', true)
-            ->select('id', 'name', 'username', 'email', 'salary', 'is_admin', 'tax_percentage', 'social_security_percentage', 'apply_tax', 'apply_social_security')
+            ->where(function ($q) use ($monthEnd) {
+                $q->whereNull('start_date')
+                  ->orWhere('start_date', '<=', $monthEnd);
+            })
+            ->where(function ($q) use ($monthStart) {
+                $q->whereNull('end_date')
+                  ->orWhere('end_date', '>=', $monthStart);
+            })
+            ->select(
+                'id', 'name', 'username', 'email', 'salary', 'is_admin', 
+                'tax_percentage', 'social_security_percentage', 'apply_tax', 'apply_social_security',
+                'housing_allowance', 'transportation_allowance', 'communication_allowance', 'fixed_bonuses', 'fixed_fines',
+                'start_date', 'end_date'
+            )
             ->get()
             ->filter(function ($u) {
                 return !$u->branchAgent;
@@ -173,13 +210,13 @@ class EmployeePayrollController extends Controller
                     ->first();
 
                 $base = $existing ? (float) $existing->base_salary : (float) ($user->salary ?? 0);
-                $housing = $existing ? (float) $existing->housing_allowance : 100.0;
-                $transport = $existing ? (float) $existing->transportation_allowance : 100.0;
-                $communication = $existing ? (float) $existing->communication_allowance : 100.0;
+                $housing = $existing ? (float) $existing->housing_allowance : (float) ($user->housing_allowance ?? 0.0);
+                $transport = $existing ? (float) $existing->transportation_allowance : (float) ($user->transportation_allowance ?? 0.0);
+                $communication = $existing ? (float) $existing->communication_allowance : (float) ($user->communication_allowance ?? 0.0);
                 $misc_allowance = $existing ? (float) $existing->allowance_amount : 0.0;
-                $bonus = $existing ? (float) $existing->bonus_amount : 100.0;
+                $bonus = $existing ? (float) $existing->bonus_amount : (float) ($user->fixed_bonuses ?? 0.0);
                 $other_additions = $existing ? (float) $existing->other_additions : 0.0;
-                $deduction = $existing ? (float) $existing->deduction_amount : 75.0;
+                $deduction = $existing ? (float) $existing->deduction_amount : (float) ($user->fixed_fines ?? 0.0);
                 $advance = $existing ? (float) $existing->advance_amount : 0.0;
                 $penalty = $existing ? (float) $existing->penalty_amount : 0.0;
                 $extra_fields = $existing ? ($existing->extra_fields ?? []) : [];

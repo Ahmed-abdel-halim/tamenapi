@@ -16,6 +16,9 @@ class EmployeePayrollController extends Controller
             'month' => 'nullable|integer|min:1|max:12',
             'status' => 'nullable|in:paid,unpaid',
             'search' => 'nullable|string|max:150',
+            'from_date' => 'nullable|date',
+            'to_date' => 'nullable|date',
+            'user_id' => 'nullable|integer|exists:users,id',
         ]);
 
         $query = EmployeePayroll::with(['user:id,name,username,email,salary', 'processor:id,name']);
@@ -28,6 +31,28 @@ class EmployeePayrollController extends Controller
         }
         if (!empty($validated['status'])) {
             $query->where('status', $validated['status']);
+        }
+        if (!empty($validated['user_id'])) {
+            $query->where('user_id', $validated['user_id']);
+        }
+        if (!empty($validated['from_date']) && !empty($validated['to_date'])) {
+            $from = \Carbon\Carbon::parse($validated['from_date'])->startOfMonth();
+            $to = \Carbon\Carbon::parse($validated['to_date'])->endOfMonth();
+
+            $query->where(function ($q) use ($from, $to) {
+                if ($from->year === $to->year) {
+                    $q->where('year', $from->year)
+                      ->whereBetween('month', [$from->month, $to->month]);
+                } else {
+                    $q->where(function ($sub) use ($from) {
+                        $sub->where('year', $from->year)->where('month', '>=', $from->month);
+                    })->orWhere(function ($sub) use ($to) {
+                        $sub->where('year', $to->year)->where('month', '<=', $to->month);
+                    })->orWhere(function ($sub) use ($from, $to) {
+                        $sub->where('year', '>', $from->year)->where('year', '<', $to->year);
+                    });
+                }
+            });
         }
         if (!empty($validated['search'])) {
             $search = $validated['search'];

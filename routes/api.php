@@ -128,6 +128,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('employee-requests', EmployeeRequestController::class);
     Route::apiResource('agent-requests', \App\Http\Controllers\AgentRequestController::class);
     Route::apiResource('agency-cancellations', AgencyCancellationController::class);
+    Route::apiResource('agent-transfers', \App\Http\Controllers\AgentTransferController::class);
 
     Route::get('/employee-payrolls/employees', [EmployeePayrollController::class, 'employees']);
     Route::get('/employee-payrolls/reports', [EmployeePayrollController::class, 'taxSSReport']);

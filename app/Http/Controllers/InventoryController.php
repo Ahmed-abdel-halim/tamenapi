@@ -41,7 +41,7 @@ class InventoryController extends Controller
         $validated = $request->validate([
             'name' => 'required|string',
             'category' => 'required|string|max:100',
-            'inventory_type' => 'required|in:fixed,consumable',
+            'inventory_type' => 'required|string|max:100',
             'unit' => 'nullable|string',
             'serial_prefix' => 'nullable|string',
             'price' => 'nullable|numeric|min:0',
@@ -65,7 +65,7 @@ class InventoryController extends Controller
         $validated = $request->validate([
             'name' => 'required|string',
             'category' => 'required|string|max:100',
-            'inventory_type' => 'required|in:fixed,consumable',
+            'inventory_type' => 'required|string|max:100',
             'unit' => 'nullable|string',
             'serial_prefix' => 'nullable|string',
             'price' => 'nullable|numeric|min:0',
@@ -218,7 +218,7 @@ class InventoryController extends Controller
             'item_id' => 'required|exists:store_items,id',
             'recipient_id' => 'required|integer',
             'recipient_type' => 'required|in:agent,employee',
-            'inventory_type' => 'nullable|in:fixed,consumable',
+            'inventory_type' => 'nullable|string|max:100',
             'batch_ref' => 'nullable|string|max:64',
             'quantity' => 'required|integer|min:1',
             'serial_start' => 'nullable|string',
@@ -308,5 +308,49 @@ class InventoryController extends Controller
             DB::rollBack();
             return response()->json(['message' => 'خطأ في العملية', 'error' => $e->getMessage()], 500);
         }
+    }
+
+    // --- Settings Management ---
+
+    public function getSettings()
+    {
+        return response()->json(\App\Models\InventorySetting::all());
+    }
+
+    public function saveSetting(Request $request)
+    {
+        $validated = $request->validate([
+            'setting_type' => 'required|string',
+            'name' => 'required|string|max:255',
+        ]);
+        $setting = \App\Models\InventorySetting::create($validated);
+        return response()->json($setting, 201);
+    }
+
+    public function updateSetting(Request $request, $id)
+    {
+        $setting = \App\Models\InventorySetting::findOrFail($id);
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+        ]);
+        
+        $oldName = $setting->name;
+        $setting->update($validated);
+
+        // Update existing store items
+        if ($setting->setting_type === 'category') {
+            StoreItem::where('category', $oldName)->update(['category' => $validated['name']]);
+        } else if ($setting->setting_type === 'inventory_type') {
+            StoreItem::where('inventory_type', $oldName)->update(['inventory_type' => $validated['name']]);
+        }
+
+        return response()->json($setting);
+    }
+
+    public function deleteSetting($id)
+    {
+        $setting = \App\Models\InventorySetting::findOrFail($id);
+        $setting->delete();
+        return response()->json(['message' => 'تم الحذف بنجاح']);
     }
 }

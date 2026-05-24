@@ -346,6 +346,10 @@ Route::prefix('inventory')->group(function () {
     Route::put('/items/{id}', [InventoryController::class, 'updateItem']);
     Route::delete('/items/{id}', [InventoryController::class, 'destroyItem']);
     Route::post('/update-stock', [InventoryController::class, 'updateStock']);
+    Route::get('/settings', [InventoryController::class, 'getSettings']);
+    Route::post('/settings', [InventoryController::class, 'saveSetting']);
+    Route::put('/settings/{id}', [InventoryController::class, 'updateSetting']);
+    Route::delete('/settings/{id}', [InventoryController::class, 'deleteSetting']);
     Route::get('/custody', [InventoryController::class, 'custodyIndex']);
     Route::get('/movements', [InventoryController::class, 'movementsIndex']);
     Route::post('/assign-custody', [InventoryController::class, 'assignCustody']);

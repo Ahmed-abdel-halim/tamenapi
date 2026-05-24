@@ -29,12 +29,24 @@ class BranchAgentController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
         try {
-            $branchesAgents = BranchAgent::with('user:id,username,name,is_blocked,eidc_username,eidc_password')
-                ->orderBy('created_at', 'desc')
-                ->get();
+            $query = BranchAgent::query();
+
+            if ($request->has('status')) {
+                $query->where('status', $request->status);
+            }
+
+            if ($request->boolean('light')) {
+                $branchesAgents = $query->select('id', 'agency_name', 'agent_name', 'status', 'user_id')
+                    ->orderBy('created_at', 'desc')
+                    ->get();
+            } else {
+                $branchesAgents = $query->with('user:id,username,name,is_blocked,eidc_username,eidc_password')
+                    ->orderBy('created_at', 'desc')
+                    ->get();
+            }
             
             return response()->json($branchesAgents);
         } catch (\Exception $e) {

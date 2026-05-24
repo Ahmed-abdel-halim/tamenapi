@@ -10,11 +10,23 @@ use Carbon\Carbon;
 
 class PosMachineController extends Controller
 {
+    private function resolveUser()
+    {
+        $user = auth()->user() ?? auth('sanctum')->user();
+        if (!$user) {
+            $userId = request()->header('X-User-Id') ?? request()->input('user_id');
+            if ($userId) {
+                $user = \App\Models\User::find($userId);
+            }
+        }
+        return $user;
+    }
+
     // ─── ماكينات POS ────────────────────────────────────────────────────────────
 
     public function index()
     {
-        $user = auth()->user();
+        $user = $this->resolveUser();
         $branchAgentId = $user ? $user->branchAgent?->id : null;
 
         $query = PosMachine::withCount('transactions')
@@ -104,7 +116,7 @@ class PosMachineController extends Controller
 
     public function transactions(Request $request)
     {
-        $user = auth()->user();
+        $user = $this->resolveUser();
         $branchAgentId = $user ? $user->branchAgent?->id : null;
 
         $query = PosTransaction::with('machine');
@@ -162,7 +174,7 @@ class PosMachineController extends Controller
 
     public function storeTransaction(Request $request)
     {
-        $user = auth()->user();
+        $user = $this->resolveUser();
         $branchAgentId = $user ? $user->branchAgent?->id : null;
 
         $request->validate([
@@ -203,7 +215,7 @@ class PosMachineController extends Controller
 
     public function updateTransaction(Request $request, $id)
     {
-        $user = auth()->user();
+        $user = $this->resolveUser();
         $branchAgentId = $user ? $user->branchAgent?->id : null;
 
         $transaction = PosTransaction::findOrFail($id);
@@ -254,7 +266,7 @@ class PosMachineController extends Controller
 
     public function destroyTransaction($id)
     {
-        $user = auth()->user();
+        $user = $this->resolveUser();
         $branchAgentId = $user ? $user->branchAgent?->id : null;
 
         $transaction = PosTransaction::findOrFail($id);
@@ -279,7 +291,7 @@ class PosMachineController extends Controller
 
     public function toggleReconcile($id)
     {
-        $user = auth()->user();
+        $user = $this->resolveUser();
         $branchAgentId = $user ? $user->branchAgent?->id : null;
 
         $transaction = PosTransaction::findOrFail($id);
@@ -301,7 +313,7 @@ class PosMachineController extends Controller
 
     public function dashboard()
     {
-        $user = auth()->user();
+        $user = $this->resolveUser();
         $branchAgentId = $user ? $user->branchAgent?->id : null;
 
         $query = PosMachine::where('is_active', true);

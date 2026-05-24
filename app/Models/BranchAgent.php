@@ -49,6 +49,10 @@ class BranchAgent extends Model
         'document_percentages',
         'contract_conditions',
         'requested_documents',
+        'points_balance',
+        'wallet_balance',
+        'referral_code',
+        'referred_by_id',
     ];
 
     protected $casts = [
@@ -59,6 +63,8 @@ class BranchAgent extends Model
         'authorized_documents' => 'array',
         'document_percentages' => 'array',
         'requested_documents' => 'array',
+        'points_balance' => 'integer',
+        'wallet_balance' => 'decimal:2',
     ];
 
     public function user()
@@ -69,5 +75,25 @@ class BranchAgent extends Model
     public function posMachines()
     {
         return $this->belongsToMany(PosMachine::class, 'agent_pos_machine', 'branch_agent_id', 'pos_machine_id');
+    }
+
+    public function walletTransactions()
+    {
+        return $this->hasMany(AgentWalletTransaction::class, 'branch_agent_id');
+    }
+
+    public function withdrawals()
+    {
+        return $this->hasMany(AgentWithdrawal::class, 'branch_agent_id');
+    }
+
+    public function referredAgents()
+    {
+        return $this->hasMany(BranchAgent::class, 'referred_by_id');
+    }
+
+    public function referrer()
+    {
+        return $this->belongsTo(BranchAgent::class, 'referred_by_id');
     }
 }

@@ -383,3 +383,18 @@ Route::post('/pos-transactions', [\App\Http\Controllers\PosMachineController::cl
 Route::post('/pos-transactions/{id}', [\App\Http\Controllers\PosMachineController::class, 'updateTransaction']);
 Route::delete('/pos-transactions/{id}', [\App\Http\Controllers\PosMachineController::class, 'destroyTransaction']);
 Route::post('/pos-transactions/{id}/reconcile', [\App\Http\Controllers\PosMachineController::class, 'toggleReconcile']);
+
+// ─── Agent Wallet & Loyalty Routes (المحفظة والتحفيز) ─────────────────────────
+Route::prefix('agent-wallet')->group(function () {
+    Route::get('/settings/loyalty', [\App\Http\Controllers\AgentWalletController::class, 'getLoyaltySettings']);
+    Route::post('/settings/loyalty', [\App\Http\Controllers\AgentWalletController::class, 'saveLoyaltySettings']);
+    Route::get('/{id}', [\App\Http\Controllers\AgentWalletController::class, 'getWalletDetails']);
+    Route::get('/{id}/transactions', [\App\Http\Controllers\AgentWalletController::class, 'getTransactions']);
+    Route::get('/{id}/withdrawals', [\App\Http\Controllers\AgentWalletController::class, 'getWithdrawals']);
+    Route::post('/redeem', [\App\Http\Controllers\AgentWalletController::class, 'redeemPoints']);
+    Route::post('/withdraw', [\App\Http\Controllers\AgentWalletController::class, 'requestWithdrawal']);
+    Route::post('/withdrawals/{id}/status', [\App\Http\Controllers\AgentWalletController::class, 'updateWithdrawalStatus']);
+    Route::post('/adjust', [\App\Http\Controllers\AgentWalletController::class, 'adjustWallet']);
+    Route::get('/{id}/referrals', [\App\Http\Controllers\AgentWalletController::class, 'getReferrals']);
+});
+

@@ -215,6 +215,7 @@ Route::apiResource('cargo-insurance', 'App\Http\Controllers\CargoInsuranceDocume
 Route::get('/cargo-insurance/{id}/print', ['App\Http\Controllers\CargoInsuranceDocumentController', 'print']);
 Route::get('/branches-agents/{id}/print', [BranchAgentController::class, 'print']);
 Route::get('/branches-agents/{id}/account-report', [BranchAgentController::class, 'accountReport']);
+Route::get('/branches-agents/{id}/revenue-report', [BranchAgentController::class, 'revenueReport']);
 Route::post('/branches-agents/{id}/toggle-block', [BranchAgentController::class, 'toggleBlock']);
 Route::post('/branches-agents/{id}/approve', [BranchAgentController::class, 'approveAgent']);
 Route::get('/reports/outstanding-debts', [\App\Http\Controllers\DebtReportController::class, 'getOutstandingDebts']);
@@ -245,6 +246,7 @@ Route::post('/union-balances', [App\Http\Controllers\UnionBalancePurchaseControl
 Route::put('/union-balances/{id}', [App\Http\Controllers\UnionBalancePurchaseController::class, 'update']);
 Route::delete('/union-balances/{id}', [App\Http\Controllers\UnionBalancePurchaseController::class, 'destroy']);
 Route::get('/financial-statistics', [FinancialStatisticsController::class, 'getStatistics']);
+Route::get('/financial-statistics/all-agents-revenue', [FinancialStatisticsController::class, 'getAllAgentsRevenue']);
 Route::apiResource('cities', CityController::class);
 Route::apiResource('plates', PlateController::class);
 Route::apiResource('vehicle-types', VehicleTypeController::class);

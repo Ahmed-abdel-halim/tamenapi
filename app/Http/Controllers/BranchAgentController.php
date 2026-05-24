@@ -2852,5 +2852,184 @@ class BranchAgentController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Print revenue report
+     */
+    public function revenueReport(Request $request, $id)
+    {
+        try {
+            $branchAgent = BranchAgent::with('user')->findOrFail($id);
+            $type = $request->get('type', 'full'); // 'range' or 'full'
+            $year = $request->get('year');
+            $month = $request->get('month');
+            $fromDate = $request->get('from_date');
+            $toDate = $request->get('to_date');
+
+            $applyDateFilter = function ($query, $column = 'issue_date') use ($type, $year, $month, $fromDate, $toDate) {
+                if ($type === 'range' && $fromDate && $toDate) {
+                    return $query->whereDate($column, '>=', $fromDate)
+                        ->whereDate($column, '<=', $toDate);
+                }
+                if ($type === 'monthly' && $year && $month) {
+                    return $query->whereYear($column, $year)
+                        ->whereMonth($column, $month);
+                }
+                return $query;
+            };
+
+            // جلب جميع وثائق التأمين المرتبطة بالوكيل
+            $insuranceDocuments = DB::table('insurance_documents')
+                ->select('id', 'insurance_type', 'insurance_number', 'premium', 'total', 'phone', 'insured_name', 'created_at', 'issue_date')
+                ->where('branch_agent_id', $id)
+                ->when($type === 'monthly' || $type === 'range', function ($q) use ($applyDateFilter) {
+                    return $applyDateFilter($q, 'issue_date');
+                })
+                ->get();
+
+            $internationalInsuranceDocuments = DB::table('international_insurance_documents')
+                ->where('branch_agent_id', $id)
+                ->when($type === 'monthly' || $type === 'range', function ($q) use ($applyDateFilter) {
+                    return $applyDateFilter($q, 'issue_date');
+                })
+                ->get();
+
+            $travelInsuranceDocuments = DB::table('travel_insurance_documents')
+                ->where('branch_agent_id', $id)
+                ->when($type === 'monthly' || $type === 'range', function ($q) use ($applyDateFilter) {
+                    return $applyDateFilter($q, 'issue_date');
+                })
+                ->get();
+
+            $residentInsuranceDocuments = DB::table('resident_insurance_documents')
+                ->where('branch_agent_id', $id)
+                ->when($type === 'monthly' || $type === 'range', function ($q) use ($applyDateFilter) {
+                    return $applyDateFilter($q, 'issue_date');
+                })
+                ->get();
+
+            $marineStructureInsuranceDocuments = DB::table('marine_structure_insurance_documents')
+                ->where('branch_agent_id', $id)
+                ->when($type === 'monthly' || $type === 'range', function ($q) use ($applyDateFilter) {
+                    return $applyDateFilter($q, 'issue_date');
+                })
+                ->get();
+
+            $professionalLiabilityInsuranceDocuments = DB::table('professional_liability_insurance_documents')
+                ->where('branch_agent_id', $id)
+                ->when($type === 'monthly' || $type === 'range', function ($q) use ($applyDateFilter) {
+                    return $applyDateFilter($q, 'issue_date');
+                })
+                ->get();
+
+            $personalAccidentInsuranceDocuments = DB::table('personal_accident_insurance_documents')
+                ->select('id', 'insurance_number', 'premium', 'total', 'phone', 'name', 'created_at', 'issue_date')
+                ->where('branch_agent_id', $id)
+                ->when($type === 'monthly' || $type === 'range', function ($q) use ($applyDateFilter) {
+                    return $applyDateFilter($q, 'issue_date');
+                })
+                ->get();
+
+            // تجهيز مصفوفة المستندات
+            $documentsByCategory = [
+                'تأمين السيارات' => [],
+                'تأمين السيارات دولي' => [],
+                'تأمين المسافرين' => [],
+                'تأمين الوافدين' => [],
+                'تأمين الهياكل البحرية' => [],
+                'تأمين المسؤولية المهنية' => [],
+                'تأمين الحوادث الشخصيه' => []
+            ];
+
+            $totalCompanyAmount = 0;
+            $totalAmount = 0;
+            $grandTotal = 0;
+
+            // جلب نسب الوكيل (معالجة JSON)
+            $percentages = [];
+            if ($branchAgent->document_percentages) {
+                $percentages = is_string($branchAgent->document_percentages) 
+                    ? json_decode($branchAgent->document_percentages, true) 
+                    : $branchAgent->document_percentages;
+            }
+
+            $getPercentage = function($category) use ($percentages) {
+                if (is_array($percentages)) {
+                    foreach ($percentages as $p) {
+                        if (isset($p['document_type']) && $p['document_type'] === $category) {
+                            return floatval($p['percentage']);
+                        }
+                    }
+                }
+                return 0;
+            };
+
+            $processDocuments = function ($docs, $category) use (&$documentsByCategory, &$totalCompanyAmount, &$totalAmount, &$grandTotal, $getPercentage) {
+                $percentage = $getPercentage($category);
+                foreach ($docs as $doc) {
+                    $total = floatval($doc->total ?? 0);
+                    $premium = floatval($doc->premium ?? $total); // use premium for commission calculation if available, otherwise total
+                    $agentAmount = $premium * ($percentage / 100);
+                    $companyAmount = $total - $agentAmount;
+
+                    // Fetch insured name depending on document type
+                    $insuredName = $doc->insured_name ?? ($doc->name ?? '-');
+                    $phone = $doc->phone ?? '-';
+
+                    if ($category === 'تأمين المسافرين') {
+                        $mainPassenger = DB::table('travel_insurance_passengers')
+                            ->where('travel_insurance_document_id', $doc->id)
+                            ->where('is_main_passenger', true)
+                            ->first();
+                        $insuredName = $mainPassenger->name_ar ?? '-';
+                        $phone = $mainPassenger->phone ?? '-';
+                    } else if ($category === 'تأمين الوافدين') {
+                        $mainPassenger = DB::table('resident_insurance_passengers')
+                            ->where('resident_insurance_document_id', $doc->id)
+                            ->where('is_main_passenger', true)
+                            ->first();
+                        $insuredName = $mainPassenger->name_ar ?? '-';
+                        $phone = $mainPassenger->phone ?? '-';
+                    }
+
+                    $documentsByCategory[$category][] = [
+                        'category' => $category,
+                        'insured_name' => $insuredName,
+                        'phone' => $phone,
+                        'document_number' => $doc->insurance_number ?? '-',
+                        'percentage' => $percentage,
+                        'agent_amount' => $agentAmount,
+                        'company_amount' => $companyAmount,
+                        'total' => $total,
+                        'date' => $doc->issue_date ?? ($doc->created_at ?? null)
+                    ];
+
+                    $totalCompanyAmount += $companyAmount;
+                    $totalAmount += $agentAmount;
+                    $grandTotal += $total;
+                }
+            };
+
+            $processDocuments($insuranceDocuments, 'تأمين السيارات');
+            $processDocuments($internationalInsuranceDocuments, 'تأمين السيارات دولي');
+            $processDocuments($travelInsuranceDocuments, 'تأمين المسافرين');
+            $processDocuments($residentInsuranceDocuments, 'تأمين الوافدين');
+            $processDocuments($marineStructureInsuranceDocuments, 'تأمين الهياكل البحرية');
+            $processDocuments($professionalLiabilityInsuranceDocuments, 'تأمين المسؤولية المهنية');
+            $processDocuments($personalAccidentInsuranceDocuments, 'تأمين الحوادث الشخصيه');
+
+            $companyPercentage = $grandTotal > 0 ? ($totalCompanyAmount / $grandTotal) * 100 : 0;
+            $agentPercentage = $grandTotal > 0 ? ($totalAmount / $grandTotal) * 100 : 0;
+
+            return view('branches-agents.revenue-report', compact(
+                'branchAgent', 'type', 'year', 'month', 'fromDate', 'toDate',
+                'documentsByCategory', 'totalCompanyAmount', 'totalAmount', 'grandTotal',
+                'companyPercentage', 'agentPercentage'
+            ));
+        } catch (\Exception $e) {
+            return response('<html><body><h1>حدث خطأ أثناء إنشاء التقرير</h1><p>' . (config('app.debug') ? htmlspecialchars($e->getMessage()) : '') . '</p></body></html>', 500)
+                ->header('Content-Type', 'text/html; charset=utf-8');
+        }
+    }
 }
 

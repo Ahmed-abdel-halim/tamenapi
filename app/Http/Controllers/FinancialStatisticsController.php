@@ -171,4 +171,60 @@ class FinancialStatisticsController extends Controller
             ]
         ]);
     }
+
+    public function getAllAgentsRevenue(Request $request)
+    {
+        $insuranceTables = [
+            'insurance_documents',
+            'international_insurance_documents',
+            'travel_insurance_documents',
+            'resident_insurance_documents',
+            'marine_structure_insurance_documents',
+            'professional_liability_insurance_documents',
+            'personal_accident_insurance_documents',
+        ];
+
+        $agentStats = [];
+        $totalRevenue = 0;
+
+        foreach ($insuranceTables as $table) {
+            if (DB::getSchemaBuilder()->hasColumn($table, 'branch_agent_id')) {
+                // Determine if there's a date filter
+                $query = DB::table($table)
+                    ->join('branches_agents', $table . '.branch_agent_id', '=', 'branches_agents.id')
+                    ->select('branches_agents.agency_name', 'branches_agents.agent_name', DB::raw('SUM(' . $table . '.total) as sales'), DB::raw('COUNT(' . $table . '.id) as document_count'));
+                
+                if ($request->has('from_date') && $request->has('to_date')) {
+                    $query->whereBetween($table . '.created_at', [$request->from_date . ' 00:00:00', $request->to_date . ' 23:59:59']);
+                }
+
+                $results = $query->groupBy('branches_agents.agency_name', 'branches_agents.agent_name')->get();
+
+                foreach ($results as $res) {
+                    if (!isset($agentStats[$res->agency_name])) {
+                        $agentStats[$res->agency_name] = [
+                            'agency_name' => $res->agency_name,
+                            'agent_name' => $res->agent_name,
+                            'sales' => 0,
+                            'document_count' => 0
+                        ];
+                    }
+                    $agentStats[$res->agency_name]['sales'] += $res->sales;
+                    $agentStats[$res->agency_name]['document_count'] += $res->document_count;
+                    $totalRevenue += $res->sales;
+                }
+            }
+        }
+
+        $allAgents = array_values($agentStats);
+        usort($allAgents, function ($a, $b) {
+            return $b['sales'] <=> $a['sales'];
+        });
+
+        return response()->json([
+            'success' => true,
+            'total_revenue' => $totalRevenue,
+            'agents' => $allAgents
+        ]);
+    }
 }

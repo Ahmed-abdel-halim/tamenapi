@@ -35,22 +35,14 @@ class EmployeePayrollController extends Controller
         if (!empty($validated['user_id'])) {
             $query->where('user_id', $validated['user_id']);
         }
-        if (!empty($validated['from_date']) && !empty($validated['to_date'])) {
-            $from = \Carbon\Carbon::parse($validated['from_date'])->startOfMonth();
-            $to = \Carbon\Carbon::parse($validated['to_date'])->endOfMonth();
-
-            $query->where(function ($q) use ($from, $to) {
-                if ($from->year === $to->year) {
-                    $q->where('year', $from->year)
-                      ->whereBetween('month', [$from->month, $to->month]);
-                } else {
-                    $q->where(function ($sub) use ($from) {
-                        $sub->where('year', $from->year)->where('month', '>=', $from->month);
-                    })->orWhere(function ($sub) use ($to) {
-                        $sub->where('year', $to->year)->where('month', '<=', $to->month);
-                    })->orWhere(function ($sub) use ($from, $to) {
-                        $sub->where('year', '>', $from->year)->where('year', '<', $to->year);
-                    });
+        if (!empty($validated['from_date']) || !empty($validated['to_date'])) {
+            $query->whereHas('user', function ($q) use ($validated) {
+                $q->where('is_active', true);
+                if (!empty($validated['from_date'])) {
+                    $q->where('start_date', '>=', $validated['from_date']);
+                }
+                if (!empty($validated['to_date'])) {
+                    $q->where('start_date', '<=', $validated['to_date'] . ' 23:59:59');
                 }
             });
         }

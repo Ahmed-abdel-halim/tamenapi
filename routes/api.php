@@ -33,6 +33,7 @@ use App\Http\Controllers\AgencyCancellationController;
 use App\Http\Controllers\CompanyDocumentController;
 use App\Http\Controllers\RentalVoucherController;
 use App\Http\Controllers\ExpenseCategoryController;
+use App\Http\Controllers\ExpenseSubCategoryController;
 
 
 
@@ -175,6 +176,9 @@ Route::apiResource('branches-agents', BranchAgentController::class);
 Route::apiResource('payment-vouchers', 'App\Http\Controllers\PaymentVoucherController');
 Route::apiResource('expenses', 'App\Http\Controllers\ExpenseController');
 Route::apiResource('expense-categories', ExpenseCategoryController::class);
+Route::get('/expense-subcategories', [ExpenseSubCategoryController::class, 'index']);
+Route::post('/expense-subcategories', [ExpenseSubCategoryController::class, 'store']);
+Route::delete('/expense-subcategories/{id}', [ExpenseSubCategoryController::class, 'destroy']);
 
 Route::get('/reset-categories', function () {
     \Illuminate\Support\Facades\DB::table('expense_categories')->delete();

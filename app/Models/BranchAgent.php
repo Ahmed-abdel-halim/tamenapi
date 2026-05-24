@@ -65,4 +65,9 @@ class BranchAgent extends Model
     {
         return $this->belongsTo(User::class);
     }
+
+    public function posMachines()
+    {
+        return $this->belongsToMany(PosMachine::class, 'agent_pos_machine', 'branch_agent_id', 'pos_machine_id');
+    }
 }

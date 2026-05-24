@@ -15,6 +15,7 @@ class Expense extends Model
         'name',
         'recipient',
         'category',
+        'sub_category',
         'amount',
         'currency',
         'voucher_number',

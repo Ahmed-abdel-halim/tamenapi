@@ -29,4 +29,9 @@ class PosMachine extends Model
     {
         return $this->transactions()->sum('amount');
     }
+
+    public function branchAgents()
+    {
+        return $this->belongsToMany(BranchAgent::class, 'agent_pos_machine', 'pos_machine_id', 'branch_agent_id');
+    }
 }

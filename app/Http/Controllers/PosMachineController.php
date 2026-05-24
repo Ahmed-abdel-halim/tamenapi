@@ -14,10 +14,21 @@ class PosMachineController extends Controller
 
     public function index()
     {
-        $machines = PosMachine::withCount('transactions')
+        $user = auth()->user();
+        $branchAgentId = $user ? $user->branchAgent?->id : null;
+
+        $query = PosMachine::withCount('transactions')
             ->withSum('transactions', 'amount')
-            ->orderBy('machine_name')
-            ->get();
+            ->with('branchAgents')
+            ->orderBy('machine_name');
+
+        if ($branchAgentId) {
+            $query->whereHas('branchAgents', function ($q) use ($branchAgentId) {
+                $q->where('branches_agents.id', $branchAgentId);
+            });
+        }
+
+        $machines = $query->get();
 
         return response()->json([
             'success' => true,
@@ -28,21 +39,27 @@ class PosMachineController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'machine_name'   => 'required|string',
-            'machine_serial' => 'nullable|string',
-            'bank_name'      => 'required|string',
-            'merchant_id'    => 'nullable|string',
-            'location'       => 'nullable|string',
-            'is_active'      => 'nullable|boolean',
-            'notes'          => 'nullable|string',
+            'machine_name'      => 'required|string',
+            'machine_serial'    => 'nullable|string',
+            'bank_name'         => 'required|string',
+            'merchant_id'       => 'nullable|string',
+            'location'          => 'nullable|string',
+            'is_active'         => 'nullable|boolean',
+            'notes'             => 'nullable|string',
+            'branch_agent_ids'   => 'nullable|array',
+            'branch_agent_ids.*' => 'exists:branches_agents,id',
         ]);
 
-        $machine = PosMachine::create($request->all());
+        $machine = PosMachine::create($request->except('branch_agent_ids'));
+
+        if ($request->has('branch_agent_ids')) {
+            $machine->branchAgents()->sync($request->input('branch_agent_ids', []));
+        }
 
         return response()->json([
             'success' => true,
             'message' => 'تمت إضافة الماكينة بنجاح',
-            'data'    => $machine,
+            'data'    => $machine->load('branchAgents'),
         ], 201);
     }
 
@@ -51,16 +68,22 @@ class PosMachineController extends Controller
         $machine = PosMachine::findOrFail($id);
 
         $request->validate([
-            'machine_name' => 'required|string',
-            'bank_name'    => 'required|string',
+            'machine_name'      => 'required|string',
+            'bank_name'         => 'required|string',
+            'branch_agent_ids'   => 'nullable|array',
+            'branch_agent_ids.*' => 'exists:branches_agents,id',
         ]);
 
-        $machine->update($request->all());
+        $machine->update($request->except('branch_agent_ids'));
+
+        if ($request->has('branch_agent_ids')) {
+            $machine->branchAgents()->sync($request->input('branch_agent_ids', []));
+        }
 
         return response()->json([
             'success' => true,
             'message' => 'تم تحديث الماكينة بنجاح',
-            'data'    => $machine,
+            'data'    => $machine->load('branchAgents'),
         ]);
     }
 
@@ -81,7 +104,16 @@ class PosMachineController extends Controller
 
     public function transactions(Request $request)
     {
+        $user = auth()->user();
+        $branchAgentId = $user ? $user->branchAgent?->id : null;
+
         $query = PosTransaction::with('machine');
+
+        if ($branchAgentId) {
+            $query->whereHas('machine.branchAgents', function ($q) use ($branchAgentId) {
+                $q->where('branches_agents.id', $branchAgentId);
+            });
+        }
 
         if ($request->filled('machine_id')) {
             $query->where('pos_machine_id', $request->machine_id);
@@ -107,7 +139,14 @@ class PosMachineController extends Controller
         // إحصائيات الشهر
         $startOfMonth = Carbon::now()->startOfMonth();
         $endOfMonth   = Carbon::now()->endOfMonth();
-        $monthAmount  = PosTransaction::whereBetween('transaction_date', [$startOfMonth, $endOfMonth])->sum('amount');
+
+        $monthStatsQuery = PosTransaction::whereBetween('transaction_date', [$startOfMonth, $endOfMonth]);
+        if ($branchAgentId) {
+            $monthStatsQuery->whereHas('machine.branchAgents', function ($q) use ($branchAgentId) {
+                $q->where('branches_agents.id', $branchAgentId);
+            });
+        }
+        $monthAmount = $monthStatsQuery->sum('amount');
 
         return response()->json([
             'success'      => true,
@@ -123,6 +162,9 @@ class PosMachineController extends Controller
 
     public function storeTransaction(Request $request)
     {
+        $user = auth()->user();
+        $branchAgentId = $user ? $user->branchAgent?->id : null;
+
         $request->validate([
             'pos_machine_id'     => 'required|exists:pos_machines,id',
             'transaction_date'   => 'required|date',
@@ -132,6 +174,16 @@ class PosMachineController extends Controller
             'notes'              => 'nullable|string',
             'report_file'        => 'nullable|file|mimes:pdf,xlsx,xls,csv|max:20480',
         ]);
+
+        if ($branchAgentId) {
+            $hasMachine = PosMachine::where('id', $request->pos_machine_id)
+                ->whereHas('branchAgents', function ($q) use ($branchAgentId) {
+                    $q->where('branches_agents.id', $branchAgentId);
+                })->exists();
+            if (!$hasMachine) {
+                return response()->json(['success' => false, 'message' => 'غير مصرح لك باستخدام هذه الماكينة'], 403);
+            }
+        }
 
         $data = $request->except('report_file');
 
@@ -151,13 +203,35 @@ class PosMachineController extends Controller
 
     public function updateTransaction(Request $request, $id)
     {
+        $user = auth()->user();
+        $branchAgentId = $user ? $user->branchAgent?->id : null;
+
         $transaction = PosTransaction::findOrFail($id);
+
+        if ($branchAgentId) {
+            $hasMachine = $transaction->machine()->whereHas('branchAgents', function ($q) use ($branchAgentId) {
+                $q->where('branches_agents.id', $branchAgentId);
+            })->exists();
+            if (!$hasMachine) {
+                return response()->json(['success' => false, 'message' => 'غير مصرح لك بتعديل هذه المعاملة'], 403);
+            }
+        }
 
         $request->validate([
             'pos_machine_id'   => 'required|exists:pos_machines,id',
             'transaction_date' => 'required|date',
             'amount'           => 'required|numeric|min:0.01',
         ]);
+
+        if ($branchAgentId) {
+            $hasNewMachine = PosMachine::where('id', $request->pos_machine_id)
+                ->whereHas('branchAgents', function ($q) use ($branchAgentId) {
+                    $q->where('branches_agents.id', $branchAgentId);
+                })->exists();
+            if (!$hasNewMachine) {
+                return response()->json(['success' => false, 'message' => 'غير مصرح لك باستخدام هذه الماكينة'], 403);
+            }
+        }
 
         $data = $request->except('report_file');
 
@@ -180,7 +254,19 @@ class PosMachineController extends Controller
 
     public function destroyTransaction($id)
     {
+        $user = auth()->user();
+        $branchAgentId = $user ? $user->branchAgent?->id : null;
+
         $transaction = PosTransaction::findOrFail($id);
+
+        if ($branchAgentId) {
+            $hasMachine = $transaction->machine()->whereHas('branchAgents', function ($q) use ($branchAgentId) {
+                $q->where('branches_agents.id', $branchAgentId);
+            })->exists();
+            if (!$hasMachine) {
+                return response()->json(['success' => false, 'message' => 'غير مصرح لك بحذف هذه المعاملة'], 403);
+            }
+        }
 
         if ($transaction->report_file) {
             Storage::disk('public')->delete($transaction->report_file);
@@ -193,7 +279,20 @@ class PosMachineController extends Controller
 
     public function toggleReconcile($id)
     {
+        $user = auth()->user();
+        $branchAgentId = $user ? $user->branchAgent?->id : null;
+
         $transaction = PosTransaction::findOrFail($id);
+
+        if ($branchAgentId) {
+            $hasMachine = $transaction->machine()->whereHas('branchAgents', function ($q) use ($branchAgentId) {
+                $q->where('branches_agents.id', $branchAgentId);
+            })->exists();
+            if (!$hasMachine) {
+                return response()->json(['success' => false, 'message' => 'غير مصرح لك بتعديل هذه المعاملة'], 403);
+            }
+        }
+
         $transaction->update(['is_reconciled' => !$transaction->is_reconciled]);
         return response()->json(['success' => true, 'data' => $transaction]);
     }
@@ -202,7 +301,18 @@ class PosMachineController extends Controller
 
     public function dashboard()
     {
-        $machines = PosMachine::where('is_active', true)->get();
+        $user = auth()->user();
+        $branchAgentId = $user ? $user->branchAgent?->id : null;
+
+        $query = PosMachine::where('is_active', true);
+
+        if ($branchAgentId) {
+            $query->whereHas('branchAgents', function ($q) use ($branchAgentId) {
+                $q->where('branches_agents.id', $branchAgentId);
+            });
+        }
+
+        $machines = $query->get();
 
         $machineStats = $machines->map(function ($machine) {
             $monthStart = Carbon::now()->startOfMonth();
@@ -224,11 +334,13 @@ class PosMachineController extends Controller
             ];
         });
 
-        $grandTotal     = PosTransaction::sum('amount');
-        $monthGrandTotal = PosTransaction::whereBetween(
-            'transaction_date',
-            [Carbon::now()->startOfMonth(), Carbon::now()->endOfMonth()]
-        )->sum('amount');
+        $machineIds = $machines->pluck('id');
+        $grandTotal     = PosTransaction::whereIn('pos_machine_id', $machineIds)->sum('amount');
+        $monthGrandTotal = PosTransaction::whereIn('pos_machine_id', $machineIds)
+            ->whereBetween(
+                'transaction_date',
+                [Carbon::now()->startOfMonth(), Carbon::now()->endOfMonth()]
+            )->sum('amount');
 
         return response()->json([
             'success'          => true,

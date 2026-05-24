@@ -6,6 +6,7 @@ use App\Models\Expense;
 use App\Models\ExpenseCategory;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 
 class ExpenseController extends Controller
@@ -82,6 +83,7 @@ class ExpenseController extends Controller
             'items' => 'nullable|array',
             'receipt_image' => 'nullable|file|mimes:jpeg,png,jpg,gif,svg,webp,pdf|max:10240',
             'is_indemnity' => 'nullable|boolean',
+            'payment_source' => 'nullable|string',
         ]);
 
         $data = $request->all();
@@ -91,13 +93,27 @@ class ExpenseController extends Controller
             $data['receipt_image'] = $path;
         }
 
-        $expense = Expense::create($data);
+        DB::beginTransaction();
+        try {
+            $expense = Expense::create($data);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'تم إضافة المصروف بنجاح',
-            'data' => $expense
-        ], 201);
+            // Process financial transaction (balance check and insert)
+            $this->processFinancialTransaction($expense);
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'تم إضافة المصروف بنجاح',
+                'data' => $expense
+            ], 201);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 422);
+        }
     }
 
     public function update(Request $request, $id)
@@ -125,6 +141,7 @@ class ExpenseController extends Controller
             'items' => 'nullable|array',
             'receipt_image' => 'nullable|file|mimes:jpeg,png,jpg,gif,svg,webp,pdf|max:10240',
             'is_indemnity' => 'nullable|boolean',
+            'payment_source' => 'nullable|string',
         ]);
 
         $data = $request->all();
@@ -137,28 +154,119 @@ class ExpenseController extends Controller
             $data['receipt_image'] = $path;
         }
 
-        $expense->update($data);
+        DB::beginTransaction();
+        try {
+            $expense->update($data);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'تم تحديث المصروف بنجاح',
-            'data' => $expense
-        ]);
+            // Process financial transaction (delete old and insert/check new)
+            $this->processFinancialTransaction($expense);
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'تم تحديث المصروف بنجاح',
+                'data' => $expense
+            ]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 422);
+        }
     }
 
     public function destroy($id)
     {
         $expense = Expense::findOrFail($id);
         
-        if ($expense->receipt_image) {
-            Storage::disk('public')->delete($expense->receipt_image);
-        }
-        
-        $expense->delete();
+        DB::beginTransaction();
+        try {
+            // Delete associated transactions first
+            \App\Models\TreasuryTransaction::where('description', 'like', "مصروف رقم: {$expense->id}%")->delete();
+            \App\Models\BankTransaction::where('notes', 'like', "مصروف رقم: {$expense->id}%")->delete();
 
-        return response()->json([
-            'success' => true,
-            'message' => 'تم حذف المصروف بنجاح'
-        ]);
+            if ($expense->receipt_image) {
+                Storage::disk('public')->delete($expense->receipt_image);
+            }
+            
+            $expense->delete();
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'تم حذف المصروف بنجاح'
+            ]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'فشل حذف المصروف: ' . $e->getMessage()
+            ], 422);
+        }
+    }
+
+    private function processFinancialTransaction(Expense $expense)
+    {
+        // 1. Delete any existing transactions matching this expense
+        \App\Models\TreasuryTransaction::where('description', 'like', "مصروف رقم: {$expense->id}%")->delete();
+        \App\Models\BankTransaction::where('notes', 'like', "مصروف رقم: {$expense->id}%")->delete();
+
+        // 2. Only process if not indemnity and status is "مدفوع"
+        if ($expense->is_indemnity || $expense->status !== 'مدفوع') {
+            return;
+        }
+
+        $source = $expense->payment_source ?: 'treasury';
+        $amount = (float) $expense->amount;
+
+        if ($source === 'treasury') {
+            // Calculate treasury balance
+            $totalIncome = \App\Models\TreasuryTransaction::where('type', 'income')->sum('amount');
+            $totalExpense = \App\Models\TreasuryTransaction::where('type', 'expense')->sum('amount');
+            $currentBalance = $totalIncome - $totalExpense;
+
+            if ($currentBalance < $amount) {
+                throw new \Exception("الرصيد في الخزينة غير كافٍ لتغطية هذا المصروف. الرصيد الحالي: " . number_format($currentBalance, 2) . " د.ل");
+            }
+
+            // Create treasury transaction
+            \App\Models\TreasuryTransaction::create([
+                'transaction_date' => $expense->expense_date,
+                'type' => 'expense',
+                'amount' => $amount,
+                'description' => "مصروف رقم: {$expense->id} - {$expense->name}",
+                'source' => $expense->recipient,
+                'notes' => $expense->notes,
+                'payment_source' => 'treasury',
+            ]);
+        } else {
+            // Calculate bank balance
+            $totalDeposits = \App\Models\BankTransaction::where('bank_name', $source)->where('type', 'deposit')->sum('amount');
+            $totalWithdrawals = \App\Models\BankTransaction::where('bank_name', $source)->where('type', 'withdrawal')->sum('amount');
+            $currentBalance = $totalDeposits - $totalWithdrawals;
+
+            if ($currentBalance < $amount) {
+                throw new \Exception("الرصيد في {$source} غير كافٍ لتغطية هذا المصروف. الرصيد الحالي: " . number_format($currentBalance, 2) . " د.ل");
+            }
+
+            // Get bank account number
+            $bank = \App\Models\Bank::where('name', $source)->first();
+            $accountNumber = $bank ? $bank->account_number : null;
+
+            // Create bank transaction
+            \App\Models\BankTransaction::create([
+                'transaction_date' => $expense->expense_date,
+                'bank_name' => $source,
+                'account_number' => $accountNumber,
+                'amount' => $amount,
+                'type' => 'withdrawal',
+                'reconciled' => true,
+                'notes' => "مصروف رقم: {$expense->id} - {$expense->name}",
+                'transaction_type' => 'مصروفات تشغيلية',
+            ]);
+        }
     }
 }

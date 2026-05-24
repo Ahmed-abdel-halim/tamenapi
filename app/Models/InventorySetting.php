@@ -8,5 +8,5 @@ use Illuminate\Database\Eloquent\Model;
 class InventorySetting extends Model
 {
     use HasFactory;
-    protected $fillable = ['setting_type', 'name'];
+    protected $fillable = ['setting_type', 'name', 'inventory_type'];
 }

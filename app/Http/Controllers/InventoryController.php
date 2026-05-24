@@ -322,6 +322,7 @@ class InventoryController extends Controller
         $validated = $request->validate([
             'setting_type' => 'required|string',
             'name' => 'required|string|max:255',
+            'inventory_type' => 'nullable|string|max:255',
         ]);
         $setting = \App\Models\InventorySetting::create($validated);
         return response()->json($setting, 201);
@@ -332,16 +333,18 @@ class InventoryController extends Controller
         $setting = \App\Models\InventorySetting::findOrFail($id);
         $validated = $request->validate([
             'name' => 'required|string|max:255',
+            'inventory_type' => 'nullable|string|max:255',
         ]);
         
         $oldName = $setting->name;
         $setting->update($validated);
 
-        // Update existing store items
+        // Update existing store items and sub-settings
         if ($setting->setting_type === 'category') {
             StoreItem::where('category', $oldName)->update(['category' => $validated['name']]);
         } else if ($setting->setting_type === 'inventory_type') {
             StoreItem::where('inventory_type', $oldName)->update(['inventory_type' => $validated['name']]);
+            \App\Models\InventorySetting::where('setting_type', 'category')->where('inventory_type', $oldName)->update(['inventory_type' => $validated['name']]);
         }
 
         return response()->json($setting);

@@ -420,6 +420,9 @@ class InsuranceDocumentController extends Controller
                 'vehicle_weight' => 'nullable|string|max:255',
                 'notes' => 'nullable|string',
                 'TypeOfVehicle' => 'nullable|string',
+                'eidc_vehicle_type_id' => 'required_if:insurance_type,تأمين إجباري سيارات|nullable|string',
+                'eidc_vehicle_spec_id' => 'required_if:insurance_type,تأمين إجباري سيارات|nullable|string',
+                'eidc_vehicle_detail_id' => 'nullable|string',
             ]);
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
@@ -545,6 +548,9 @@ class InsuranceDocumentController extends Controller
                 'engine_cc' => $validated['engine_cc'] ?? null,
                 'vehicle_weight' => $validated['vehicle_weight'] ?? null,
                 'notes' => $validated['notes'] ?? null,
+                'eidc_vehicle_type_id' => $validated['eidc_vehicle_type_id'] ?? null,
+                'eidc_vehicle_spec_id' => $validated['eidc_vehicle_spec_id'] ?? null,
+                'eidc_vehicle_detail_id' => $validated['eidc_vehicle_detail_id'] ?? null,
             ]);
 
             // ─── EIDC Integration: Update on Authority System ────────────────

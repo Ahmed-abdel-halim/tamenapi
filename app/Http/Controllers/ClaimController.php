@@ -30,7 +30,7 @@ class ClaimController extends Controller
             $query->where('status', $request->status);
         }
         if ($request->damage_type) {
-            $query->where('damage_type', $request->damage_type);
+            $query->where('damage_type', 'like', '%' . $request->damage_type . '%');
         }
 
         $claims = $query->orderBy('created_at', 'desc')->get();

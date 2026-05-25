@@ -45,6 +45,7 @@ class InventoryController extends Controller
             'unit' => 'nullable|string',
             'serial_prefix' => 'nullable|string',
             'price' => 'nullable|numeric|min:0',
+            'depreciation_rate' => 'nullable|numeric|min:0|max:100',
             'min_threshold' => 'integer',
         ]);
 
@@ -69,6 +70,7 @@ class InventoryController extends Controller
             'unit' => 'nullable|string',
             'serial_prefix' => 'nullable|string',
             'price' => 'nullable|numeric|min:0',
+            'depreciation_rate' => 'nullable|numeric|min:0|max:100',
             'min_threshold' => 'integer',
         ]);
 

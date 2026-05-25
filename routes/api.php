@@ -221,6 +221,7 @@ Route::get('/branches-agents/{id}/print', [BranchAgentController::class, 'print'
 Route::get('/branches-agents/{id}/account-report', [BranchAgentController::class, 'accountReport']);
 Route::get('/branches-agents/{id}/revenue-report', [BranchAgentController::class, 'revenueReport']);
 Route::post('/branches-agents/{id}/toggle-block', [BranchAgentController::class, 'toggleBlock']);
+Route::post('/branches-agents/{id}/toggle-landing', [BranchAgentController::class, 'toggleShowOnLanding']);
 Route::post('/branches-agents/{id}/approve', [BranchAgentController::class, 'approveAgent']);
 Route::get('/reports/outstanding-debts', [\App\Http\Controllers\DebtReportController::class, 'getOutstandingDebts']);
 

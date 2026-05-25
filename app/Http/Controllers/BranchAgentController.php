@@ -2874,6 +2874,29 @@ class BranchAgentController extends Controller
     }
 
     /**
+     * Toggle show_on_landing status for the agent.
+     */
+    public function toggleShowOnLanding($id)
+    {
+        try {
+            $branchAgent = BranchAgent::findOrFail($id);
+            $branchAgent->show_on_landing = !$branchAgent->show_on_landing;
+            $branchAgent->save();
+
+            return response()->json([
+                'success' => true,
+                'show_on_landing' => $branchAgent->show_on_landing,
+                'message' => $branchAgent->show_on_landing ? 'سيظهر الوكيل في الواجهة الرئيسية' : 'تم إخفاء الوكيل من الواجهة الرئيسية'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'حدث خطأ أثناء تحديث حالة الظهور في الواجهة',
+                'error' => config('app.debug') ? $e->getMessage() : 'خطأ غير معروف'
+            ], 500);
+        }
+    }
+
+    /**
      * Print revenue report
      */
     public function revenueReport(Request $request, $id)

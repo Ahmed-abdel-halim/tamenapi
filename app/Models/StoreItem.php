@@ -16,12 +16,14 @@ class StoreItem extends Model
         'inventory_type',
         'unit',
         'price',
+        'depreciation_rate',
         'description',
         'min_threshold'
     ];
 
     protected $casts = [
         'price' => 'decimal:2',
+        'depreciation_rate' => 'decimal:2',
     ];
 
     public function stocks()

@@ -53,6 +53,7 @@ class BranchAgent extends Model
         'wallet_balance',
         'referral_code',
         'referred_by_id',
+        'show_on_landing',
     ];
 
     protected $casts = [
@@ -65,6 +66,7 @@ class BranchAgent extends Model
         'requested_documents' => 'array',
         'points_balance' => 'integer',
         'wallet_balance' => 'decimal:2',
+        'show_on_landing' => 'boolean',
     ];
 
     public function user()

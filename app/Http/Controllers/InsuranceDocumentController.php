@@ -1025,9 +1025,9 @@ class InsuranceDocumentController extends Controller
     private function syncWithEidc(InsuranceDocument $document, array $validated, ?string $endDate, ?User $issuingUser = null): void
     {
         try {
-            // محاولة تحديد المستخدم المسؤول عن الوثيقة لجلب حساب الهيئة الخاص به
-            // Use BranchAgent user's credentials for EIDC so the document is issued under the agent's name
-            $user = null;
+            // Ensure vehicleType relation is loaded for TypeOfVehicle fallback
+            $document->loadMissing('vehicleType');
+
             if ($document->branch_agent_id) {
                 $document->loadMissing('branchAgent.user');
                 $user = $document->branchAgent->user ?? null;
@@ -1081,7 +1081,7 @@ class InsuranceDocumentController extends Controller
                 'TypeVechicleId' => $validated['eidc_vehicle_type_id'] ?? $document->eidc_vehicle_type_id ?? '',
                 'TypeVechicle2Id' => $validated['eidc_vehicle_spec_id'] ?? $document->eidc_vehicle_spec_id ?? '',
                 'TypeVechicle3Id' => $validated['eidc_vehicle_detail_id'] ?? $document->eidc_vehicle_detail_id ?? null,
-                'TypeOfVehicle' => $validated['TypeOfVehicle'] ?? '',
+                'TypeOfVehicle' => !empty($validated['TypeOfVehicle']) ? $validated['TypeOfVehicle'] : ($document->vehicleType ? $document->vehicleType->brand : ''),
                 'IssuingFeesOptions' => $issueFees,
                 'PlateNo' => substr($validated['plate_number_manual'] ?? $document->plate_number_manual ?? '', 0, 20),
                 'ChassisNo' => $validated['chassis_number'] ?? $document->chassis_number ?? null,

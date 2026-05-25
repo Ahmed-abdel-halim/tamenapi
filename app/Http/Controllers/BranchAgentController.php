@@ -77,7 +77,7 @@ class BranchAgentController extends Controller
                 'address' => 'nullable|string',
                 'phone' => 'nullable|string',
                 'nationality' => 'nullable|string',
-                'national_id' => 'nullable|string|size:12',
+                'national_id' => 'nullable|string|max:50',
                 'identity_number' => 'nullable|string',
                 'consumed_custodies' => 'nullable|string',
                 'fixed_custodies' => 'nullable|string',
@@ -104,6 +104,10 @@ class BranchAgentController extends Controller
                 'eidc_password' => 'nullable|string|max:191',
             ]);
         } catch (\Illuminate\Validation\ValidationException $e) {
+            \Illuminate\Support\Facades\Log::error('Validation failed for creating branch agent:', [
+                'errors' => $e->errors(),
+                'input' => $request->except(['password', 'eidc_password'])
+            ]);
             return response()->json([
                 'message' => 'خطأ في التحقق من البيانات',
                 'errors' => $e->errors()
@@ -294,7 +298,7 @@ class BranchAgentController extends Controller
                 'address' => 'nullable|string',
                 'phone' => 'nullable|string',
                 'nationality' => 'nullable|string',
-                'national_id' => 'nullable|string|size:12',
+                'national_id' => 'nullable|string|max:50',
                 'identity_number' => 'nullable|string',
                 'personal_photo' => 'nullable|file|mimes:jpg,jpeg,png|max:5120',
                 'identity_photo' => 'nullable|file|mimes:jpg,jpeg,png|max:5120',
@@ -314,6 +318,10 @@ class BranchAgentController extends Controller
                 'requested_documents' => 'nullable|string',
             ]);
         } catch (\Illuminate\Validation\ValidationException $e) {
+            \Illuminate\Support\Facades\Log::error('Validation failed for public agent registration:', [
+                'errors' => $e->errors(),
+                'input' => $request->except(['password'])
+            ]);
             return response()->json([
                 'message' => 'خطأ في التحقق من البيانات',
                 'errors' => $e->errors()
@@ -572,7 +580,7 @@ class BranchAgentController extends Controller
             'address' => 'nullable|string',
             'phone' => 'nullable|string',
             'nationality' => 'nullable|string',
-            'national_id' => 'nullable|string|size:12',
+            'national_id' => 'nullable|string|max:50',
             'identity_number' => 'nullable|string',
             'consumed_custodies' => 'nullable|array',
             'consumed_custodies.*.description' => 'required_with:consumed_custodies|string',

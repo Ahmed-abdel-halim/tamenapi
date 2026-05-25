@@ -26,7 +26,7 @@ class InsuranceDocumentController extends Controller
             $branchAgentId = null;
 
             if ($userId) {
-                $userId = is_numeric($userId) ? (int)$userId : null;
+                $userId = is_numeric($userId) ? (int) $userId : null;
                 if ($userId) {
                     $user = User::find($userId);
                     if ($user) {
@@ -60,9 +60,9 @@ class InsuranceDocumentController extends Controller
             if ($search) {
                 $query->where(function ($q) use ($search) {
                     $q->where('insurance_number', 'like', "%{$search}%")
-                      ->orWhere('insured_name', 'like', "%{$search}%")
-                      ->orWhere('phone', 'like', "%{$search}%")
-                      ->orWhere('insurance_type', 'like', "%{$search}%");
+                        ->orWhere('insured_name', 'like', "%{$search}%")
+                        ->orWhere('phone', 'like', "%{$search}%")
+                        ->orWhere('insurance_type', 'like', "%{$search}%");
                 });
             }
 
@@ -91,17 +91,17 @@ class InsuranceDocumentController extends Controller
                 $transferCount = InsuranceOwnershipTransfer::where('insurance_document_id', $document->id)->count();
                 $document->ownership_transfer_count = $transferCount;
                 $document->has_ownership_transfer = $transferCount > 0;
-                
+
                 // إضافة اسم الوكالة للادمن فقط
                 if ($isAdmin) {
                     $document->agency_name = $document->branchAgent ? ($document->branchAgent->agency_name ?? null) : null;
                 } else {
                     $document->agency_name = null;
                 }
-                
+
                 return $document;
             });
-            
+
             return response()->json($documents);
         } catch (\Exception $e) {
             Log::error('Error in InsuranceDocumentController@index: ' . $e->getMessage());
@@ -139,49 +139,49 @@ class InsuranceDocumentController extends Controller
     {
         try {
             $validated = $request->validate([
-                'insurance_type'       => 'required|in:تأمين إجباري سيارات,تأمين سيارة جمرك,تأمين طرف ثالث سيارات,تأمين سيارات أجنبية',
-                'plate_id'             => 'nullable|exists:plates,id',
-                'port'                 => 'nullable|string|max:255',
-                'start_date'           => 'required|date',
-                'end_date'             => 'nullable|date',
-                'duration'             => 'nullable|string|max:255',
-                'chassis_number'       => 'required|string|max:255',
-                'plate_number_manual'  => 'required|string|max:255',
-                'vehicle_type_id'      => 'required|exists:vehicle_types,id',
-                'color'                => 'required|string|max:255',
-                'year'                 => 'required|integer|min:1960|max:2026',
-                'manufacturing_country'=> 'nullable|string|max:255',
-                'fuel_type'            => 'nullable|in:بنزين/Gasoline,ديزل/Diesel,كهرباء/Electric,غاز طبيعي/CNG,هيدروجين/Hydrogen',
-                'license_purpose'      => 'required_unless:insurance_type,تأمين سيارات أجنبية|nullable|in:خاصة/Private,عامة/Public,نقل/Transport,زراعي/Agricultural,صناعي/Industrial',
-                'engine_power'         => 'required_unless:insurance_type,تأمين طرف ثالث سيارات,تأمين سيارات أجنبية|nullable|string|max:255',
-                'authorized_passengers'=> 'nullable|integer|min:0|max:100',
-                'load_capacity'        => 'nullable|numeric|min:0|max:1000',
-                'insured_name'         => 'required|string|max:255',
-                'phone'                => 'required|string|max:255',
-                'whatsapp_number'      => 'nullable|string|max:255',
+                'insurance_type' => 'required|in:تأمين إجباري سيارات,تأمين سيارة جمرك,تأمين طرف ثالث سيارات,تأمين سيارات أجنبية',
+                'plate_id' => 'nullable|exists:plates,id',
+                'port' => 'nullable|string|max:255',
+                'start_date' => 'required|date',
+                'end_date' => 'nullable|date',
+                'duration' => 'nullable|string|max:255',
+                'chassis_number' => 'required|string|max:255',
+                'plate_number_manual' => 'required|string|max:255',
+                'vehicle_type_id' => 'required|exists:vehicle_types,id',
+                'color' => 'required|string|max:255',
+                'year' => 'required|integer|min:1960|max:2026',
+                'manufacturing_country' => 'nullable|string|max:255',
+                'fuel_type' => 'nullable|in:بنزين/Gasoline,ديزل/Diesel,كهرباء/Electric,غاز طبيعي/CNG,هيدروجين/Hydrogen',
+                'license_purpose' => 'required_unless:insurance_type,تأمين سيارات أجنبية|nullable|in:خاصة/Private,عامة/Public,نقل/Transport,زراعي/Agricultural,صناعي/Industrial',
+                'engine_power' => 'required_unless:insurance_type,تأمين طرف ثالث سيارات,تأمين سيارات أجنبية|nullable|string|max:255',
+                'authorized_passengers' => 'nullable|integer|min:0|max:100',
+                'load_capacity' => 'nullable|numeric|min:0|max:1000',
+                'insured_name' => 'required|string|max:255',
+                'phone' => 'required|string|max:255',
+                'whatsapp_number' => 'nullable|string|max:255',
                 'driving_license_number' => 'nullable|string|max:255',
-                'nid_passport'         => 'nullable|string|max:50',
-                'nationality'          => 'nullable|string|max:100',
-                'email'                => 'nullable|email|max:255',
-                'engine_number'        => 'nullable|string|max:255',
-                'engine_cc'            => 'nullable|string|max:255',
-                'vehicle_weight'       => 'nullable|string|max:255',
-                'notes'                => 'nullable|string',
-                'premium'              => 'required|numeric|min:0|max:999999',
-                'third_party_purpose'  => 'nullable|string|max:255',
-                'foreign_car_country'  => 'nullable|string|max:255',
-                'foreign_car_purpose'  => 'nullable|string|max:255',
-                'print_type'           => 'nullable|in:A5,A4',
+                'nid_passport' => 'nullable|string|max:50',
+                'nationality' => 'nullable|string|max:100',
+                'email' => 'nullable|email|max:255',
+                'engine_number' => 'nullable|string|max:255',
+                'engine_cc' => 'nullable|string|max:255',
+                'vehicle_weight' => 'nullable|string|max:255',
+                'notes' => 'nullable|string',
+                'premium' => 'required|numeric|min:0|max:999999',
+                'third_party_purpose' => 'nullable|string|max:255',
+                'foreign_car_country' => 'nullable|string|max:255',
+                'foreign_car_purpose' => 'nullable|string|max:255',
+                'print_type' => 'nullable|in:A5,A4',
                 // EIDC Vehicle Classification (required for mandatory insurance)
                 'eidc_vehicle_type_id' => 'nullable|string',
                 'eidc_vehicle_spec_id' => 'nullable|string',
                 'eidc_vehicle_detail_id' => 'nullable|string',
-                'TypeOfVehicle'        => 'nullable|string',
+                'TypeOfVehicle' => 'nullable|string',
             ]);
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
                 'message' => 'خطأ في التحقق من البيانات',
-                'errors'  => $e->errors()
+                'errors' => $e->errors()
             ], 422);
         }
 
@@ -191,7 +191,7 @@ class InsuranceDocumentController extends Controller
                 ->orderBy('id', 'desc')
                 ->first();
             if ($lastDocument && preg_match('/BKMCI(\d+)/', $lastDocument->insurance_number, $matches)) {
-                $nextNumber = (int)$matches[1] + 1;
+                $nextNumber = (int) $matches[1] + 1;
             } else {
                 $nextNumber = 1;
             }
@@ -205,7 +205,7 @@ class InsuranceDocumentController extends Controller
             if (!$endDate && isset($validated['duration']) && isset($validated['start_date'])) {
                 $startDate = Carbon::parse($validated['start_date']);
                 $duration = $validated['duration'];
-                
+
                 // تأمين جمرك أو سيارات أجنبية - حساب بالأيام
                 if ($validated['insurance_type'] === 'تأمين سيارة جمرك' || $validated['insurance_type'] === 'تأمين سيارات أجنبية') {
                     $days = 0;
@@ -242,11 +242,11 @@ class InsuranceDocumentController extends Controller
             }
 
             // حساب الإجمالي
-            $premium = (float)($validated['premium'] ?? 0);
-            $tax = (float)($request->input('tax', 1.000));
-            $stamp = (float)($request->input('stamp', 0.500));
-            $issueFees = (float)($request->input('issue_fees', 2.000));
-            $supervisionFees = (float)($request->input('supervision_fees', 0.500));
+            $premium = (float) ($validated['premium'] ?? 0);
+            $tax = (float) ($request->input('tax', 1.000));
+            $stamp = (float) ($request->input('stamp', 0.500));
+            $issueFees = (float) ($request->input('issue_fees', 2.000));
+            $supervisionFees = (float) ($request->input('supervision_fees', 0.500));
             $total = $premium + $tax + $stamp + $issueFees + $supervisionFees;
 
             // الحصول على branch_agent_id من المستخدم الحالي
@@ -257,9 +257,9 @@ class InsuranceDocumentController extends Controller
                 'input_user_id' => $request->input('user_id'),
                 'userId' => $userId,
             ]);
-            
+
             if ($userId) {
-                $userId = is_numeric($userId) ? (int)$userId : null;
+                $userId = is_numeric($userId) ? (int) $userId : null;
                 if ($userId) {
                     $user = User::find($userId);
                     if ($user) {
@@ -268,7 +268,7 @@ class InsuranceDocumentController extends Controller
                             'user_id' => $userId,
                             'is_admin' => $isAdmin,
                         ]);
-                        
+
                         if ($isAdmin) {
                             // Admin can specify any agent
                             $branchAgentId = $request->input('branch_agent_id');
@@ -282,63 +282,63 @@ class InsuranceDocumentController extends Controller
                     }
                 }
             }
-            
+
             // If branch_agent_id is still null and we have it in request, and we didn't force it to null for non-admins
             if (!$branchAgentId && $request->has('branch_agent_id')) {
                 $branchAgentId = $request->input('branch_agent_id');
             }
-            
+
             Log::info('Final branch_agent_id to save:', ['branch_agent_id' => $branchAgentId]);
 
             $document = InsuranceDocument::create([
-                'insurance_type'        => $validated['insurance_type'],
-                'insurance_number'      => $insuranceNumber,
-                'issue_date'            => now(),
-                'plate_id'              => $validated['plate_id'] ?? null,
-                'port'                  => $validated['port'] ?? null,
-                'start_date'            => $validated['start_date'],
-                'end_date'              => $endDate,
-                'duration'              => $validated['duration'] ?? 'سنة',
-                'third_party_purpose'   => $validated['third_party_purpose'] ?? null,
-                'foreign_car_country'   => $validated['foreign_car_country'] ?? null,
-                'foreign_car_purpose'   => $validated['foreign_car_purpose'] ?? null,
-                'chassis_number'        => $validated['chassis_number'] ?? null,
-                'plate_number_manual'   => $validated['plate_number_manual'] ?? null,
-                'vehicle_type_id'       => $validated['vehicle_type_id'] ?? null,
-                'color'                 => $validated['color'] ?? null,
-                'year'                  => $validated['year'] ?? null,
+                'insurance_type' => $validated['insurance_type'],
+                'insurance_number' => $insuranceNumber,
+                'issue_date' => now(),
+                'plate_id' => $validated['plate_id'] ?? null,
+                'port' => $validated['port'] ?? null,
+                'start_date' => $validated['start_date'],
+                'end_date' => $endDate,
+                'duration' => $validated['duration'] ?? 'سنة',
+                'third_party_purpose' => $validated['third_party_purpose'] ?? null,
+                'foreign_car_country' => $validated['foreign_car_country'] ?? null,
+                'foreign_car_purpose' => $validated['foreign_car_purpose'] ?? null,
+                'chassis_number' => $validated['chassis_number'] ?? null,
+                'plate_number_manual' => $validated['plate_number_manual'] ?? null,
+                'vehicle_type_id' => $validated['vehicle_type_id'] ?? null,
+                'color' => $validated['color'] ?? null,
+                'year' => $validated['year'] ?? null,
                 'manufacturing_country' => $validated['manufacturing_country'] ?? null,
-                'fuel_type'             => $validated['fuel_type'] ?? null,
-                'license_purpose'       => $validated['license_purpose'] ?? null,
-                'engine_power'          => $validated['engine_power'] ?? null,
+                'fuel_type' => $validated['fuel_type'] ?? null,
+                'license_purpose' => $validated['license_purpose'] ?? null,
+                'engine_power' => $validated['engine_power'] ?? null,
                 'authorized_passengers' => $validated['authorized_passengers'] ?? null,
-                'load_capacity'         => $validated['load_capacity'] ?? null,
-                'insured_name'          => $validated['insured_name'] ?? null,
-                'phone'                 => $validated['phone'] ?? null,
-                'email'                 => $validated['email'] ?? null,
-                'address'               => $request->input('address'),
-                'whatsapp_number'       => $validated['whatsapp_number'] ?? null,
-                'driving_license_number'=> $validated['driving_license_number'] ?? null,
-                'nid_passport'          => $validated['nid_passport'] ?? null,
-                'nationality'           => $validated['nationality'] ?? 'ليبي',
-                'engine_number'         => $validated['engine_number'] ?? null,
-                'engine_cc'             => $validated['engine_cc'] ?? null,
-                'vehicle_weight'        => $validated['vehicle_weight'] ?? null,
-                'notes'                 => $validated['notes'] ?? null,
-                'premium'               => $premium,
-                'tax'                   => $tax,
-                'stamp'                 => $stamp,
-                'issue_fees'            => $issueFees,
-                'supervision_fees'      => $supervisionFees,
-                'total'                 => $total,
-                'print_type'            => $validated['print_type'] ?? 'A4',
-                'branch_agent_id'       => $branchAgentId,
+                'load_capacity' => $validated['load_capacity'] ?? null,
+                'insured_name' => $validated['insured_name'] ?? null,
+                'phone' => $validated['phone'] ?? null,
+                'email' => $validated['email'] ?? null,
+                'address' => $request->input('address'),
+                'whatsapp_number' => $validated['whatsapp_number'] ?? null,
+                'driving_license_number' => $validated['driving_license_number'] ?? null,
+                'nid_passport' => $validated['nid_passport'] ?? null,
+                'nationality' => $validated['nationality'] ?? 'ليبي',
+                'engine_number' => $validated['engine_number'] ?? null,
+                'engine_cc' => $validated['engine_cc'] ?? null,
+                'vehicle_weight' => $validated['vehicle_weight'] ?? null,
+                'notes' => $validated['notes'] ?? null,
+                'premium' => $premium,
+                'tax' => $tax,
+                'stamp' => $stamp,
+                'issue_fees' => $issueFees,
+                'supervision_fees' => $supervisionFees,
+                'total' => $total,
+                'print_type' => $validated['print_type'] ?? 'A4',
+                'branch_agent_id' => $branchAgentId,
                 // EIDC vehicle classification fields
-                'eidc_vehicle_type_id'  => $validated['eidc_vehicle_type_id'] ?? null,
-                'eidc_vehicle_spec_id'  => $validated['eidc_vehicle_spec_id'] ?? null,
-                'eidc_vehicle_detail_id'=> $validated['eidc_vehicle_detail_id'] ?? null,
+                'eidc_vehicle_type_id' => $validated['eidc_vehicle_type_id'] ?? null,
+                'eidc_vehicle_spec_id' => $validated['eidc_vehicle_spec_id'] ?? null,
+                'eidc_vehicle_detail_id' => $validated['eidc_vehicle_detail_id'] ?? null,
                 // Start with pending if mandatory insurance
-                'eidc_sync_status'      => ($validated['insurance_type'] === 'تأمين إجباري سيارات') ? 'pending' : null,
+                'eidc_sync_status' => ($validated['insurance_type'] === 'تأمين إجباري سيارات') ? 'pending' : null,
             ]);
 
             // ─── EIDC Integration: Register on Authority System ────────────────
@@ -435,7 +435,7 @@ class InsuranceDocumentController extends Controller
             if (!$endDate && isset($validated['duration']) && isset($validated['start_date'])) {
                 $startDate = Carbon::parse($validated['start_date']);
                 $duration = $validated['duration'];
-                
+
                 // تأمين جمرك أو سيارات أجنبية - حساب بالأيام
                 if ($validated['insurance_type'] === 'تأمين سيارة جمرك' || $validated['insurance_type'] === 'تأمين سيارات أجنبية') {
                     $days = 0;
@@ -551,11 +551,11 @@ class InsuranceDocumentController extends Controller
                 // نحتاج لتمرير البيانات المطلوبة لـ syncWithEidc
                 // ملاحظة: قد نحتاج لإضافة حقول EIDC المفقودة في validation الـ update
                 $syncData = array_merge($validated, [
-                    'eidc_vehicle_type_id'   => $request->input('eidc_vehicle_type_id') ?? $document->eidc_vehicle_type_id,
-                    'eidc_vehicle_spec_id'   => $request->input('eidc_vehicle_spec_id') ?? $document->eidc_vehicle_spec_id,
+                    'eidc_vehicle_type_id' => $request->input('eidc_vehicle_type_id') ?? $document->eidc_vehicle_type_id,
+                    'eidc_vehicle_spec_id' => $request->input('eidc_vehicle_spec_id') ?? $document->eidc_vehicle_spec_id,
                     'eidc_vehicle_detail_id' => $request->input('eidc_vehicle_detail_id') ?? $document->eidc_vehicle_detail_id,
-                    'nid_passport'           => $validated['nid_passport'] ?? $document->nid_passport ?? '',
-                    'nationality'            => $validated['nationality'] ?? $document->nationality ?? 'ليبي',
+                    'nid_passport' => $validated['nid_passport'] ?? $document->nid_passport ?? '',
+                    'nationality' => $validated['nationality'] ?? $document->nationality ?? 'ليبي',
                 ]);
                 $this->syncWithEidc($document, $syncData, $endDate, $user ?? null);
             }
@@ -596,11 +596,11 @@ class InsuranceDocumentController extends Controller
 
         try {
             $document = InsuranceDocument::with(['plate.city', 'vehicleType'])->findOrFail($id);
-            
+
             // التحقق من نوع التأمين
             $isMandatoryInsurance = $document->insurance_type === 'تأمين إجباري سيارات';
             $isThirdPartyInsurance = $document->insurance_type === 'تأمين طرف ثالث سيارات';
-            
+
             // التحقق من أن plate_id مطلوب للتأمين الإجباري وطرف ثالث
             if (($isMandatoryInsurance || $isThirdPartyInsurance) && !isset($validated['plate_id'])) {
                 return response()->json([
@@ -664,12 +664,12 @@ class InsuranceDocumentController extends Controller
     {
         try {
             $document = InsuranceDocument::findOrFail($id);
-            
+
             $transfers = InsuranceOwnershipTransfer::where('insurance_document_id', $id)
                 ->with(['previousPlate.city', 'newPlate.city'])
                 ->orderBy('transferred_at', 'desc')
                 ->get();
-            
+
             return response()->json($transfers);
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             return response()->json([
@@ -713,20 +713,20 @@ class InsuranceDocumentController extends Controller
     {
         try {
             $document = InsuranceDocument::with(['plate.city', 'vehicleType', 'branchAgent'])->findOrFail($id);
-            
+
             // تحضير بيانات الوكالة
             $agencyData = [
                 'agency_name' => 'المدار الليبي للتأمين',
                 'code' => 'ML0001',
                 'agent_name' => 'محمد علي',
             ];
-            
+
             if ($document->branchAgent) {
                 $agencyData['agency_name'] = $document->branchAgent->agency_name ?? 'المدار الليبي للتأمين';
                 $agencyData['code'] = $document->branchAgent->code ?? 'ML0001';
                 $agencyData['agent_name'] = $document->branchAgent->agent_name ?? 'محمد علي';
             }
-            
+
             // تحضير البيانات للطباعة لتسريع العملية
             $printData = [
                 'insurance_number' => $document->insurance_number,
@@ -752,20 +752,20 @@ class InsuranceDocumentController extends Controller
                     'total' => $document->total
                 ]
             ];
-            
+
             return view('insurance-documents.print', compact('document', 'printData'));
         } catch (\Exception $e) {
             Log::error('Error in InsuranceDocumentController@print: ' . $e->getMessage());
             abort(404, 'الوثيقة غير موجودة');
         }
     }
-    
+
     private function formatDuration($document)
     {
         if (!$document->duration) {
             return '-';
         }
-        
+
         // في حالة تأمين إجباري سيارات، نعرض عدد الأيام فقط
         if ($document->insurance_type === 'تأمين إجباري سيارات') {
             if ($document->duration === 'سنة' || $document->duration === 'سنة (365 يوم)') {
@@ -774,27 +774,27 @@ class InsuranceDocumentController extends Controller
                 return '730 يوم';
             }
         }
-        
+
         // في حالة تأمين جمرك أو سيارات أجنبية، نحسب الأيام
         if (str_contains($document->duration, 'يوم')) {
             $days = \Carbon\Carbon::parse($document->start_date)->diffInDays(\Carbon\Carbon::parse($document->end_date));
             return $days . ' يوم';
         }
-        
+
         return $document->duration;
     }
-    
+
     private function formatPlateNumber($document)
     {
         $isCustomsInsurance = ($document->insurance_type === 'تأمين سيارة جمرك');
         $plateNumber = $document->plate_number_manual ?? ($document->plate ? $document->plate->plate_number : null);
         $cityOrder = $document->plate && $document->plate->city && isset($document->plate->city->order) ? $document->plate->city->order : null;
-        
+
         // في حالة تأمين جمرك
         if ($isCustomsInsurance && $document->port) {
             // استخراج رقم الميناء من اسم الميناء (مثل "ميناء مصراته" -> "3")
             $portNumber = $this->getPortNumber($document->port);
-            
+
             // إذا كان هناك رقم لوحة ورقم ميناء، نعرضهما معاً
             if ($plateNumber && $portNumber) {
                 return $portNumber . '-' . $plateNumber;
@@ -809,7 +809,7 @@ class InsuranceDocumentController extends Controller
                 return trim($document->port);
             }
         }
-        
+
         // في الحالات الأخرى
         if ($plateNumber && $cityOrder) {
             return $cityOrder . '-' . $plateNumber;
@@ -818,10 +818,10 @@ class InsuranceDocumentController extends Controller
         } elseif ($document->port) {
             return 'جمرك';
         }
-        
+
         return '-';
     }
-    
+
     private function getPortNumber($portName)
     {
         // قائمة الموانئ وأرقامها
@@ -831,29 +831,29 @@ class InsuranceDocumentController extends Controller
             'ميناء الخمس' => '6',
             'ميناء بنغازي' => '8',
         ];
-        
+
         // البحث عن رقم الميناء
         foreach ($ports as $port => $number) {
             if (str_contains($portName, $port) || str_contains($port, $portName)) {
                 return $number;
             }
         }
-        
+
         // إذا لم يتم العثور على رقم، حاول استخراج رقم من النص
         if (preg_match('/\d+/', $portName, $matches)) {
             return $matches[0];
         }
-        
+
         return null;
     }
-    
+
     private function formatCityName($document)
     {
         $isCustomsInsurance = ($document->insurance_type === 'تأمين سيارة جمرك');
         $portValue = trim($document->port ?? '');
         $hasPort = !empty($portValue);
         $hasPlateCity = ($document->plate && $document->plate->city);
-        
+
         if ($isCustomsInsurance) {
             return $hasPort ? $portValue : '-';
         } elseif ($hasPlateCity) {
@@ -862,47 +862,47 @@ class InsuranceDocumentController extends Controller
         } elseif ($hasPort) {
             return $portValue;
         }
-        
+
         return '-';
     }
-    
+
     private function formatLoadCapacity($loadCapacity)
     {
         if (!$loadCapacity) {
             return '0';
         }
-        
+
         $loadCapacity = floatval($loadCapacity);
         $isInteger = ($loadCapacity == intval($loadCapacity));
-        
+
         return $isInteger ? intval($loadCapacity) : number_format($loadCapacity, 2, '.', '');
     }
-    
+
     private function numberToArabicWords($number)
     {
         $ones = ['', 'واحد', 'اثنان', 'ثلاثة', 'أربعة', 'خمسة', 'ستة', 'سبعة', 'ثمانية', 'تسعة'];
         $teens = ['عشرة', 'أحد عشر', 'اثنا عشر', 'ثلاثة عشر', 'أربعة عشر', 'خمسة عشر', 'ستة عشر', 'سبعة عشر', 'ثمانية عشر', 'تسعة عشر'];
         $tens = ['', '', 'عشرون', 'ثلاثون', 'أربعون', 'خمسون', 'ستون', 'سبعون', 'ثمانون', 'تسعون'];
         $hundreds = ['', 'مائة', 'مائتان', 'ثلاثمائة', 'أربعمائة', 'خمسمائة', 'ستمائة', 'سبعمائة', 'ثمانمائة', 'تسعمائة'];
-        
+
         // فصل الجزء الصحيح والجزء العشري
-        $parts = explode('.', (string)$number);
-        $integerPart = (int)($parts[0] ?? 0);
-        $decimalPart = isset($parts[1]) ? (int)($parts[1]) : 0;
-        
+        $parts = explode('.', (string) $number);
+        $integerPart = (int) ($parts[0] ?? 0);
+        $decimalPart = isset($parts[1]) ? (int) ($parts[1]) : 0;
+
         // تحويل الجزء الصحيح
         $words = '';
-        
+
         if ($integerPart == 0 && $decimalPart == 0) {
             return 'صفر دينار';
         }
-        
+
         if ($integerPart > 0) {
             $num = $integerPart;
-            
+
             // الآلاف
             if ($num >= 1000) {
-                $thousands = (int)($num / 1000);
+                $thousands = (int) ($num / 1000);
                 if ($thousands == 1) {
                     $words .= 'ألف ';
                 } elseif ($thousands == 2) {
@@ -914,10 +914,10 @@ class InsuranceDocumentController extends Controller
                 }
                 $num = $num % 1000;
             }
-            
+
             // المئات
             if ($num >= 100) {
-                $hundred = (int)($num / 100);
+                $hundred = (int) ($num / 100);
                 if ($hundred <= 9 && isset($hundreds[$hundred])) {
                     $words .= $hundreds[$hundred] . ' ';
                 } else {
@@ -925,10 +925,10 @@ class InsuranceDocumentController extends Controller
                 }
                 $num = $num % 100;
             }
-            
+
             // العشرات والآحاد
             if ($num >= 20) {
-                $ten = (int)($num / 10);
+                $ten = (int) ($num / 10);
                 $one = $num % 10;
                 if ($one > 0) {
                     $words .= $ones[$one] . ' و' . $tens[$ten];
@@ -940,10 +940,10 @@ class InsuranceDocumentController extends Controller
             } elseif ($num > 0) {
                 $words .= $ones[$num];
             }
-            
+
             $words .= ' دينار';
         }
-        
+
         // تحويل الجزء العشري
         if ($decimalPart > 0) {
             if ($integerPart > 0) {
@@ -951,27 +951,27 @@ class InsuranceDocumentController extends Controller
             }
             $words .= $decimalPart . ' درهم';
         }
-        
+
         return trim($words);
     }
-    
+
     private function convertDecimalToWords($decimal, $length)
     {
         $ones = ['', 'واحد', 'اثنان', 'ثلاثة', 'أربعة', 'خمسة', 'ستة', 'سبعة', 'ثمانية', 'تسعة'];
         $teens = ['عشرة', 'أحد عشر', 'اثنا عشر', 'ثلاثة عشر', 'أربعة عشر', 'خمسة عشر', 'ستة عشر', 'سبعة عشر', 'ثمانية عشر', 'تسعة عشر'];
         $tens = ['', '', 'عشرون', 'ثلاثون', 'أربعون', 'خمسون', 'ستون', 'سبعون', 'ثمانون', 'تسعون'];
         $hundreds = ['', 'مائة', 'مائتان', 'ثلاثمائة', 'أربعمائة', 'خمسمائة', 'ستمائة', 'سبعمائة', 'ثمانمائة', 'تسعمائة'];
-        
+
         $words = '';
-        $num = (int)$decimal;
-        
+        $num = (int) $decimal;
+
         if ($num == 0) {
             return '';
         }
-        
+
         // المئات
         if ($num >= 100) {
-            $hundred = (int)($num / 100);
+            $hundred = (int) ($num / 100);
             if ($hundred <= 9 && isset($hundreds[$hundred])) {
                 $words .= $hundreds[$hundred] . ' ';
             } else {
@@ -979,10 +979,10 @@ class InsuranceDocumentController extends Controller
             }
             $num = $num % 100;
         }
-        
+
         // العشرات والآحاد
         if ($num >= 20) {
-            $ten = (int)($num / 10);
+            $ten = (int) ($num / 10);
             $one = $num % 10;
             if ($one > 0) {
                 $words .= $ones[$one] . ' و' . $tens[$ten];
@@ -994,7 +994,7 @@ class InsuranceDocumentController extends Controller
         } elseif ($num > 0) {
             $words .= $ones[$num];
         }
-        
+
         // إضافة المقام (درهم للكسور)
         if ($length == 3) {
             $words .= ' درهم';
@@ -1003,7 +1003,7 @@ class InsuranceDocumentController extends Controller
         } elseif ($length == 1) {
             $words .= ' درهم';
         }
-        
+
         return trim($words);
     }
 
@@ -1025,27 +1025,27 @@ class InsuranceDocumentController extends Controller
                 $document->loadMissing('branchAgent.user');
                 $user = $document->branchAgent->user ?? null;
             }
-            
+
             // Fallback to issuing user if no agent user is found
             if (!$user) {
                 $user = $issuingUser;
             }
-            
+
             Log::info('EIDC: Using credentials for user', [
                 'user_id' => $user->id ?? 'system',
                 'email' => $user->email ?? 'N/A',
                 'eidc_email' => $user->eidc_username ?? 'N/A', // Using eidc_username
-                'is_agent' => (bool)($document->branch_agent_id)
+                'is_agent' => (bool) ($document->branch_agent_id)
             ]);
 
             $eidc = (new EidcApiService())->forUser($user);
-            
+
             // Log the actual username being used by the service (masked)
             $serviceUsername = $eidc->getUsername();
             Log::info('EIDC: Service will use username: ' . substr($serviceUsername, 0, 3) . '***');
 
             // Use the actual issue_fees from the document to match the calculated total
-            $issueFees = (float)($document->issue_fees ?: ($validated['issue_fees'] ?? 2.0));
+            $issueFees = (float) ($document->issue_fees ?: ($validated['issue_fees'] ?? 2.0));
 
             // التحقق من وجود البيانات الإجبارية للهيئة قبل الإرسال (تأمين إجباري فقط)
             if ($document->insurance_type === 'تأمين إجباري سيارات') {
@@ -1060,37 +1060,37 @@ class InsuranceDocumentController extends Controller
 
             // تحضير بيانات الطلب بصيغة الهيئة (PascalCase keys as seen in error responses)
             $payload = [
-                'InsuredsName'       => $validated['insured_name'] ?? $document->insured_name,
-                'NidPassport'        => $validated['nid_passport'] ?? $document->nid_passport ?? $validated['driving_license_number'] ?? $document->driving_license_number ?? '',
-                'PhoneNo'            => $validated['phone'] ?? $document->phone,
-                'Nationality'        => $validated['nationality'] ?? $document->nationality ?? 'ليبي',
-                'Email'              => $validated['email'] ?? $document->email ?? null,
-                'Address'            => $document->address ?: ($document->plate ? ($document->plate->city->name_ar ?? 'ليبيا') : 'ليبيا'),
-                'FromNoonOf'         => Carbon::parse($validated['start_date'] ?? $document->start_date)->isSameDay(now()) || Carbon::parse($validated['start_date'] ?? $document->start_date)->isPast() 
-                                            ? now()->addDay()->setTime(12, 0, 0)->toIso8601String() 
-                                            : Carbon::parse($validated['start_date'] ?? $document->start_date)->setTime(12, 0, 0)->toIso8601String(),
-                'PurposeLicense'     => EidcApiService::mapPurposeLicense($validated['license_purpose'] ?? $document->license_purpose ?? 'خاصة'),
-                'DayOfCarType'       => EidcApiService::mapDurationToDays($validated['duration'] ?? $document->duration ?? 'سنة'),
-                'TypeVechicleId'     => $validated['eidc_vehicle_type_id'] ?? $document->eidc_vehicle_type_id ?? '',
-                'TypeVechicle2Id'    => $validated['eidc_vehicle_spec_id'] ?? $document->eidc_vehicle_spec_id ?? '',
-                'TypeVechicle3Id'    => $validated['eidc_vehicle_detail_id'] ?? $document->eidc_vehicle_detail_id ?? null,
-                'TypeOfVehicle'      => $validated['TypeOfVehicle'] ?? '',
+                'InsuredsName' => $validated['insured_name'] ?? $document->insured_name,
+                'NidPassport' => $validated['nid_passport'] ?? $document->nid_passport ?? $validated['driving_license_number'] ?? $document->driving_license_number ?? '',
+                'PhoneNo' => $validated['phone'] ?? $document->phone,
+                'Nationality' => $validated['nationality'] ?? $document->nationality ?? 'ليبي',
+                'Email' => $validated['email'] ?? $document->email ?? null,
+                'Address' => $document->address ?: ($document->plate ? ($document->plate->city->name_ar ?? 'ليبيا') : 'ليبيا'),
+                'FromNoonOf' => Carbon::parse($validated['start_date'] ?? $document->start_date)->isSameDay(now()) || Carbon::parse($validated['start_date'] ?? $document->start_date)->isPast()
+                    ? now()->addDay()->setTime(12, 0, 0)->toIso8601String()
+                    : Carbon::parse($validated['start_date'] ?? $document->start_date)->setTime(12, 0, 0)->toIso8601String(),
+                'PurposeLicense' => EidcApiService::mapPurposeLicense($validated['license_purpose'] ?? $document->license_purpose ?? 'خاصة'),
+                'DayOfCarType' => EidcApiService::mapDurationToDays($validated['duration'] ?? $document->duration ?? 'سنة'),
+                'TypeVechicleId' => $validated['eidc_vehicle_type_id'] ?? $document->eidc_vehicle_type_id ?? '',
+                'TypeVechicle2Id' => $validated['eidc_vehicle_spec_id'] ?? $document->eidc_vehicle_spec_id ?? '',
+                'TypeVechicle3Id' => $validated['eidc_vehicle_detail_id'] ?? $document->eidc_vehicle_detail_id ?? null,
+                'TypeOfVehicle' => $validated['TypeOfVehicle'] ?? '',
                 'IssuingFeesOptions' => $issueFees,
-                'PlateNo'            => substr($validated['plate_number_manual'] ?? $document->plate_number_manual ?? '', 0, 20),
-                'ChassisNo'          => $validated['chassis_number'] ?? $document->chassis_number ?? null,
-                'Color'              => $validated['color'] ?? $document->color ?? null,
-                'YearMade'           => (int)($validated['year'] ?? $document->year ?? date('Y')),
-                'PassengersNo'       => (int)($validated['authorized_passengers'] ?? $document->authorized_passengers ?? 0),
-                'EngineHp'           => (int)(preg_replace('/[^0-9]/', '', $validated['engine_power'] ?? $document->engine_power ?? '0')),
-                'Tonnage'            => max(0, min(1000, (float)($validated['load_capacity'] ?? $document->load_capacity ?? 0))),
-                'RegAuthority'       => $document->plate ? ($document->plate->city->name_ar ?? null) : null,
+                'PlateNo' => substr($validated['plate_number_manual'] ?? $document->plate_number_manual ?? '', 0, 20),
+                'ChassisNo' => $validated['chassis_number'] ?? $document->chassis_number ?? null,
+                'Color' => $validated['color'] ?? $document->color ?? null,
+                'YearMade' => (int) ($validated['year'] ?? $document->year ?? date('Y')),
+                'PassengersNo' => (int) ($validated['authorized_passengers'] ?? $document->authorized_passengers ?? 0),
+                'EngineHp' => (int) (preg_replace('/[^0-9]/', '', $validated['engine_power'] ?? $document->engine_power ?? '0')),
+                'Tonnage' => max(0, min(1000, (float) ($validated['load_capacity'] ?? $document->load_capacity ?? 0))),
+                'RegAuthority' => $document->plate ? ($document->plate->city->name_ar ?? null) : null,
             ];
 
             Log::info('EIDC: Sending request to Authority', [
-                'document_id'      => $document->id,
+                'document_id' => $document->id,
                 'insurance_number' => $document->insurance_number,
-                'policy_id'        => $document->eidc_policy_id, // قد يكون موجوداً في حالة التحديث
-                'payload'          => $payload,
+                'policy_id' => $document->eidc_policy_id, // قد يكون موجوداً في حالة التحديث
+                'payload' => $payload,
             ]);
 
             // ─── جلب الأسعار النهائية من الهيئة قبل الإصدار ────────────────
@@ -1100,14 +1100,14 @@ class InsuranceDocumentController extends Controller
                 try {
                     $inquiryResult = $eidc->inquiryPolicy($payload);
                     Log::info('EIDC: Inquiry result before creation', ['result' => $inquiryResult]);
-                    
+
                     if (!empty($inquiryResult['success']) || isset($inquiryResult['netPremium']) || isset($inquiryResult['NetPremium'])) {
-                        $netPremium = (float)($inquiryResult['netPremium'] ?? $inquiryResult['net_premium'] ?? $inquiryResult['NetPremium'] ?? $inquiryResult['premiumYear'] ?? 0);
-                        $tax = (float)($inquiryResult['tax'] ?? $inquiryResult['tax_amount'] ?? $inquiryResult['Tax'] ?? 1.0);
-                        $stamp = (float)($inquiryResult['stamp'] ?? $inquiryResult['stamp_amount'] ?? $inquiryResult['Stamp'] ?? 0.25);
-                        $supervision = (float)($inquiryResult['supervisionFees'] ?? $inquiryResult['supervision_fees'] ?? $inquiryResult['SupervisionFees'] ?? 0.35);
-                        $issue = (float)($inquiryResult['issuingFees'] ?? $inquiryResult['issue_fees'] ?? $inquiryResult['IssuingFees'] ?? 2.0);
-                        $total = (float)($inquiryResult['totalPremium'] ?? $inquiryResult['total'] ?? $inquiryResult['TotalPremium'] ?? ($netPremium + $tax + $stamp + $supervision + $issue));
+                        $netPremium = (float) ($inquiryResult['netPremium'] ?? $inquiryResult['net_premium'] ?? $inquiryResult['NetPremium'] ?? $inquiryResult['premiumYear'] ?? 0);
+                        $tax = (float) ($inquiryResult['tax'] ?? $inquiryResult['tax_amount'] ?? $inquiryResult['Tax'] ?? 1.0);
+                        $stamp = (float) ($inquiryResult['stamp'] ?? $inquiryResult['stamp_amount'] ?? $inquiryResult['Stamp'] ?? 0.25);
+                        $supervision = (float) ($inquiryResult['supervisionFees'] ?? $inquiryResult['supervision_fees'] ?? $inquiryResult['SupervisionFees'] ?? 0.35);
+                        $issue = (float) ($inquiryResult['issuingFees'] ?? $inquiryResult['issue_fees'] ?? $inquiryResult['IssuingFees'] ?? 2.0);
+                        $total = (float) ($inquiryResult['totalPremium'] ?? $inquiryResult['total'] ?? $inquiryResult['TotalPremium'] ?? ($netPremium + $tax + $stamp + $supervision + $issue));
 
                         if ($total > 0) {
                             $document->update([
@@ -1131,7 +1131,7 @@ class InsuranceDocumentController extends Controller
 
             if ($document->eidc_policy_id) {
                 // ─── حالة التحديث: تعديل بيانات المؤمن له فقط عبر PATCH ────────────────
-                
+
                 $policyId = $document->eidc_policy_id;
                 $expectedUpdatedAt = null;
 
@@ -1140,9 +1140,9 @@ class InsuranceDocumentController extends Controller
                     Log::info('EIDC: policy_id is not a GUID, attempting to resolve it', [
                         'policy_number' => $policyId
                     ]);
-                    
+
                     $policyData = $eidc->getPolicyDataByNumber($policyId);
-                    
+
                     if ($policyData) {
                         Log::info('EIDC: Resolved GUID for policy', ['guid' => $policyData['id']]);
                         $policyId = $policyData['id'];
@@ -1161,19 +1161,19 @@ class InsuranceDocumentController extends Controller
                 }
 
                 $updatePayload = [
-                    'InsuredsName'      => $payload['InsuredsName'],
-                    'NidPassport'       => $payload['NidPassport'] ?: ($document->nid_passport ?: ''),
-                    'PhoneNo'           => $payload['PhoneNo'],
-                    'Nationality'       => $payload['Nationality'],
-                    'Email'             => $payload['Email'],
-                    'Address'           => $payload['Address'] ?? '',
+                    'InsuredsName' => $payload['InsuredsName'],
+                    'NidPassport' => $payload['NidPassport'] ?: ($document->nid_passport ?: ''),
+                    'PhoneNo' => $payload['PhoneNo'],
+                    'Nationality' => $payload['Nationality'],
+                    'Email' => $payload['Email'],
+                    'Address' => $payload['Address'] ?? '',
                     'ExpectedUpdatedAt' => $expectedUpdatedAt, // التوكن المطلوب لضمان التزامن
                 ];
 
                 Log::info('EIDC: Sending PATCH to update insured data', [
                     'document_id' => $document->id,
-                    'policy_id'   => $policyId,
-                    'payload'     => $updatePayload,
+                    'policy_id' => $policyId,
+                    'payload' => $updatePayload,
                 ]);
 
                 $response = $eidc->updateInsured($policyId, $updatePayload);
@@ -1184,18 +1184,18 @@ class InsuranceDocumentController extends Controller
 
             Log::info('EIDC: Authority response', [
                 'document_id' => $document->id,
-                'response'    => $response,
+                'response' => $response,
             ]);
 
             if (!empty($response['success'])) {
-                $isUpdate = (bool)$document->eidc_policy_id;
+                $isUpdate = (bool) $document->eidc_policy_id;
 
                 if ($isUpdate) {
                     // PATCH نجح — نحفظ الحالة فقط (لا نغير policy_id لأن الهيئة لا ترجع transactionCode في PATCH)
                     $updateData = [
                         'eidc_sync_status' => 'synced',
-                        'eidc_error'       => null,
-                        'eidc_synced_at'   => now(),
+                        'eidc_error' => null,
+                        'eidc_synced_at' => now(),
                     ];
                 } else {
                     // إنشاء جديد — نحفظ transactionCode و pdfUrl
@@ -1209,12 +1209,12 @@ class InsuranceDocumentController extends Controller
                     }
 
                     $updateData = [
-                        'eidc_sync_status'      => 'synced',
-                        'eidc_error'            => null,
-                        'eidc_synced_at'        => now(),
-                        'eidc_policy_id'        => $guid ?: $transactionCode,
+                        'eidc_sync_status' => 'synced',
+                        'eidc_error' => null,
+                        'eidc_synced_at' => now(),
+                        'eidc_policy_id' => $guid ?: $transactionCode,
                         'eidc_transaction_code' => $transactionCode,
-                        'eidc_pdf_url'          => $response['pdfUrl'] ?? null,
+                        'eidc_pdf_url' => $response['pdfUrl'] ?? null,
                     ];
                 }
 
@@ -1222,8 +1222,8 @@ class InsuranceDocumentController extends Controller
 
                 Log::info('EIDC: Policy synchronized successfully', [
                     'document_id' => $document->id,
-                    'is_update'   => $isUpdate,
-                    'policy_id'   => $document->eidc_policy_id,
+                    'is_update' => $isUpdate,
+                    'policy_id' => $document->eidc_policy_id,
                 ]);
             } else {
                 // فشل التسجيل
@@ -1231,25 +1231,25 @@ class InsuranceDocumentController extends Controller
                 $document->update([
                     // إذا كان مربوطاً مسبقاً، نحافظ على حالة synced لتجنب الارتباك، ولكن نسجل الخطأ
                     'eidc_sync_status' => $document->eidc_policy_id ? 'synced' : 'failed',
-                    'eidc_error'       => $errorMsg,
+                    'eidc_error' => $errorMsg,
                 ]);
 
                 Log::error('EIDC: Policy sync failed', [
                     'document_id' => $document->id,
-                    'error'       => $errorMsg,
-                    'warnings'    => $response['warnings'] ?? [],
+                    'error' => $errorMsg,
+                    'warnings' => $response['warnings'] ?? [],
                 ]);
             }
         } catch (\Exception $e) {
             // خطأ في الاتصال - الوثيقة محفوظة محلياً لكن لم تُسجَّل في الهيئة
             $document->update([
                 'eidc_sync_status' => 'failed',
-                'eidc_error'       => 'خطأ في الاتصال: ' . $e->getMessage(),
+                'eidc_error' => 'خطأ في الاتصال: ' . $e->getMessage(),
             ]);
 
             Log::error('EIDC: Exception during sync', [
                 'document_id' => $document->id,
-                'error'       => $e->getMessage(),
+                'error' => $e->getMessage(),
             ]);
         }
     }
@@ -1276,8 +1276,8 @@ class InsuranceDocumentController extends Controller
             if (!empty($response['success'])) {
                 $document->update(['eidc_sync_status' => 'cancelled']);
                 return response()->json([
-                    'message'                 => 'تم إلغاء الوثيقة في نظام الهيئة بنجاح',
-                    'replacementSerialCode'   => $response['replacementSerialCode'] ?? null,
+                    'message' => 'تم إلغاء الوثيقة في نظام الهيئة بنجاح',
+                    'replacementSerialCode' => $response['replacementSerialCode'] ?? null,
                 ]);
             }
 
@@ -1311,24 +1311,24 @@ class InsuranceDocumentController extends Controller
 
             // Build validated array from document
             $validated = [
-                'insured_name'         => $document->insured_name,
-                'nid_passport'         => $document->nid_passport,
+                'insured_name' => $document->insured_name,
+                'nid_passport' => $document->nid_passport,
                 'driving_license_number' => $document->driving_license_number,
-                'phone'                => $document->phone,
-                'start_date'           => $document->start_date ? Carbon::parse($document->start_date)->format('Y-m-d') : now()->format('Y-m-d'),
-                'license_purpose'      => $document->license_purpose ?? 'خاصة',
-                'duration'             => $document->duration ?? 'سنة',
+                'phone' => $document->phone,
+                'start_date' => $document->start_date ? Carbon::parse($document->start_date)->format('Y-m-d') : now()->format('Y-m-d'),
+                'license_purpose' => $document->license_purpose ?? 'خاصة',
+                'duration' => $document->duration ?? 'سنة',
                 'eidc_vehicle_type_id' => $document->eidc_vehicle_type_id,
                 'eidc_vehicle_spec_id' => $document->eidc_vehicle_spec_id,
                 'eidc_vehicle_detail_id' => $document->eidc_vehicle_detail_id,
-                'issue_fees'           => $document->issue_fees,
-                'plate_number_manual'  => $document->plate_number_manual,
-                'chassis_number'       => $document->chassis_number,
-                'color'                => $document->color,
-                'year'                 => $document->year,
-                'authorized_passengers'=> $document->authorized_passengers,
-                'engine_power'         => $document->engine_power,
-                'load_capacity'        => $document->load_capacity,
+                'issue_fees' => $document->issue_fees,
+                'plate_number_manual' => $document->plate_number_manual,
+                'chassis_number' => $document->chassis_number,
+                'color' => $document->color,
+                'year' => $document->year,
+                'authorized_passengers' => $document->authorized_passengers,
+                'engine_power' => $document->engine_power,
+                'load_capacity' => $document->load_capacity,
             ];
 
             $document->update(['eidc_sync_status' => 'pending', 'eidc_error' => null]);
@@ -1336,19 +1336,19 @@ class InsuranceDocumentController extends Controller
 
             $document->refresh();
             return response()->json([
-                'message'          => $document->eidc_sync_status === 'synced'
+                'message' => $document->eidc_sync_status === 'synced'
                     ? 'تم التسجيل في نظام الهيئة بنجاح'
                     : 'فشلت إعادة المحاولة: ' . $document->eidc_error,
                 'eidc_sync_status' => $document->eidc_sync_status,
-                'eidc_policy_id'   => $document->eidc_policy_id,
-                'eidc_pdf_url'     => $document->eidc_pdf_url,
+                'eidc_policy_id' => $document->eidc_policy_id,
+                'eidc_pdf_url' => $document->eidc_pdf_url,
             ]);
         } catch (\Exception $e) {
             Log::error('EIDC Retry Sync Error: ' . $e->getMessage());
             return response()->json(['message' => 'فشلت إعادة المحاولة', 'error' => $e->getMessage()], 500);
         }
     }
- 
+
     /**
      * POST /insurance-documents/eidc-sync-all
      * مزامنة الوثائق من نظام الهيئة إلى النظام المحلي
@@ -1357,10 +1357,10 @@ class InsuranceDocumentController extends Controller
     {
         try {
             $user = $this->getAuthenticatedUser($request);
-            
+
             // Determine which agent(s) to sync
             $agentsToSync = [];
-            
+
             if ($user && $user->is_admin) {
                 $requestedAgentId = $request->input('branch_agent_id') ?: $request->query('branch_agent_id');
                 if ($requestedAgentId) {
@@ -1370,7 +1370,7 @@ class InsuranceDocumentController extends Controller
                     }
                 } else {
                     // Admin wants to sync for ALL agents that have EIDC credentials
-                    $agentsToSync = BranchAgent::whereHas('user', function($q) {
+                    $agentsToSync = BranchAgent::whereHas('user', function ($q) {
                         $q->whereNotNull('eidc_username')->where('eidc_username', '!=', '');
                     })->with('user')->get();
                 }
@@ -1402,22 +1402,22 @@ class InsuranceDocumentController extends Controller
 
                 try {
                     $eidc = (new EidcApiService())->forUser($agentUser);
-                    
+
                     // جلب آخر 100 وثيقة من الهيئة لضمان مزامنة كل الوثائق المفقودة
                     $response = $eidc->getPolicies(['per_page' => 100]);
-                    
+
                     // Extract policies array correctly from items
                     $policies = $response['items'] ?? $response['data'] ?? $response ?? [];
                     if (!is_array($policies)) {
                         continue;
                     }
-                    
+
                     foreach ($policies as $policy) {
                         $policyId = $policy['id'] ?? $policy['policyId'] ?? null;
                         if (!$policyId) {
                             continue;
                         }
-                        
+
                         $policyNo = $policy['policyNo'] ?? $policy['transactionCode'] ?? null;
                         $insuranceNumber = $policyNo ? 'EIDC-' . $policyNo : 'EIDC-' . $policyId;
 
@@ -1427,20 +1427,20 @@ class InsuranceDocumentController extends Controller
                             ->orWhere('eidc_transaction_code', $policyNo)
                             ->orWhere('insurance_number', $insuranceNumber)
                             ->exists();
-                        
+
                         if (!$exists) {
                             // Extract financial values
-                            $netPremium = (float)($policy['netPremium'] ?? $policy['net_premium'] ?? $policy['NetPremium'] ?? 0);
-                            $tax = (float)($policy['tax'] ?? $policy['tax_amount'] ?? $policy['Tax'] ?? 1.0);
-                            $stamp = (float)($policy['stamp'] ?? $policy['stamp_amount'] ?? $policy['Stamp'] ?? 0.5);
-                            $supervision = (float)($policy['supervisionFees'] ?? $policy['supervision_fees'] ?? $policy['SupervisionFees'] ?? 0.5);
-                            $issue = (float)($policy['issuingFees'] ?? $policy['issue_fees'] ?? $policy['IssuingFees'] ?? 2.0);
-                            $total = (float)($policy['totalPremium'] ?? $policy['totalAmount'] ?? $policy['total'] ?? ($netPremium + $tax + $stamp + $supervision + $issue));
+                            $netPremium = (float) ($policy['netPremium'] ?? $policy['net_premium'] ?? $policy['NetPremium'] ?? 0);
+                            $tax = (float) ($policy['tax'] ?? $policy['tax_amount'] ?? $policy['Tax'] ?? 1.0);
+                            $stamp = (float) ($policy['stamp'] ?? $policy['stamp_amount'] ?? $policy['Stamp'] ?? 0.5);
+                            $supervision = (float) ($policy['supervisionFees'] ?? $policy['supervision_fees'] ?? $policy['SupervisionFees'] ?? 0.5);
+                            $issue = (float) ($policy['issuingFees'] ?? $policy['issue_fees'] ?? $policy['IssuingFees'] ?? 2.0);
+                            $total = (float) ($policy['totalPremium'] ?? $policy['totalAmount'] ?? $policy['total'] ?? ($netPremium + $tax + $stamp + $supervision + $issue));
 
                             // Try to resolve plate_id from EIDC regAuthority
                             $plateId = null;
                             if (!empty($policy['regAuthority'])) {
-                                $plate = \App\Models\Plate::whereHas('city', function($q) use ($policy) {
+                                $plate = \App\Models\Plate::whereHas('city', function ($q) use ($policy) {
                                     $q->where('name_ar', 'like', '%' . $policy['regAuthority'] . '%');
                                 })->first();
                                 if ($plate) {
@@ -1449,7 +1449,7 @@ class InsuranceDocumentController extends Controller
                             }
 
                             // Map days to standard duration strings
-                            $days = isset($policy['dayOfCarType']) ? (int)$policy['dayOfCarType'] : 365;
+                            $days = isset($policy['dayOfCarType']) ? (int) $policy['dayOfCarType'] : 365;
                             $duration = 'سنة';
                             if ($days === 730) {
                                 $duration = 'سنتين';
@@ -1465,41 +1465,41 @@ class InsuranceDocumentController extends Controller
 
                             // إنشاء وثيقة جديدة من بيانات الهيئة وربطها بالوكيل
                             InsuranceDocument::create([
-                                'insurance_type'        => 'تأمين إجباري سيارات',
-                                'insurance_number'      => $insuranceNumber,
-                                'issue_date'            => isset($policy['createdAt']) ? Carbon::parse($policy['createdAt'])->format('Y-m-d H:i:s') : now()->format('Y-m-d H:i:s'),
-                                'plate_id'              => $plateId,
-                                'start_date'            => isset($policy['fromNoonOf']) ? Carbon::parse($policy['fromNoonOf'])->format('Y-m-d') : now()->format('Y-m-d'),
-                                'end_date'              => isset($policy['fromNoonOf']) ? Carbon::parse($policy['fromNoonOf'])->addDays($days)->format('Y-m-d') : now()->addYear()->format('Y-m-d'),
-                                'duration'              => $duration,
-                                'insured_name'          => $policy['insuredsName'] ?? 'مستورد من الهيئة',
-                                'phone'                 => $policy['phoneNo'] ?? '-',
-                                'nid_passport'          => $policy['nidPassport'] ?? null,
-                                'nationality'           => $policy['nationality'] ?? 'ليبي',
-                                'email'                 => $policy['email'] ?? null,
-                                'address'               => $policy['address'] ?? null,
-                                'chassis_number'        => $policy['chassisNo'] ?? '-',
-                                'plate_number_manual'   => $policy['plateNo'] ?? '-',
-                                'color'                 => $policy['color'] ?? '-',
-                                'year'                  => isset($policy['yearMade']) ? (int)$policy['yearMade'] : null,
-                                'authorized_passengers' => isset($policy['passengersNo']) ? (int)$policy['passengersNo'] : null,
-                                'engine_power'          => isset($policy['engineHp']) ? ($policy['engineHp'] . ' حصان') : null,
-                                'load_capacity'         => isset($policy['tonnage']) ? (float)$policy['tonnage'] : null,
-                                'eidc_policy_id'        => $policyId,
+                                'insurance_type' => 'تأمين إجباري سيارات',
+                                'insurance_number' => $insuranceNumber,
+                                'issue_date' => isset($policy['createdAt']) ? Carbon::parse($policy['createdAt'])->format('Y-m-d H:i:s') : now()->format('Y-m-d H:i:s'),
+                                'plate_id' => $plateId,
+                                'start_date' => isset($policy['fromNoonOf']) ? Carbon::parse($policy['fromNoonOf'])->format('Y-m-d') : now()->format('Y-m-d'),
+                                'end_date' => isset($policy['fromNoonOf']) ? Carbon::parse($policy['fromNoonOf'])->addDays($days)->format('Y-m-d') : now()->addYear()->format('Y-m-d'),
+                                'duration' => $duration,
+                                'insured_name' => $policy['insuredsName'] ?? 'مستورد من الهيئة',
+                                'phone' => $policy['phoneNo'] ?? '-',
+                                'nid_passport' => $policy['nidPassport'] ?? null,
+                                'nationality' => $policy['nationality'] ?? 'ليبي',
+                                'email' => $policy['email'] ?? null,
+                                'address' => $policy['address'] ?? null,
+                                'chassis_number' => $policy['chassisNo'] ?? '-',
+                                'plate_number_manual' => $policy['plateNo'] ?? '-',
+                                'color' => $policy['color'] ?? '-',
+                                'year' => isset($policy['yearMade']) ? (int) $policy['yearMade'] : null,
+                                'authorized_passengers' => isset($policy['passengersNo']) ? (int) $policy['passengersNo'] : null,
+                                'engine_power' => isset($policy['engineHp']) ? ($policy['engineHp'] . ' حصان') : null,
+                                'load_capacity' => isset($policy['tonnage']) ? (float) $policy['tonnage'] : null,
+                                'eidc_policy_id' => $policyId,
                                 'eidc_transaction_code' => $policyNo ?: $policyId,
-                                'eidc_sync_status'      => 'synced',
-                                'eidc_synced_at'        => isset($policy['createdAt']) ? Carbon::parse($policy['createdAt'])->format('Y-m-d H:i:s') : now()->format('Y-m-d H:i:s'),
-                                'premium'               => $netPremium,
-                                'tax'                   => $tax,
-                                'stamp'                 => $stamp,
-                                'supervision_fees'      => $supervision,
-                                'issue_fees'            => $issue,
-                                'total'                 => $total,
-                                'branch_agent_id'       => $agent->id,
-                                'notes'                 => 'وثيقة مستوردة تلقائياً من منظومة الهيئة',
-                                'eidc_vehicle_type_id'  => $policy['typeVechicleId'] ?? null,
-                                'eidc_vehicle_spec_id'  => $policy['typeVechicle2Id'] ?? null,
-                                'eidc_vehicle_detail_id'=> $policy['typeVechicle3Id'] ?? null,
+                                'eidc_sync_status' => 'synced',
+                                'eidc_synced_at' => isset($policy['createdAt']) ? Carbon::parse($policy['createdAt'])->format('Y-m-d H:i:s') : now()->format('Y-m-d H:i:s'),
+                                'premium' => $netPremium,
+                                'tax' => $tax,
+                                'stamp' => $stamp,
+                                'supervision_fees' => $supervision,
+                                'issue_fees' => $issue,
+                                'total' => $total,
+                                'branch_agent_id' => $agent->id,
+                                'notes' => 'وثيقة مستوردة تلقائياً من منظومة الهيئة',
+                                'eidc_vehicle_type_id' => $policy['typeVechicleId'] ?? null,
+                                'eidc_vehicle_spec_id' => $policy['typeVechicle2Id'] ?? null,
+                                'eidc_vehicle_detail_id' => $policy['typeVechicle3Id'] ?? null,
                             ]);
                             $newCount++;
                         }
@@ -1509,7 +1509,7 @@ class InsuranceDocumentController extends Controller
                     Log::error("EIDC Sync failed for agent {$agent->id}: " . $e->getMessage());
                 }
             }
-            
+
             $agentsListStr = implode('، ', $agentNames);
             return response()->json([
                 'message' => "تمت المزامنة بنجاح للوكلاء ({$agentsListStr}). تم فحص {$syncedCount} وثيقة، وإضافة {$newCount} وثيقة جديدة.",
@@ -1538,7 +1538,8 @@ class InsuranceDocumentController extends Controller
     public function eidcVehicleSpecs(Request $request)
     {
         $typeId = $request->query('typeId');
-        if (!$typeId) return response()->json([]);
+        if (!$typeId)
+            return response()->json([]);
 
         try {
             $service = (new EidcApiService())->forUser($request->user());
@@ -1552,7 +1553,8 @@ class InsuranceDocumentController extends Controller
     public function eidcVehicleDetails(Request $request)
     {
         $typeId = $request->query('typeId');
-        if (!$typeId) return response()->json([]);
+        if (!$typeId)
+            return response()->json([]);
 
         try {
             $service = (new EidcApiService())->forUser($request->user());
@@ -1568,7 +1570,7 @@ class InsuranceDocumentController extends Controller
         try {
             $service = (new EidcApiService())->forUser($request->user());
             $data = $request->all();
-            
+
             // Fix: Ensure FromNoonOf is at least tomorrow (Resolution 126/2022)
             if (isset($data['FromNoonOf'])) {
                 try {
@@ -1618,7 +1620,7 @@ class InsuranceDocumentController extends Controller
             // Clean the URL and FORCE HTTPS to avoid port 80 issues
             $url = explode('?', $document->eidc_pdf_url)[0];
             $url = str_replace('http://', 'https://', $url);
-            
+
             Log::info("EIDC: Proxying PDF for document {$id}", ['url' => $url]);
 
             // Attempt to fetch the PDF from Authority with HTTPS and longer timeout

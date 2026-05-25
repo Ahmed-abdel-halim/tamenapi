@@ -1336,10 +1336,15 @@ class InsuranceDocumentController extends Controller
             $this->syncWithEidc($document, $validated, $document->end_date ? Carbon::parse($document->end_date)->format('Y-m-d') : null, $user);
 
             $document->refresh();
+            if ($document->eidc_sync_status !== 'synced') {
+                return response()->json([
+                    'message' => 'فشلت إعادة المحاولة: ' . $document->eidc_error,
+                    'eidc_sync_status' => $document->eidc_sync_status,
+                ], 400);
+            }
+
             return response()->json([
-                'message' => $document->eidc_sync_status === 'synced'
-                    ? 'تم التسجيل في نظام الهيئة بنجاح'
-                    : 'فشلت إعادة المحاولة: ' . $document->eidc_error,
+                'message' => 'تم التسجيل في نظام الهيئة بنجاح',
                 'eidc_sync_status' => $document->eidc_sync_status,
                 'eidc_policy_id' => $document->eidc_policy_id,
                 'eidc_pdf_url' => $document->eidc_pdf_url,

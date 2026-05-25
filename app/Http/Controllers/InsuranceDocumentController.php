@@ -1254,8 +1254,6 @@ class InsuranceDocumentController extends Controller
         }
     }
 
-
-
     /**
      * POST /insurance-documents/{id}/eidc-cancel
      * إلغاء وثيقة في نظام الهيئة
@@ -1271,7 +1269,8 @@ class InsuranceDocumentController extends Controller
 
             $reason = $request->input('reason', 'إلغاء الوثيقة');
 
-            $eidc     = new EidcApiService();
+            $user = $this->getAuthenticatedUser($request);
+            $eidc = (new EidcApiService())->forUser($user);
             $response = $eidc->cancelPolicy($document->eidc_policy_id, $reason);
 
             if (!empty($response['success'])) {
@@ -1295,7 +1294,7 @@ class InsuranceDocumentController extends Controller
      * POST /insurance-documents/{id}/eidc-retry
      * إعادة محاولة المزامنة مع الهيئة لوثيقة فاشلة
      */
-    public function eidcRetrySync(string $id)
+    public function eidcRetrySync(Request $request, string $id)
     {
         try {
             $document = InsuranceDocument::findOrFail($id);
@@ -1308,13 +1307,15 @@ class InsuranceDocumentController extends Controller
                 return response()->json(['message' => 'الوثيقة مسجلة بالفعل في نظام الهيئة']);
             }
 
+            $user = $this->getAuthenticatedUser($request);
+
             // Build validated array from document
             $validated = [
                 'insured_name'         => $document->insured_name,
                 'nid_passport'         => $document->nid_passport,
                 'driving_license_number' => $document->driving_license_number,
                 'phone'                => $document->phone,
-                'start_date'           => $document->start_date->format('Y-m-d'),
+                'start_date'           => $document->start_date ? Carbon::parse($document->start_date)->format('Y-m-d') : now()->format('Y-m-d'),
                 'license_purpose'      => $document->license_purpose ?? 'خاصة',
                 'duration'             => $document->duration ?? 'سنة',
                 'eidc_vehicle_type_id' => $document->eidc_vehicle_type_id,
@@ -1331,7 +1332,7 @@ class InsuranceDocumentController extends Controller
             ];
 
             $document->update(['eidc_sync_status' => 'pending', 'eidc_error' => null]);
-            $this->syncWithEidc($document, $validated, $document->end_date?->format('Y-m-d'));
+            $this->syncWithEidc($document, $validated, $document->end_date ? Carbon::parse($document->end_date)->format('Y-m-d') : null, $user);
 
             $document->refresh();
             return response()->json([
@@ -1356,55 +1357,162 @@ class InsuranceDocumentController extends Controller
     {
         try {
             $user = $this->getAuthenticatedUser($request);
-            $eidc = (new EidcApiService())->forUser($user);
             
-            // جلب آخر 50 وثيقة من الهيئة (كمثال)
-            $response = $eidc->getPolicies(['per_page' => 50]);
+            // Determine which agent(s) to sync
+            $agentsToSync = [];
             
-            $policies = $response['data'] ?? $response ?? [];
-            if (!is_array($policies)) $policies = [];
-            
+            if ($user && $user->is_admin) {
+                $requestedAgentId = $request->input('branch_agent_id') ?: $request->query('branch_agent_id');
+                if ($requestedAgentId) {
+                    $agent = BranchAgent::with('user')->find($requestedAgentId);
+                    if ($agent && $agent->user) {
+                        $agentsToSync[] = $agent;
+                    }
+                } else {
+                    // Admin wants to sync for ALL agents that have EIDC credentials
+                    $agentsToSync = BranchAgent::whereHas('user', function($q) {
+                        $q->whereNotNull('eidc_username')->where('eidc_username', '!=', '');
+                    })->with('user')->get();
+                }
+            } else {
+                // Regular agent user - sync only for themselves
+                if ($user) {
+                    $agent = BranchAgent::with('user')->where('user_id', $user->id)->first();
+                    if ($agent) {
+                        $agentsToSync[] = $agent;
+                    }
+                }
+            }
+
+            if (empty($agentsToSync)) {
+                return response()->json(['message' => 'لم يتم العثور على وكلاء لمزامنتهم'], 400);
+            }
+
             $syncedCount = 0;
             $newCount = 0;
-            
-            foreach ($policies as $policy) {
-                $policyId = $policy['id'] ?? $policy['policyId'] ?? null;
-                if (!$policyId) continue;
-                
-                // البحث عن الوثيقة محلياً
-                $exists = InsuranceDocument::where('eidc_policy_id', $policyId)
-                    ->orWhere('eidc_transaction_code', $policyId)
-                    ->exists();
-                
-                if (!$exists) {
-                    // إنشاء وثيقة جديدة من بيانات الهيئة
-                    // ملاحظة: قد تحتاج لضبط التنسيق حسب استجابة الـ API الفعلية للهيئة
-                    InsuranceDocument::create([
-                        'insurance_type'        => 'تأمين إجباري سيارات',
-                        'insurance_number'      => 'EIDC-' . $policyId,
-                        'issue_date'            => $policy['createdAt'] ?? now(),
-                        'start_date'            => $policy['fromNoonOf'] ?? now(),
-                        'end_date'              => isset($policy['fromNoonOf']) ? Carbon::parse($policy['fromNoonOf'])->addYear() : now()->addYear(),
-                        'duration'              => 'سنة',
-                        'insured_name'          => $policy['insuredsName'] ?? 'مستورد من الهيئة',
-                        'phone'                 => $policy['phoneNo'] ?? '-',
-                        'chassis_number'        => $policy['chassisNo'] ?? '-',
-                        'plate_number_manual'   => $policy['plateNo'] ?? '-',
-                        'eidc_policy_id'        => $policyId,
-                        'eidc_transaction_code' => $policyId,
-                        'eidc_sync_status'      => 'synced',
-                        'eidc_synced_at'        => now(),
-                        'premium'               => $policy['totalAmount'] ?? 0,
-                        'total'                 => $policy['totalAmount'] ?? 0,
-                        'notes'                 => 'وثيقة مستوردة تلقائياً من منظومة الهيئة',
-                    ]);
-                    $newCount++;
+            $agentNames = [];
+
+            foreach ($agentsToSync as $agent) {
+                $agentUser = $agent->user;
+                if (!$agentUser || empty($agentUser->eidc_username)) {
+                    continue;
                 }
-                $syncedCount++;
+
+                $agentNames[] = $agent->agency_name ?: $agentUser->name;
+
+                try {
+                    $eidc = (new EidcApiService())->forUser($agentUser);
+                    
+                    // جلب آخر 100 وثيقة من الهيئة لضمان مزامنة كل الوثائق المفقودة
+                    $response = $eidc->getPolicies(['per_page' => 100]);
+                    
+                    // Extract policies array correctly from items
+                    $policies = $response['items'] ?? $response['data'] ?? $response ?? [];
+                    if (!is_array($policies)) {
+                        continue;
+                    }
+                    
+                    foreach ($policies as $policy) {
+                        $policyId = $policy['id'] ?? $policy['policyId'] ?? null;
+                        if (!$policyId) {
+                            continue;
+                        }
+                        
+                        $policyNo = $policy['policyNo'] ?? $policy['transactionCode'] ?? null;
+                        $insuranceNumber = $policyNo ? 'EIDC-' . $policyNo : 'EIDC-' . $policyId;
+
+                        // البحث عن الوثيقة محلياً
+                        $exists = InsuranceDocument::where('eidc_policy_id', $policyId)
+                            ->orWhere('eidc_transaction_code', $policyId)
+                            ->orWhere('eidc_transaction_code', $policyNo)
+                            ->orWhere('insurance_number', $insuranceNumber)
+                            ->exists();
+                        
+                        if (!$exists) {
+                            // Extract financial values
+                            $netPremium = (float)($policy['netPremium'] ?? $policy['net_premium'] ?? $policy['NetPremium'] ?? 0);
+                            $tax = (float)($policy['tax'] ?? $policy['tax_amount'] ?? $policy['Tax'] ?? 1.0);
+                            $stamp = (float)($policy['stamp'] ?? $policy['stamp_amount'] ?? $policy['Stamp'] ?? 0.5);
+                            $supervision = (float)($policy['supervisionFees'] ?? $policy['supervision_fees'] ?? $policy['SupervisionFees'] ?? 0.5);
+                            $issue = (float)($policy['issuingFees'] ?? $policy['issue_fees'] ?? $policy['IssuingFees'] ?? 2.0);
+                            $total = (float)($policy['totalPremium'] ?? $policy['totalAmount'] ?? $policy['total'] ?? ($netPremium + $tax + $stamp + $supervision + $issue));
+
+                            // Try to resolve plate_id from EIDC regAuthority
+                            $plateId = null;
+                            if (!empty($policy['regAuthority'])) {
+                                $plate = \App\Models\Plate::whereHas('city', function($q) use ($policy) {
+                                    $q->where('name_ar', 'like', '%' . $policy['regAuthority'] . '%');
+                                })->first();
+                                if ($plate) {
+                                    $plateId = $plate->id;
+                                }
+                            }
+
+                            // Map days to standard duration strings
+                            $days = isset($policy['dayOfCarType']) ? (int)$policy['dayOfCarType'] : 365;
+                            $duration = 'سنة';
+                            if ($days === 730) {
+                                $duration = 'سنتين';
+                            } elseif ($days === 90) {
+                                $duration = 'ثلاثة أشهر (90 يوم)';
+                            } elseif ($days === 60) {
+                                $duration = 'شهرين (60 يوم)';
+                            } elseif ($days === 30) {
+                                $duration = 'شهر (30 يوم)';
+                            } elseif ($days === 15) {
+                                $duration = 'أسبوعين (15 يوم)';
+                            }
+
+                            // إنشاء وثيقة جديدة من بيانات الهيئة وربطها بالوكيل
+                            InsuranceDocument::create([
+                                'insurance_type'        => 'تأمين إجباري سيارات',
+                                'insurance_number'      => $insuranceNumber,
+                                'issue_date'            => isset($policy['createdAt']) ? Carbon::parse($policy['createdAt'])->format('Y-m-d H:i:s') : now()->format('Y-m-d H:i:s'),
+                                'plate_id'              => $plateId,
+                                'start_date'            => isset($policy['fromNoonOf']) ? Carbon::parse($policy['fromNoonOf'])->format('Y-m-d') : now()->format('Y-m-d'),
+                                'end_date'              => isset($policy['fromNoonOf']) ? Carbon::parse($policy['fromNoonOf'])->addDays($days)->format('Y-m-d') : now()->addYear()->format('Y-m-d'),
+                                'duration'              => $duration,
+                                'insured_name'          => $policy['insuredsName'] ?? 'مستورد من الهيئة',
+                                'phone'                 => $policy['phoneNo'] ?? '-',
+                                'nid_passport'          => $policy['nidPassport'] ?? null,
+                                'nationality'           => $policy['nationality'] ?? 'ليبي',
+                                'email'                 => $policy['email'] ?? null,
+                                'address'               => $policy['address'] ?? null,
+                                'chassis_number'        => $policy['chassisNo'] ?? '-',
+                                'plate_number_manual'   => $policy['plateNo'] ?? '-',
+                                'color'                 => $policy['color'] ?? '-',
+                                'year'                  => isset($policy['yearMade']) ? (int)$policy['yearMade'] : null,
+                                'authorized_passengers' => isset($policy['passengersNo']) ? (int)$policy['passengersNo'] : null,
+                                'engine_power'          => isset($policy['engineHp']) ? ($policy['engineHp'] . ' حصان') : null,
+                                'load_capacity'         => isset($policy['tonnage']) ? (float)$policy['tonnage'] : null,
+                                'eidc_policy_id'        => $policyId,
+                                'eidc_transaction_code' => $policyNo ?: $policyId,
+                                'eidc_sync_status'      => 'synced',
+                                'eidc_synced_at'        => isset($policy['createdAt']) ? Carbon::parse($policy['createdAt'])->format('Y-m-d H:i:s') : now()->format('Y-m-d H:i:s'),
+                                'premium'               => $netPremium,
+                                'tax'                   => $tax,
+                                'stamp'                 => $stamp,
+                                'supervision_fees'      => $supervision,
+                                'issue_fees'            => $issue,
+                                'total'                 => $total,
+                                'branch_agent_id'       => $agent->id,
+                                'notes'                 => 'وثيقة مستوردة تلقائياً من منظومة الهيئة',
+                                'eidc_vehicle_type_id'  => $policy['typeVechicleId'] ?? null,
+                                'eidc_vehicle_spec_id'  => $policy['typeVechicle2Id'] ?? null,
+                                'eidc_vehicle_detail_id'=> $policy['typeVechicle3Id'] ?? null,
+                            ]);
+                            $newCount++;
+                        }
+                        $syncedCount++;
+                    }
+                } catch (\Exception $e) {
+                    Log::error("EIDC Sync failed for agent {$agent->id}: " . $e->getMessage());
+                }
             }
             
+            $agentsListStr = implode('، ', $agentNames);
             return response()->json([
-                'message' => "تمت المزامنة بنجاح. تم فحص {$syncedCount} وثيقة، وإضافة {$newCount} وثيقة جديدة.",
+                'message' => "تمت المزامنة بنجاح للوكلاء ({$agentsListStr}). تم فحص {$syncedCount} وثيقة، وإضافة {$newCount} وثيقة جديدة.",
                 'new_count' => $newCount,
                 'synced_count' => $syncedCount
             ]);

@@ -53,6 +53,25 @@ class AgentRequestController extends Controller
             'attachments' => $validated['attachments'] ?? [],
         ]);
 
+        // إرسال إشعار للمشرفين
+        try {
+            $admins = \App\Models\User::where('is_admin', true)->get();
+            $agentName = $agentRequest->branchAgent?->agency_name ?? 'الوكيل';
+            if ($agentRequest->type === 'stock') {
+                $title = 'طلب مخزون جديد';
+                $message = "طلب مخزون جديد (تحت الطلب) من الوكيل ({$agentName}): {$agentRequest->subject}";
+            } else {
+                $title = 'طلب جديد من وكيل';
+                $message = "طلب جديد من {$agentName}: {$agentRequest->subject}";
+            }
+            $url = "/agent-requests";
+            foreach ($admins as $admin) {
+                $admin->notify(new \App\Notifications\SystemNotification($title, $message, 'info', $url));
+            }
+        } catch (\Exception $ne) {
+            \Illuminate\Support\Facades\Log::error('Notification error in AgentRequest store: ' . $ne->getMessage());
+        }
+
         return response()->json($agentRequest, 201);
     }
 
@@ -81,6 +100,44 @@ class AgentRequestController extends Controller
         ]);
 
         $agentRequest->update($validated);
+
+        // إرسال إشعار للوكيل
+        try {
+            if ($agentRequest->user_id) {
+                $agentUser = \App\Models\User::find($agentRequest->user_id);
+                if ($agentUser) {
+                    $statusNames = [
+                        'pending' => $agentRequest->type === 'stock' ? 'تحت الطلب' : 'قيد الانتظار',
+                        'processing' => 'جاري المعالجة',
+                        'completed' => $agentRequest->type === 'stock' ? 'نفذت' : 'مكتمل (تم التنفيذ)',
+                        'rejected' => 'مرفوض'
+                    ];
+                    $statusText = $statusNames[$validated['status']] ?? $validated['status'];
+                    
+                    if ($agentRequest->type === 'stock') {
+                        if ($validated['status'] === 'completed') {
+                            $title = 'تم تنفيذ طلب المخزون';
+                            $message = "تم تنفيذ طلب المخزون الخاص بك بنجاح (نفذت) المعنون بـ ({$agentRequest->subject})";
+                        } elseif ($validated['status'] === 'rejected') {
+                            $title = 'تم رفض طلب المخزون';
+                            $message = "تم رفض طلب المخزون الخاص بك المعنون بـ ({$agentRequest->subject})";
+                        } else {
+                            $title = 'تحديث حالة طلب المخزون';
+                            $message = "تم تحديث طلب المخزون الخاص بك ({$agentRequest->subject}) إلى: {$statusText}";
+                        }
+                    } else {
+                        $title = 'تحديث حالة طلبك';
+                        $message = "تمت معالجة طلبك المعنون بـ ({$agentRequest->subject}) وتغيير حالته إلى: {$statusText}";
+                    }
+                    
+                    // Check if it's agent and determine direct link
+                    $url = $agentUser->branchAgent ? "/branches-agents/{$agentUser->branchAgent->id}?tab=requests" : "/agent-requests";
+                    $agentUser->notify(new \App\Notifications\SystemNotification($title, $message, $validated['status'] === 'rejected' ? 'error' : 'success', $url));
+                }
+            }
+        } catch (\Exception $ne) {
+            \Illuminate\Support\Facades\Log::error('Notification error in AgentRequest update: ' . $ne->getMessage());
+        }
 
         return $agentRequest;
     }

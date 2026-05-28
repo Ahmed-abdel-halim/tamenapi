@@ -173,6 +173,20 @@ class AgentWalletController extends Controller
             return $withdrawal;
         });
 
+        // إرسال إشعار للمشرفين
+        try {
+            $admins = \App\Models\User::where('is_admin', true)->get();
+            $agentName = $agent->agency_name ?? 'الوكيل';
+            $title = 'طلب سحب جديد من محفظة وكيل';
+            $message = "طلب سحب رصيد جديد بقيمة {$amount} د.ل من الوكيل ({$agentName}) عبر طريقة الدفع: {$withdrawal->payment_method}.";
+            $url = "/branches-agents/{$agent->id}?tab=wallet";
+            foreach ($admins as $admin) {
+                $admin->notify(new \App\Notifications\SystemNotification($title, $message, 'info', $url));
+            }
+        } catch (\Exception $ne) {
+            \Illuminate\Support\Facades\Log::error('Notification error in AgentWallet requestWithdrawal: ' . $ne->getMessage());
+        }
+
         return response()->json([
             'message' => 'تم تقديم طلب السحب بنجاح وهو قيد المراجعة حالياً من قبل الإدارة',
             'withdrawal' => $withdrawal,
@@ -228,6 +242,29 @@ class AgentWalletController extends Controller
                 ]);
             }
         });
+
+        // إرسال إشعار للوكيل
+        try {
+            if ($agent->user_id) {
+                $agentUser = \App\Models\User::find($agent->user_id);
+                if ($agentUser) {
+                    $statusNames = [
+                        'approved' => 'تمت الموافقة والتسليم',
+                        'rejected' => 'مرفوض وتم إرجاع الرصيد للمحفظة'
+                    ];
+                    $statusText = $statusNames[$request->status] ?? $request->status;
+                    $title = 'تحديث حالة طلب السحب المالي';
+                    $message = "تم تحديث طلب السحب المالي بقيمة {$withdrawal->amount} د.ل الخاص بك إلى: {$statusText}";
+                    if ($request->filled('admin_notes')) {
+                        $message .= " | ملاحظة الإدارة: {$request->admin_notes}";
+                    }
+                    $url = "/branches-agents/{$agent->id}?tab=wallet";
+                    $agentUser->notify(new \App\Notifications\SystemNotification($title, $message, $request->status === 'rejected' ? 'error' : 'success', $url));
+                }
+            }
+        } catch (\Exception $ne) {
+            \Illuminate\Support\Facades\Log::error('Notification error in AgentWallet updateWithdrawalStatus: ' . $ne->getMessage());
+        }
 
         return response()->json([
             'message' => $request->status === 'approved' ? 'تمت الموافقة على طلب السحب بنجاح' : 'تم رفض طلب السحب وإرجاع المبلغ للمحفظة',

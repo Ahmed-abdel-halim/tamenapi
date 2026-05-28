@@ -42,6 +42,31 @@ class EmployeeRequestController extends Controller
             'details' => $validated['details'] ?? [],
         ]);
 
+        // إرسال إشعار للمشرفين
+        try {
+            $admins = \App\Models\User::where('is_admin', true)->get();
+            $employeeName = $employeeRequest->user?->name ?? 'الموظف';
+            $typeNames = [
+                'termination' => 'إنهاء خدمة',
+                'leave_hourly' => 'مغادرة ساعية',
+                'leave_daily' => 'إجازة يومية',
+                'salary_advance' => 'سلفة على المرتب',
+                'allowance' => 'طلب علاوة',
+                'complaint' => 'شكوى',
+                'maintenance' => 'طلب صيانة',
+                'other' => 'أخرى'
+            ];
+            $typeName = $typeNames[$employeeRequest->type] ?? $employeeRequest->type;
+            $title = 'طلب جديد من موظف';
+            $message = "طلب جديد ({$typeName}) من الموظف: {$employeeName}";
+            $url = "/employee-requests";
+            foreach ($admins as $admin) {
+                $admin->notify(new \App\Notifications\SystemNotification($title, $message, 'info', $url));
+            }
+        } catch (\Exception $ne) {
+            \Illuminate\Support\Facades\Log::error('Notification error in EmployeeRequest store: ' . $ne->getMessage());
+        }
+
         return response()->json($employeeRequest, 201);
     }
 
@@ -72,6 +97,37 @@ class EmployeeRequestController extends Controller
             'approver_id' => Auth::id(),
             'processed_at' => now(),
         ]);
+
+        // إرسال إشعار للموظف
+        try {
+            if ($employeeRequest->user_id) {
+                $employeeUser = \App\Models\User::find($employeeRequest->user_id);
+                if ($employeeUser) {
+                    $typeNames = [
+                        'termination' => 'إنهاء خدمة',
+                        'leave_hourly' => 'مغادرة ساعية',
+                        'leave_daily' => 'إجازة يومية',
+                        'salary_advance' => 'سلفة على المرتب',
+                        'allowance' => 'طلب علاوة',
+                        'complaint' => 'شكوى',
+                        'maintenance' => 'طلب صيانة',
+                        'other' => 'أخرى'
+                    ];
+                    $typeName = $typeNames[$employeeRequest->type] ?? $employeeRequest->type;
+                    $statusNames = [
+                        'approved' => 'مقبول (تمت الموافقة)',
+                        'rejected' => 'مرفوض'
+                    ];
+                    $statusText = $statusNames[$validated['status']] ?? $validated['status'];
+                    $title = 'تحديث حالة طلبك الشخصي';
+                    $message = "تم تحديث طلبك المعنون بـ ({$typeName}) إلى: {$statusText}";
+                    $url = "/users/{$employeeRequest->user_id}?tab=requests";
+                    $employeeUser->notify(new \App\Notifications\SystemNotification($title, $message, $validated['status'] === 'rejected' ? 'error' : 'success', $url));
+                }
+            }
+        } catch (\Exception $ne) {
+            \Illuminate\Support\Facades\Log::error('Notification error in EmployeeRequest update: ' . $ne->getMessage());
+        }
 
         return $employeeRequest;
     }

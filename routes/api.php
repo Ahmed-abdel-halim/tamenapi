@@ -122,6 +122,11 @@ Route::get('/user/{id}/refresh', function (Request $request, $id) {
 use App\Http\Controllers\EmployeeRequestController;
 
 Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/notifications/unread-count', [\App\Http\Controllers\NotificationController::class, 'unreadCount']);
+    Route::get('/notifications', [\App\Http\Controllers\NotificationController::class, 'index']);
+    Route::post('/notifications/{id}/read', [\App\Http\Controllers\NotificationController::class, 'markAsRead']);
+    Route::post('/notifications/read-all', [\App\Http\Controllers\NotificationController::class, 'markAllAsRead']);
+
     Route::post('/users/{user}/employee-files', [UserController::class, 'uploadEmployeeFile']);
     Route::apiResource('users', UserController::class);
     Route::put('/users/{user}/eidc-credentials', [UserController::class, 'updateEidcCredentials']);

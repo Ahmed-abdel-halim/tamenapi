@@ -23,6 +23,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\View;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
+use App\Notifications\SystemNotification;
 
 class BranchAgentController extends Controller
 {
@@ -417,6 +418,19 @@ class BranchAgentController extends Controller
 
             DB::commit();
 
+            // إرسال إشعار للمشرفين
+            try {
+                $admins = User::where('is_admin', true)->get();
+                $title = 'طلب تسجيل وكيل جديد';
+                $message = "طلب تسجيل وكالة جديدة: {$branchAgent->agency_name} بقلم الوكيل {$branchAgent->agent_name}";
+                $url = "/branches-agents?status=pending";
+                foreach ($admins as $admin) {
+                    $admin->notify(new SystemNotification($title, $message, 'info', $url));
+                }
+            } catch (\Exception $ne) {
+                \Illuminate\Support\Facades\Log::error('Notification error in publicRegister: ' . $ne->getMessage());
+            }
+
             return response()->json([
                 'message' => 'تم إرسال طلب الاشتراك بنجاح. سيتم مراجعته من قبل الإدارة',
                 'data' => $branchAgent
@@ -467,6 +481,21 @@ class BranchAgentController extends Controller
             }
 
             DB::commit();
+
+            // إرسال إشعار للوكيل
+            try {
+                if ($branchAgent->user_id) {
+                    $agentUser = User::find($branchAgent->user_id);
+                    if ($agentUser) {
+                        $title = 'تم تفعيل الحساب';
+                        $message = 'تمت الموافقة على حسابك وتفعيله بنجاح. يمكنك الآن الدخول وإصدار الوثائق.';
+                        $agentUser->notify(new SystemNotification($title, $message, 'success', '/'));
+                    }
+                }
+            } catch (\Exception $ne) {
+                \Illuminate\Support\Facades\Log::error('Notification error in approveAgent: ' . $ne->getMessage());
+            }
+
             return response()->json(['message' => 'تم تفعيل الوكيل بنجاح', 'data' => $branchAgent]);
         } catch (\Exception $e) {
             DB::rollBack();

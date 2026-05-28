@@ -141,6 +141,11 @@ class InventoryController extends Controller
         $stock->warehouse_location = $validated['location'] ?? $stock->warehouse_location;
         $stock->save();
 
+        if ($validated['quantity'] < 0) {
+            $item = StoreItem::findOrFail($validated['item_id']);
+            $this->checkStockAlert($item, $stock->quantity);
+        }
+
         return response()->json($stock);
     }
 
@@ -260,6 +265,8 @@ class InventoryController extends Controller
             $stock->quantity -= $validated['quantity'];
             $stock->save();
 
+            $this->checkStockAlert($item, $stock->quantity);
+
             // Record movement
             CustodyMovement::create([
                 'item_id' => $validated['item_id'],
@@ -270,6 +277,33 @@ class InventoryController extends Controller
                 'processed_by' => auth()->id() ?? 1, // Fallback to 1 for testing
                 'notes' => 'صرف عهدة جديدة',
             ]);
+
+            // Send notification to recipient
+            try {
+                $recipientUser = null;
+                $url = "/profile";
+                
+                if ($recipientType === \App\Models\BranchAgent::class) {
+                    $agent = \App\Models\BranchAgent::find($validated['recipient_id']);
+                    if ($agent) {
+                        $recipientUser = $agent->user;
+                        $url = "/branches-agents/{$agent->id}?tab=agency";
+                    }
+                } else {
+                    $recipientUser = \App\Models\User::find($validated['recipient_id']);
+                    if ($recipientUser) {
+                        $url = "/users/{$recipientUser->id}?tab=personal";
+                    }
+                }
+                
+                if ($recipientUser) {
+                    $title = 'صرف عهدة جديدة';
+                    $message = "تم صرف عهدة جديدة لك: {$validated['quantity']} {$item->unit} من صنف ({$item->name})";
+                    $recipientUser->notify(new \App\Notifications\SystemNotification($title, $message, 'success', $url));
+                }
+            } catch (\Exception $ne) {
+                Log::error('Notification error in custody assignment: ' . $ne->getMessage());
+            }
 
             DB::commit();
             return response()->json($custody, 201);
@@ -304,11 +338,63 @@ class InventoryController extends Controller
                 'notes' => $request->notes ?? 'إرجاع عهدة',
             ]);
 
+            // Send notification to recipient
+            try {
+                $custody->loadMissing('item');
+                $recipientUser = null;
+                $url = "/profile";
+                
+                if ($custody->recipient_type === \App\Models\BranchAgent::class) {
+                    $agent = \App\Models\BranchAgent::find($custody->recipient_id);
+                    if ($agent) {
+                        $recipientUser = $agent->user;
+                        $url = "/branches-agents/{$agent->id}?tab=agency";
+                    }
+                } else {
+                    $recipientUser = \App\Models\User::find($custody->recipient_id);
+                    if ($recipientUser) {
+                        $url = "/users/{$recipientUser->id}?tab=personal";
+                    }
+                }
+                
+                if ($recipientUser) {
+                    $title = 'استرجاع عهدة';
+                    $message = "تم تسجيل استرجاع العهدة الخاصة بك بنجاح: {$custody->quantity} {$custody->item->unit} من صنف ({$custody->item->name})";
+                    $recipientUser->notify(new \App\Notifications\SystemNotification($title, $message, 'info', $url));
+                }
+            } catch (\Exception $ne) {
+                Log::error('Notification error in custody return: ' . $ne->getMessage());
+            }
+
             DB::commit();
             return response()->json(['message' => 'تم إرجاع العهدة للمخزن بنجاح']);
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json(['message' => 'خطأ في العملية', 'error' => $e->getMessage()], 500);
+        }
+    }
+
+    private function checkStockAlert(StoreItem $item, int $newQuantity)
+    {
+        try {
+            $admins = \App\Models\User::where('is_admin', true)->get();
+            $url = "/reports/inventory";
+            
+            if ($newQuantity <= 0) {
+                $title = 'نفاد مخزون صنف';
+                $message = "تنبيه: لقد نفذ مخزون الصنف ({$item->name}) تماماً من المستودع! الكمية الحالية: 0";
+                foreach ($admins as $admin) {
+                    $admin->notify(new \App\Notifications\SystemNotification($title, $message, 'error', $url));
+                }
+            } elseif ($newQuantity <= $item->min_threshold) {
+                $title = 'مخزون تحت حد الطلب';
+                $message = "تنبيه: كمية الصنف ({$item->name}) تحت حد الطلب في المستودع! الكمية الحالية: {$newQuantity} (حد الطلب: {$item->min_threshold})";
+                foreach ($admins as $admin) {
+                    $admin->notify(new \App\Notifications\SystemNotification($title, $message, 'warning', $url));
+                }
+            }
+        } catch (\Exception $e) {
+            Log::error('Error sending stock alert notification: ' . $e->getMessage());
         }
     }
 

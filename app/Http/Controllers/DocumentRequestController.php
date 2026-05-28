@@ -63,6 +63,21 @@ class DocumentRequestController extends Controller
             'status' => 'pending'
         ]);
 
+        // إرسال إشعار للمشرفين
+        try {
+            $admins = \App\Models\User::where('is_admin', true)->get();
+            $agentName = $documentRequest->branchAgent?->agency_name ?? 'الوكيل';
+            $reqTypeArabic = $documentRequest->request_type === 'cancellation' ? 'إلغاء وثيقة' : 'تعديل وثيقة';
+            $title = 'طلب مستندات جديد من وكيل';
+            $message = "طلب جديد ({$reqTypeArabic}) للوثيقة رقم ({$documentRequest->document_number}) من الوكالة: {$agentName}";
+            $url = "/document-requests";
+            foreach ($admins as $admin) {
+                $admin->notify(new \App\Notifications\SystemNotification($title, $message, 'info', $url));
+            }
+        } catch (\Exception $ne) {
+            \Illuminate\Support\Facades\Log::error('Notification error in DocumentRequest store: ' . $ne->getMessage());
+        }
+
         return response()->json($documentRequest, 201);
     }
 
@@ -76,6 +91,28 @@ class DocumentRequestController extends Controller
         ]);
 
         $documentRequest->update($validated);
+
+        // إرسال إشعار للوكيل
+        try {
+            if ($documentRequest->user_id) {
+                $agentUser = \App\Models\User::find($documentRequest->user_id);
+                if ($agentUser) {
+                    $statusNames = [
+                        'pending' => 'قيد الانتظار',
+                        'accepted' => 'مقبول (تمت الموافقة)',
+                        'rejected' => 'مرفوض'
+                    ];
+                    $statusText = $statusNames[$validated['status']] ?? $validated['status'];
+                    $reqTypeArabic = $documentRequest->request_type === 'cancellation' ? 'إلغاء' : 'تعديل';
+                    $title = 'تحديث حالة طلب مستند';
+                    $message = "تم تحديث طلبك لـ {$reqTypeArabic} الوثيقة رقم ({$documentRequest->document_number}) إلى: {$statusText}";
+                    $url = $agentUser->branchAgent ? "/branches-agents/{$agentUser->branchAgent->id}?tab=doc_requests" : "/document-requests";
+                    $agentUser->notify(new \App\Notifications\SystemNotification($title, $message, $validated['status'] === 'rejected' ? 'error' : 'success', $url));
+                }
+            }
+        } catch (\Exception $ne) {
+            \Illuminate\Support\Facades\Log::error('Notification error in DocumentRequest update: ' . $ne->getMessage());
+        }
 
         return response()->json($documentRequest);
     }

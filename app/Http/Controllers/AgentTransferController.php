@@ -123,6 +123,22 @@ class AgentTransferController extends Controller
             
             DB::commit();
             
+            // إرسال إشعار للمشرفين إذا كانت الحوالة مرفوعة من الوكيل
+            if ($branchAgentId) {
+                try {
+                    $admins = \App\Models\User::where('is_admin', true)->get();
+                    $agentName = $transfer->agent?->agency_name ?? 'الوكيل';
+                    $title = 'حوالة مالية جديدة قيد الانتظار';
+                    $message = "قام الوكيل ({$agentName}) برفع حوالة مالية جديدة بقيمة {$transfer->amount} د.ل وهي بانتظار المطابقة والتدقيق.";
+                    $url = "/reports/agent-transfers";
+                    foreach ($admins as $admin) {
+                        $admin->notify(new \App\Notifications\SystemNotification($title, $message, 'info', $url));
+                    }
+                } catch (\Exception $ne) {
+                    \Illuminate\Support\Facades\Log::error('Notification error in AgentTransfer store: ' . $ne->getMessage());
+                }
+            }
+            
             return response()->json([
                 'success' => true,
                 'message' => $branchAgentId ? 'تم تقديم طلب الحوالة بنجاح وهو قيد التدقيق' : 'تم تسجيل العملية المالية للوكيل بنجاح',
@@ -247,6 +263,29 @@ class AgentTransferController extends Controller
             
             $transfer->save();
             DB::commit();
+            
+            // إرسال إشعار للوكيل
+            try {
+                if ($transfer->created_by) {
+                    $agentUser = \App\Models\User::find($transfer->created_by);
+                    if ($agentUser) {
+                        $statusNames = [
+                            'approved' => 'مقبولة ومطابقة',
+                            'rejected' => 'مرفوضة'
+                        ];
+                        $statusText = $statusNames[$transfer->status] ?? $transfer->status;
+                        $title = 'تحديث حالة الحوالة المالية';
+                        $message = "تمت معالجة حوالتك المالية بقيمة {$transfer->amount} د.ل - الحالة: {$statusText}";
+                        if ($transfer->status === 'rejected' && $transfer->rejection_reason) {
+                            $message .= " | سبب الرفض: {$transfer->rejection_reason}";
+                        }
+                        $url = "/agent-transfers";
+                        $agentUser->notify(new \App\Notifications\SystemNotification($title, $message, $transfer->status === 'rejected' ? 'error' : 'success', $url));
+                    }
+                }
+            } catch (\Exception $ne) {
+                \Illuminate\Support\Facades\Log::error('Notification error in AgentTransfer update: ' . $ne->getMessage());
+            }
             
             return response()->json([
                 'success' => true,

@@ -137,6 +137,7 @@ class UserController extends Controller
             'hourly_leave_deduction' => 'nullable|numeric',
             'daily_leave_deduction' => 'nullable|numeric',
             'is_active' => 'nullable|boolean',
+            'show_on_landing' => 'nullable|boolean',
             'tax_percentage' => 'nullable|numeric',
             'social_security_percentage' => 'nullable|numeric',
             'salary_type' => 'nullable|string|in:monthly,hourly',
@@ -274,6 +275,7 @@ class UserController extends Controller
             'hourly_leave_deduction' => 'nullable|numeric',
             'daily_leave_deduction' => 'nullable|numeric',
             'is_active' => 'nullable|boolean',
+            'show_on_landing' => 'nullable|boolean',
             'tax_percentage' => 'nullable|numeric',
             'social_security_percentage' => 'nullable|numeric',
             'salary_type' => 'nullable|string|in:monthly,hourly',
@@ -479,4 +481,56 @@ class UserController extends Controller
             'eidc_username' => $user->eidc_username
         ]);
     }
+
+    public function publicEmployees()
+    {
+        try {
+            $employees = User::whereDoesntHave('branchAgent')
+                ->where('is_admin', false)
+                ->where('is_active', true)
+                ->where('show_on_landing', true)
+                ->orderByRaw('CASE WHEN start_date IS NULL THEN 1 ELSE 0 END')
+                ->orderBy('start_date', 'asc')
+                ->get()
+                ->map(function ($user) {
+                    return [
+                        'id' => $user->id,
+                        'name' => $user->name,
+                        'job_title' => $user->job_title,
+                        'profile_photo_url' => $user->profile_photo_url,
+                        'gender' => $user->gender,
+                        'nationality' => $user->nationality,
+                        'personal_phone' => $user->personal_phone,
+                    ];
+                });
+
+            return response()->json($employees);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'حدث خطأ أثناء جلب الموظفين',
+                'error' => config('app.debug') ? $e->getMessage() : 'خطأ غير معروف'
+            ], 500);
+        }
+    }
+
+    public function toggleShowOnLanding($id)
+    {
+        try {
+            $user = User::findOrFail($id);
+            $user->show_on_landing = !$user->show_on_landing;
+            $user->save();
+
+            return response()->json([
+                'success' => true,
+                'show_on_landing' => $user->show_on_landing,
+                'message' => $user->show_on_landing ? 'سيظهر الموظف في الواجهة الرئيسية' : 'تم إخفاء الموظف من الواجهة الرئيسية'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'حدث خطأ أثناء تحديث حالة الظهور في الواجهة',
+                'error' => config('app.debug') ? $e->getMessage() : 'خطأ غير معروف'
+            ], 500);
+        }
+    }
 }
+

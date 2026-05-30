@@ -128,8 +128,14 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/notifications/read-all', [\App\Http\Controllers\NotificationController::class, 'markAllAsRead']);
 
     Route::post('/users/{user}/employee-files', [UserController::class, 'uploadEmployeeFile']);
+    Route::get('/profile-update-requests', [\App\Http\Controllers\ProfileUpdateRequestController::class, 'index']);
+    Route::post('/profile-update-requests', [\App\Http\Controllers\ProfileUpdateRequestController::class, 'submit']);
+    Route::get('/profile-update-requests/current', [\App\Http\Controllers\ProfileUpdateRequestController::class, 'currentStatus']);
+    Route::post('/profile-update-requests/{id}/approve', [\App\Http\Controllers\ProfileUpdateRequestController::class, 'approve']);
+    Route::post('/profile-update-requests/{id}/reject', [\App\Http\Controllers\ProfileUpdateRequestController::class, 'reject']);
     Route::apiResource('users', UserController::class);
     Route::put('/users/{user}/eidc-credentials', [UserController::class, 'updateEidcCredentials']);
+    Route::post('/users/{id}/toggle-landing', [UserController::class, 'toggleShowOnLanding']);
     Route::get('/users/{user}/salary-history', [UserController::class, 'salaryHistory']);
     Route::apiResource('employee-requests', EmployeeRequestController::class);
     Route::apiResource('agent-requests', \App\Http\Controllers\AgentRequestController::class);
@@ -171,6 +177,7 @@ Route::post('/sync-user-permissions', function (Request $request) {
         ], 500);
     }
 });
+Route::get('/public/employees', [UserController::class, 'publicEmployees']);
 Route::put('/users/{user}/email', [UserController::class, 'updateEmail']);
 Route::put('/users/{user}/password', [UserController::class, 'updatePassword']);
 Route::get('/branches-agents/monthly-account-closure', [BranchAgentController::class, 'getMonthlyAccountClosure']);

@@ -111,6 +111,7 @@ class InternationalInsuranceDocumentController extends Controller
     {
         try {
             $validated = $request->validate([
+                'external_policy_number' => 'nullable|string|max:255',
                 'insured_name' => 'required|string|max:255',
                 'insured_address' => 'required|string|max:255',
                 'phone' => 'required|string|max:255',
@@ -178,6 +179,7 @@ class InternationalInsuranceDocumentController extends Controller
 
             $document = InternationalInsuranceDocument::create([
                 'document_number' => $documentNumber,
+                'external_policy_number' => $validated['external_policy_number'] ?? null,
                 'insured_name' => $validated['insured_name'],
                 'insured_address' => $validated['insured_address'] ?? null,
                 'phone' => $validated['phone'] ?? null,
@@ -245,6 +247,7 @@ class InternationalInsuranceDocumentController extends Controller
     {
         try {
             $validated = $request->validate([
+                'external_policy_number' => 'nullable|string|max:255',
                 'insured_name' => 'required|string|max:255',
                 'insured_address' => 'required|string|max:255',
                 'phone' => 'required|string|max:255',
@@ -282,6 +285,7 @@ class InternationalInsuranceDocumentController extends Controller
             $document = InternationalInsuranceDocument::findOrFail($id);
 
             $document->update([
+                'external_policy_number' => $validated['external_policy_number'] ?? $document->external_policy_number,
                 'insured_name' => $validated['insured_name'],
                 'insured_address' => $validated['insured_address'] ?? null,
                 'phone' => $validated['phone'] ?? null,

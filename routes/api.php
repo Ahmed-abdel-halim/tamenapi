@@ -135,6 +135,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/profile-update-requests/{id}/reject', [\App\Http\Controllers\ProfileUpdateRequestController::class, 'reject']);
     Route::apiResource('users', UserController::class);
     Route::put('/users/{user}/eidc-credentials', [UserController::class, 'updateEidcCredentials']);
+    Route::put('/users/{user}/lifo-credentials', [UserController::class, 'updateLifoCredentials']);
     Route::post('/users/{id}/toggle-landing', [UserController::class, 'toggleShowOnLanding']);
     Route::get('/users/{user}/salary-history', [UserController::class, 'salaryHistory']);
     Route::apiResource('employee-requests', EmployeeRequestController::class);

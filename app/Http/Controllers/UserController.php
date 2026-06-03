@@ -144,6 +144,8 @@ class UserController extends Controller
             'hourly_rate' => 'nullable|numeric',
             'eidc_username' => 'nullable|string|max:191',
             'eidc_password' => 'nullable|string|max:191',
+            'lifo_username' => 'nullable|string|max:191',
+            'lifo_password' => 'nullable|string|max:191',
             'apply_tax' => 'nullable|boolean',
             'apply_social_security' => 'nullable|boolean',
             'tax_file_number' => 'nullable|string|max:191',
@@ -282,6 +284,8 @@ class UserController extends Controller
             'hourly_rate' => 'nullable|numeric',
             'eidc_username' => 'nullable|string|max:191',
             'eidc_password' => 'nullable|string|max:191',
+            'lifo_username' => 'nullable|string|max:191',
+            'lifo_password' => 'nullable|string|max:191',
             'apply_tax' => 'nullable|boolean',
             'apply_social_security' => 'nullable|boolean',
             'tax_file_number' => 'nullable|string|max:191',
@@ -479,6 +483,23 @@ class UserController extends Controller
         return response()->json([
             'message' => 'تم تحديث بيانات الهيئة بنجاح',
             'eidc_username' => $user->eidc_username
+        ]);
+    }
+
+    public function updateLifoCredentials(Request $request, User $user)
+    {
+        $request->validate([
+            'lifo_username' => 'required|string|max:191',
+            'lifo_password' => 'required|string|max:191',
+        ]);
+
+        $user->lifo_username = $request->lifo_username;
+        $user->lifo_password = $request->lifo_password;
+        $user->save();
+
+        return response()->json([
+            'message' => 'تم تحديث بيانات الاتحاد بنجاح',
+            'lifo_username' => $user->lifo_username
         ]);
     }
 

@@ -103,6 +103,8 @@ class BranchAgentController extends Controller
                 'contract_conditions' => 'nullable|string',
                 'eidc_username' => 'nullable|string|max:191',
                 'eidc_password' => 'nullable|string|max:191',
+                'lifo_username' => 'nullable|string|max:191',
+                'lifo_password' => 'nullable|string|max:191',
             ]);
         } catch (\Illuminate\Validation\ValidationException $e) {
             \Illuminate\Support\Facades\Log::error('Validation failed for creating branch agent:', [
@@ -146,6 +148,8 @@ class BranchAgentController extends Controller
                 'authorized_documents' => $authorizedDocuments,
                 'eidc_username' => $request->eidc_username,
                 'eidc_password' => $request->eidc_password,
+                'lifo_username' => $request->lifo_username,
+                'lifo_password' => $request->lifo_password,
             ]);
 
             // توليد الكود التلقائي
@@ -637,6 +641,8 @@ class BranchAgentController extends Controller
             'contract_conditions' => 'nullable|string',
             'eidc_username' => 'nullable|string|max:191',
             'eidc_password' => 'nullable|string|max:191',
+            'lifo_username' => 'nullable|string|max:191',
+            'lifo_password' => 'nullable|string|max:191',
         ]);
 
         DB::beginTransaction();
@@ -659,6 +665,12 @@ class BranchAgentController extends Controller
                     }
                     if ($request->has('eidc_password')) {
                         $user->eidc_password = $request->eidc_password;
+                    }
+                    if ($request->has('lifo_username')) {
+                        $user->lifo_username = $request->lifo_username;
+                    }
+                    if ($request->has('lifo_password')) {
+                        $user->lifo_password = $request->lifo_password;
                     }
                     
                     // تحديث الصلاحيات في جدول users

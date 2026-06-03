@@ -418,15 +418,18 @@ Route::any('/lifo-prod/{any}', function (Illuminate\Http\Request $request, $any)
     
     $client = new \GuzzleHttp\Client([
         'verify' => false,
-        'timeout' => 15.0,         // Overall timeout 15 seconds
-        'connect_timeout' => 8.0,  // Connection timeout 8 seconds
-        'force_ip_resolve' => 'v4', // Force IPv4 to prevent IPv6 DNS hang on Windows
-        'proxy' => '',              // Disable env proxies
+        'timeout' => 30.0,         // Overall timeout 30 seconds
+        'connect_timeout' => 10.0, // Connection timeout 10 seconds
+        'proxy' => '',             // Disable env proxies
+        'curl' => [
+            CURLOPT_IPRESOLVE => CURL_IPRESOLVE_V4, // Force IPv4
+        ],
     ]);
     
     $headers = $request->headers->all();
     
     // Clean unsafe headers that cause Guzzle/cURL to hang or be blocked
+    // IMPORTANT: Remove 'authorization' so Tamen's Bearer token is NOT forwarded to LIFO
     $unsafeHeaders = [
         'host',
         'content-length',
@@ -438,6 +441,8 @@ Route::any('/lifo-prod/{any}', function (Illuminate\Http\Request $request, $any)
         'sec-fetch-mode',
         'sec-fetch-site',
         'connection',
+        'authorization',       // Don't forward Tamen auth token to LIFO
+        'Authorization',       // Case-sensitive variant
     ];
     foreach ($unsafeHeaders as $h) {
         unset($headers[$h]);

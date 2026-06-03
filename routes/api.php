@@ -412,3 +412,38 @@ Route::prefix('agent-wallet')->group(function () {
     Route::get('/{id}/referrals', [\App\Http\Controllers\AgentWalletController::class, 'getReferrals']);
 });
 
+// ─── LIFO API Proxy Route ────────────────────────────────────────────────────
+Route::any('/lifo-prod/{any}', function (Illuminate\Http\Request $request, $any) {
+    $targetUrl = 'https://prodapi.lifo.ly/' . $any;
+    
+    $client = new \GuzzleHttp\Client([
+        'verify' => false,
+    ]);
+    
+    $headers = $request->headers->all();
+    unset($headers['host']);
+    
+    $options = [
+        'headers' => $headers,
+        'query' => $request->query(),
+        'http_errors' => false,
+    ];
+    
+    if (!$request->isMethod('get')) {
+        $options['body'] = $request->getContent();
+    }
+    
+    try {
+        $response = $client->request($request->method(), $targetUrl, $options);
+        
+        return response($response->getBody()->getContents(), $response->getStatusCode())
+            ->header('Content-Type', $response->getHeaderLine('Content-Type'));
+    } catch (\Exception $e) {
+        return response()->json([
+            'message' => 'تعذر الاتصال بخادم الاتحاد عبر البروكسي الداخلي',
+            'error' => $e->getMessage()
+        ], 502);
+    }
+})->where('any', '.*');
+
+

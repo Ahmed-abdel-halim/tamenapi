@@ -425,7 +425,24 @@ Route::any('/lifo-prod/{any}', function (Illuminate\Http\Request $request, $any)
     ]);
     
     $headers = $request->headers->all();
-    unset($headers['host']);
+    
+    // Clean unsafe headers that cause Guzzle/cURL to hang or be blocked
+    $unsafeHeaders = [
+        'host',
+        'content-length',
+        'cookie',
+        'origin',
+        'referer',
+        'accept-encoding',
+        'sec-fetch-dest',
+        'sec-fetch-mode',
+        'sec-fetch-site',
+        'connection',
+    ];
+    foreach ($unsafeHeaders as $h) {
+        unset($headers[$h]);
+        unset($headers[strtolower($h)]);
+    }
     
     $options = [
         'headers' => $headers,

@@ -415,61 +415,61 @@ Route::prefix('agent-wallet')->group(function () {
 // ─── LIFO API Proxy Route ────────────────────────────────────────────────────
 Route::any('/lifo-prod/{any}', function (Illuminate\Http\Request $request, $any) {
     $targetUrl = 'https://prodapi.lifo.ly/' . $any;
-    
+
     $client = new \GuzzleHttp\Client([
-        'verify' => false,
-        'timeout' => 30.0,         // Overall timeout 30 seconds
-        'connect_timeout' => 10.0, // Connection timeout 10 seconds
-        'proxy' => '',             // Disable env proxies
-        'curl' => [
-            CURLOPT_IPRESOLVE => CURL_IPRESOLVE_V4, // Force IPv4
-        ],
+        'verify'          => false,
+        'timeout'         => 30.0,
+        'connect_timeout' => 10.0,
+        'proxy'           => '',
+        'curl'            => [CURLOPT_IPRESOLVE => CURL_IPRESOLVE_V4],
     ]);
-    
-    $headers = $request->headers->all();
-    
-    // Clean unsafe headers that cause Guzzle/cURL to hang or be blocked
-    // IMPORTANT: Remove 'authorization' so Tamen's Bearer token is NOT forwarded to LIFO
-    $unsafeHeaders = [
-        'host',
-        'content-length',
-        'cookie',
-        'origin',
-        'referer',
-        'accept-encoding',
-        'sec-fetch-dest',
-        'sec-fetch-mode',
-        'sec-fetch-site',
-        'connection',
-        'authorization',       // Don't forward Tamen auth token to LIFO
-        'Authorization',       // Case-sensitive variant
+
+    // Headers to strip before forwarding to LIFO
+    $stripHeaders = [
+        'host', 'content-length', 'cookie', 'origin', 'referer',
+        'accept-encoding', 'sec-fetch-dest', 'sec-fetch-mode', 'sec-fetch-site',
+        'connection', 'authorization', 'content-type',
     ];
-    foreach ($unsafeHeaders as $h) {
-        unset($headers[$h]);
-        unset($headers[strtolower($h)]);
+
+    // Flatten Laravel's array-of-arrays headers into plain strings for Guzzle
+    $flatHeaders = [];
+    foreach ($request->headers->all() as $key => $value) {
+        if (!in_array(strtolower($key), $stripHeaders)) {
+            $flatHeaders[$key] = is_array($value) ? implode(', ', $value) : $value;
+        }
     }
-    
+
     $options = [
-        'headers' => $headers,
-        'query' => $request->query(),
+        'headers'     => $flatHeaders,
+        'query'       => $request->query(),
         'http_errors' => false,
     ];
-    
+
+    // For non-GET: decode JSON body and forward via Guzzle 'json' option
+    // This ensures Content-Type: application/json is set and body is encoded correctly
     if (!$request->isMethod('get')) {
-        $options['body'] = $request->getContent();
+        $rawBody = $request->getContent();
+        if (!empty($rawBody)) {
+            $decoded = json_decode($rawBody, true);
+            if (json_last_error() === JSON_ERROR_NONE && $decoded !== null) {
+                $options['json'] = $decoded; // Guzzle auto-sets Content-Type: application/json
+            } else {
+                $options['body']                    = $rawBody;
+                $options['headers']['Content-Type'] = 'application/json';
+            }
+        }
     }
-    
+
     try {
         $response = $client->request($request->method(), $targetUrl, $options);
-        
         return response($response->getBody()->getContents(), $response->getStatusCode())
-            ->header('Content-Type', $response->getHeaderLine('Content-Type'));
+            ->header('Content-Type', $response->getHeaderLine('Content-Type') ?: 'application/json');
     } catch (\Exception $e) {
         return response()->json([
-            'code' => 0,
+            'code'    => 0,
             'success' => false,
-            'message' => 'تعذر الاتصال بخادم الاتحاد عبر البروكسي الداخلي: ' . $e->getMessage(),
-            'error' => $e->getMessage()
+            'message' => 'تعذر الاتصال بخادم الاتحاد: ' . $e->getMessage(),
+            'error'   => $e->getMessage(),
         ], 200);
     }
 })->where('any', '.*');

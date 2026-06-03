@@ -445,17 +445,29 @@ Route::any('/lifo-prod/{any}', function (Illuminate\Http\Request $request, $any)
         'http_errors' => false,
     ];
 
-    // For non-GET: decode JSON body and forward via Guzzle 'json' option
-    // This ensures Content-Type: application/json is set and body is encoded correctly
+    // For non-GET: forward body to LIFO
+    // Supports both FormData (multipart) and JSON body
     if (!$request->isMethod('get')) {
-        $rawBody = $request->getContent();
-        if (!empty($rawBody)) {
-            $decoded = json_decode($rawBody, true);
-            if (json_last_error() === JSON_ERROR_NONE && $decoded !== null) {
-                $options['json'] = $decoded; // Guzzle auto-sets Content-Type: application/json
-            } else {
-                $options['body']                    = $rawBody;
-                $options['headers']['Content-Type'] = 'application/json';
+        $contentType = strtolower($request->headers->get('Content-Type', ''));
+        
+        if (str_contains($contentType, 'application/json')) {
+            // JSON body: decode and re-send via Guzzle 'json' option
+            $rawBody = $request->getContent();
+            if (!empty($rawBody)) {
+                $decoded = json_decode($rawBody, true);
+                if (json_last_error() === JSON_ERROR_NONE && $decoded !== null) {
+                    $options['json'] = $decoded;
+                } else {
+                    $options['body']                    = $rawBody;
+                    $options['headers']['Content-Type'] = 'application/json';
+                }
+            }
+        } else {
+            // FormData or URL-encoded: Laravel already parsed it into $request->all()
+            // Re-send as form_params (Content-Type: application/x-www-form-urlencoded)
+            $allParams = $request->all();
+            if (!empty($allParams)) {
+                $options['form_params'] = $allParams;
             }
         }
     }

@@ -79,13 +79,15 @@ Route::post('/login', function (Request $request) {
     return response()->json([
         'success' => true,
         'user' => [
-            'id' => $user->id,
-            'username' => $user->username,
-            'name' => $user->name,
-            'is_admin' => $user->is_admin ?? false,
+            'id'                   => $user->id,
+            'username'             => $user->username,
+            'name'                 => $user->name,
+            'is_admin'             => $user->is_admin ?? false,
             'authorized_documents' => $authorizedDocuments,
-            'branch_agent_id' => $branchAgent ? $branchAgent->id : null,
-            'is_blocked' => $user->is_blocked ?? false,
+            'branch_agent_id'      => $branchAgent ? $branchAgent->id : null,
+            'is_blocked'           => $user->is_blocked ?? false,
+            'lifo_username'        => $user->lifo_username ?? null,
+            'lifo_password'        => $user->lifo_password ?? null,
         ],
         'token' => $token,
     ]);
@@ -103,12 +105,14 @@ Route::get('/user/{id}/refresh', function (Request $request, $id) {
         return response()->json([
             'success' => true,
             'user' => [
-                'id' => $user->id,
-                'username' => $user->username,
-                'name' => $user->name,
-                'is_admin' => $user->is_admin ?? false,
+                'id'                   => $user->id,
+                'username'             => $user->username,
+                'name'                 => $user->name,
+                'is_admin'             => $user->is_admin ?? false,
                 'authorized_documents' => $authorizedDocuments,
-                'is_blocked' => $user->is_blocked ?? false,
+                'is_blocked'           => $user->is_blocked ?? false,
+                'lifo_username'        => $user->lifo_username ?? null,
+                'lifo_password'        => $user->lifo_password ?? null,
             ],
         ]);
     } catch (\Exception $e) {

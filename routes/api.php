@@ -418,6 +418,10 @@ Route::any('/lifo-prod/{any}', function (Illuminate\Http\Request $request, $any)
     
     $client = new \GuzzleHttp\Client([
         'verify' => false,
+        'timeout' => 15.0,         // Overall timeout 15 seconds
+        'connect_timeout' => 8.0,  // Connection timeout 8 seconds
+        'force_ip_resolve' => 'v4', // Force IPv4 to prevent IPv6 DNS hang on Windows
+        'proxy' => '',              // Disable env proxies
     ]);
     
     $headers = $request->headers->all();
@@ -440,10 +444,68 @@ Route::any('/lifo-prod/{any}', function (Illuminate\Http\Request $request, $any)
             ->header('Content-Type', $response->getHeaderLine('Content-Type'));
     } catch (\Exception $e) {
         return response()->json([
-            'message' => 'تعذر الاتصال بخادم الاتحاد عبر البروكسي الداخلي',
+            'code' => 0,
+            'success' => false,
+            'message' => 'تعذر الاتصال بخادم الاتحاد عبر البروكسي الداخلي: ' . $e->getMessage(),
             'error' => $e->getMessage()
-        ], 502);
+        ], 200);
     }
 })->where('any', '.*');
+
+// ─── LIFO Connection Diagnostic Endpoint ──────────────────────────────────────
+Route::get('/test-lifo-connection', function () {
+    $results = [];
+    
+    // Test 1: Resolve DNS
+    $ip = gethostbyname('prodapi.lifo.ly');
+    $results['dns_resolution'] = [
+        'host' => 'prodapi.lifo.ly',
+        'ip' => $ip,
+        'success' => ($ip !== 'prodapi.lifo.ly')
+    ];
+    
+    // Test 2: Curl test
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, "https://prodapi.lifo.ly/api/countries/all");
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+    curl_setopt($ch, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4); // Force IPv4 in curl test
+    curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+    
+    $output = curl_exec($ch);
+    $error = curl_error($ch);
+    $info = curl_getinfo($ch);
+    curl_close($ch);
+    
+    $results['curl_test'] = [
+        'url' => 'https://prodapi.lifo.ly/api/countries/all',
+        'http_code' => $info['http_code'],
+        'error' => $error,
+        'total_time' => $info['total_time'],
+        'output_snippet' => substr($output, 0, 500)
+    ];
+    
+    // Test 3: Laravel Http client test
+    try {
+        $res = \Illuminate\Support\Facades\Http::timeout(10)
+            ->withoutVerifying()
+            ->withOptions([
+                'force_ip_resolve' => 'v4',
+                'proxy' => ''
+            ])
+            ->get('https://prodapi.lifo.ly/api/countries/all');
+        $results['laravel_http_test'] = [
+            'status' => $res->status(),
+            'body' => substr($res->body(), 0, 500)
+        ];
+    } catch (\Exception $e) {
+        $results['laravel_http_test'] = [
+            'error' => $e->getMessage()
+        ];
+    }
+    
+    return response()->json($results);
+});
 
 

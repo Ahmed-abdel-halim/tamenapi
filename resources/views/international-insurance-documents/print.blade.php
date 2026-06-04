@@ -194,17 +194,25 @@ $visitedLow = mb_strtolower($visitedRaw);
 <tr><td class="hdr-blk" colspan="7">البلاد التي تسري فيها البطاقة</td></tr>
 <tr>
     @foreach($countriesRow1 as $c)
-    @php $on = (mb_strpos($visitedLow, mb_strtolower($c)) !== false); @endphp
+    @php
+        $cLow = mb_strtolower($c);
+        $on = (mb_strpos($visitedLow, $cLow) !== false)
+           || (mb_strpos($cLow, $visitedLow) !== false && mb_strlen($visitedLow) > 2);
+    @endphp
     <td style="text-align:center;padding:3px 1px;font-size:8.5px;white-space:nowrap;">
-        <span class="chk {{ $on ? 'chk-on' : '' }}">{{ $on ? '✓' : '&nbsp;' }}</span>&nbsp;{{ $c }}
+        <span class="chk {{ $on ? 'chk-on' : '' }}">{!! $on ? '&#10003;' : '&nbsp;' !!}</span>&nbsp;{{ $c }}
     </td>
     @endforeach
 </tr>
 <tr>
     @foreach($countriesRow2 as $c)
-    @php $on = (mb_strpos($visitedLow, mb_strtolower($c)) !== false); @endphp
+    @php
+        $cLow = mb_strtolower($c);
+        $on = (mb_strpos($visitedLow, $cLow) !== false)
+           || (mb_strpos($cLow, $visitedLow) !== false && mb_strlen($visitedLow) > 2);
+    @endphp
     <td style="text-align:center;padding:3px 1px;font-size:8.5px;white-space:nowrap;">
-        <span class="chk {{ $on ? 'chk-on' : '' }}">{{ $on ? '✓' : '&nbsp;' }}</span>&nbsp;{{ $c }}
+        <span class="chk {{ $on ? 'chk-on' : '' }}">{!! $on ? '&#10003;' : '&nbsp;' !!}</span>&nbsp;{{ $c }}
     </td>
     @endforeach
 </tr>

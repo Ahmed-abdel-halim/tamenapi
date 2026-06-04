@@ -1536,10 +1536,31 @@ class InsuranceDocumentController extends Controller
 
     // ─── EIDC Lookups ─────────────────────────────────────────────────────────
 
+    /**
+     * Resolve the user for EIDC: prefer Sanctum auth, fallback to X-User-Id header.
+     * EIDC routes are not under auth:sanctum, so $request->user() may be null.
+     */
+    private function resolveEidcUser(Request $request): ?User
+    {
+        // First try Sanctum authenticated user
+        $user = $request->user();
+        if ($user) {
+            return $user;
+        }
+
+        // Fallback: X-User-Id header sent by the frontend
+        $userId = $request->header('X-User-Id');
+        if ($userId && is_numeric($userId)) {
+            return User::find((int) $userId);
+        }
+
+        return null;
+    }
+
     public function eidcVehicleTypes(Request $request)
     {
         try {
-            $service = (new EidcApiService())->forUser($request->user());
+            $service = (new EidcApiService())->forUser($this->resolveEidcUser($request));
             $types = $service->getVehicleTypes();
             return response()->json($types);
         } catch (\Exception $e) {
@@ -1554,7 +1575,7 @@ class InsuranceDocumentController extends Controller
             return response()->json([]);
 
         try {
-            $service = (new EidcApiService())->forUser($request->user());
+            $service = (new EidcApiService())->forUser($this->resolveEidcUser($request));
             $specs = $service->getVehicleSpecs($typeId);
             return response()->json($specs);
         } catch (\Exception $e) {
@@ -1569,7 +1590,7 @@ class InsuranceDocumentController extends Controller
             return response()->json([]);
 
         try {
-            $service = (new EidcApiService())->forUser($request->user());
+            $service = (new EidcApiService())->forUser($this->resolveEidcUser($request));
             $details = $service->getVehicleDetails($typeId);
             return response()->json($details);
         } catch (\Exception $e) {
@@ -1580,7 +1601,7 @@ class InsuranceDocumentController extends Controller
     public function eidcInquiry(Request $request)
     {
         try {
-            $service = (new EidcApiService())->forUser($request->user());
+            $service = (new EidcApiService())->forUser($this->resolveEidcUser($request));
             $data = $request->all();
 
             // Fix: Ensure FromNoonOf is at least tomorrow (Resolution 126/2022)

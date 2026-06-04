@@ -27,8 +27,7 @@
 <tr>
     {{-- لوجو المدار لوحده --}}
     <td style="width:105px; text-align:center; padding:6px 4px; border:1px solid #000; vertical-align:middle;">
-        <img src="/img/logo.png" alt="المدار" style="width:80px;height:80px;object-fit:contain;" onerror="this.style.display='none'">
-        <div style="font-size:7px;font-weight:800;color:#1a4a8a;margin-top:3px;line-height:1.4;">شركة المدار الليبي<br>للتأمين</div>
+        <img src="/img/logo.png" alt="المدار" style="width:85px;height:85px;object-fit:contain;" onerror="this.style.display='none'">
     </td>
 
     {{-- العنوان --}}

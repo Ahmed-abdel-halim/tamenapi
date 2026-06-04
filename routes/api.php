@@ -490,6 +490,113 @@ Route::any('/lifo-prod/{any}', function (Illuminate\Http\Request $request, $any)
     }
 })->where('any', '.*');
 
+// ─── LIFO Paginated Cards Endpoint ───────────────────────────────────────────
+Route::post('/lifo-reports/cards-paginated', function (Illuminate\Http\Request $request) {
+    $request->validate([
+        'user_name' => 'required|string',
+        'pass_word' => 'required|string',
+        'category'  => 'required|string|in:all,active,cancel,sold',
+        'page'      => 'nullable|integer|min:1',
+        'per_page'  => 'nullable|integer|min:1|max:100',
+        'search'    => 'nullable|string',
+    ]);
+
+    $userName = $request->user_name;
+    $password = $request->pass_word;
+    $category = $request->category;
+    $page     = (int) $request->input('page', 1);
+    $perPage  = (int) $request->input('per_page', 10);
+    $search   = $request->input('search');
+    $forceRefresh = $request->boolean('force_refresh', false);
+
+    $userHash = md5($userName);
+    $cacheKey = "lifo_cards_{$userHash}_{$category}";
+
+    $list = null;
+    $fromCache = true;
+
+    if (!$forceRefresh) {
+        $list = Cache::get($cacheKey);
+    }
+
+    if (!$list) {
+        $fromCache = false;
+        $endpoint = '';
+        switch ($category) {
+            case 'all':    $endpoint = '/cards/all';    break;
+            case 'active': $endpoint = '/cards/active'; break;
+            case 'cancel': $endpoint = '/cards/cancel'; break;
+            case 'sold':   $endpoint = '/cards/sold';   break;
+        }
+
+        $targetUrl = 'https://prodapi.lifo.ly/api' . $endpoint;
+
+        $client = new \GuzzleHttp\Client([
+            'verify'          => false,
+            'timeout'         => 180.0, // generous timeout for slow LIFO server
+            'connect_timeout' => 15.0,
+            'proxy'           => '',
+            'curl'            => [CURLOPT_IPRESOLVE => CURL_IPRESOLVE_V4],
+        ]);
+
+        try {
+            $response = $client->request('POST', $targetUrl, [
+                'form_params' => [
+                    'user_name' => $userName,
+                    'pass_word' => $password,
+                ]
+            ]);
+
+            $contents = $response->getBody()->getContents();
+            $data = json_decode($contents, true);
+
+            if (isset($data['code']) && $data['code'] === 1 && isset($data['data'])) {
+                $list = is_array($data['data']) ? $data['data'] : [];
+                Cache::put($cacheKey, $list, 7200); // 2 hours
+            } else {
+                $msg = $data['message'] ?? $data['messages'] ?? 'فشل جلب البيانات من خادم الاتحاد';
+                return response()->json([
+                    'success' => false,
+                    'message' => $msg
+                ], 400);
+            }
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'تعذر الاتصال بخادم الاتحاد: ' . $e->getMessage(),
+                'error'   => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    // Filter list locally
+    $filteredList = $list;
+    if (!empty($search)) {
+        $search = strtolower(trim($search));
+        $filteredList = array_values(array_filter($list, function ($card) use ($search) {
+            $cardNumber = strtolower($card['card_number'] ?? $card['card_serial'] ?? '');
+            $reqNumber  = strtolower($card['request_numberr'] ?? '');
+            $status     = strtolower($card['cardstautesname'] ?? '');
+            return strpos($cardNumber, $search) !== false || 
+                   strpos($reqNumber, $search) !== false || 
+                   strpos($status, $search) !== false;
+        }));
+    }
+
+    $total = count($filteredList);
+    $offset = ($page - 1) * $perPage;
+    $slicedList = array_slice($filteredList, $offset, $perPage);
+
+    return response()->json([
+        'success'    => true,
+        'data'       => $slicedList,
+        'total'      => $total,
+        'page'       => $page,
+        'per_page'   => $perPage,
+        'from_cache' => $fromCache,
+    ]);
+});
+
 // ─── LIFO Connection Diagnostic Endpoint ──────────────────────────────────────
 Route::get('/test-lifo-connection', function () {
     $results = [];

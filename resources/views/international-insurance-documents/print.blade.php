@@ -3,624 +3,689 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>وثيقة تأمين دولي - {{ $document->document_number }}</title>
+    <title>بطاقة تأمين دولي - {{ $document->document_number }}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <style>
         @page {
             size: A4;
-            margin: 12mm;
+            margin: 8mm 10mm;
         }
-        
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
         body {
             font-family: 'Tajawal', 'Arial', 'Tahoma', sans-serif;
-            font-size: 12px;
+            font-size: 11px;
             color: #000;
             background: #fff;
-            padding: 0;
-            line-height: 1.5;
+            line-height: 1.4;
         }
-        
-        .document-container {
-            max-width: 100%;
-            margin: 0 auto;
+
+        .page {
+            width: 100%;
             background: #fff;
-            padding: 10px;
+            border: 2px solid #c00;
+            padding: 6px;
         }
-        
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 12px;
-            padding-bottom: 10px;
-            border-bottom: 2px solid #000;
-        }
-        
-        .qr-code {
-            width: 85px;
-            height: 85px;
-            background: #000;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #fff;
-            font-size: 8px;
-            text-align: center;
-            flex-shrink: 0;
-        }
-        
-        .company-info {
-            text-align: center;
-            flex: 1;
-            padding: 0 12px;
-        }
-        
-        .company-name {
-            font-size: 19px;
-            font-weight: bold;
-            color: #000;
+
+        /* ===== HEADER ===== */
+        .header-outer {
+            border: 1.5px solid #c00;
             margin-bottom: 4px;
         }
-        
-        .document-title {
-            font-size: 17px;
-            color: #000;
+
+        .header-top {
+            background: #c00;
+            color: #fff;
+            text-align: center;
+            padding: 3px 6px;
+            font-size: 9px;
             font-weight: 700;
-            margin-bottom: 6px;
+            letter-spacing: 0.5px;
         }
-        
-        .legal-text {
-            font-size: 10px;
-            color: #000;
-            line-height: 1.4;
-            margin-top: 4px;
+
+        .header-main {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 6px 8px;
+            gap: 6px;
+            border-bottom: 1px solid #c00;
         }
-        
-        .logo {
-            width: 95px;
-            height: 95px;
+
+        .logo-box {
+            width: 72px;
+            height: 72px;
             display: flex;
             align-items: center;
             justify-content: center;
             flex-shrink: 0;
         }
-        
-        .logo img {
-            width: 100%;
-            height: 100%;
+
+        .logo-box img {
+            max-width: 70px;
+            max-height: 70px;
             object-fit: contain;
         }
-        
-        .section {
-            margin-bottom: 10px;
+
+        /* Arab Union logo SVG placeholder */
+        .arab-union-logo {
+            width: 68px;
+            height: 68px;
         }
-        
-        .section-title {
-            font-size: 15px;
-            font-weight: bold;
+
+        .header-center {
+            flex: 1;
+            text-align: center;
+            padding: 0 8px;
+        }
+
+        .header-title-ar {
+            font-size: 14px;
+            font-weight: 900;
+            color: #c00;
+            line-height: 1.3;
+            margin-bottom: 2px;
+        }
+
+        .header-title-en {
+            font-size: 10px;
+            font-weight: 700;
             color: #000;
-            margin-bottom: 12px;
-            padding-bottom: 5px;
-            border-bottom: 1px solid #000;
+            line-height: 1.3;
+            direction: ltr;
         }
-        
-        .info-table {
+
+        .header-subtitle {
+            font-size: 12px;
+            font-weight: 800;
+            color: #000;
+            margin-top: 3px;
+        }
+
+        .header-info-row {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            padding: 4px 8px;
+            background: #fff8f8;
+            border-top: 1px solid #c00;
+            font-size: 10px;
+        }
+
+        .header-info-item {
+            display: flex;
+            gap: 4px;
+            align-items: center;
+        }
+
+        .header-info-label {
+            font-weight: 700;
+            color: #c00;
+        }
+
+        /* ===== COMPANY BANNER ===== */
+        .company-banner {
+            background: #c00;
+            color: #fff;
+            text-align: center;
+            padding: 4px 6px;
+            font-size: 11px;
+            font-weight: 800;
+            margin-bottom: 4px;
+            border: 1px solid #900;
+        }
+
+        /* ===== SECTIONS ===== */
+        .section {
+            border: 1.5px solid #c00;
+            margin-bottom: 4px;
+        }
+
+        .section-header {
+            background: #c00;
+            color: #fff;
+            text-align: center;
+            padding: 3px 6px;
+            font-size: 10px;
+            font-weight: 800;
+        }
+
+        .section-body {
+            padding: 0;
+        }
+
+        /* ===== DATA TABLE ===== */
+        .data-table {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 15px;
-            font-size: 13px;
         }
-        
-        .info-table td {
-            padding: 8px 10px;
-            border: 1px solid #000;
-            text-align: right;
-            font-size: 13px;
+
+        .data-table td {
+            padding: 4px 6px;
+            border: 1px solid #ddd;
+            font-size: 10.5px;
+            vertical-align: middle;
+        }
+
+        .data-table .lbl {
+            font-weight: 800;
+            color: #800;
+            background: #fff5f5;
+            width: 28%;
+            white-space: nowrap;
+        }
+
+        .data-table .val {
+            font-weight: 600;
             color: #000;
         }
-        
-        .info-table td:first-child {
-            font-weight: bold;
-            width: 40%;
-            background: #fff;
+
+        .data-table .lbl-en {
+            font-size: 8.5px;
+            color: #999;
+            display: block;
+            font-weight: 400;
+            direction: ltr;
         }
-        
-        .info-table td:last-child {
+
+        /* ===== FINANCIAL TABLE ===== */
+        .fin-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .fin-table td {
+            padding: 4px 8px;
+            border: 1px solid #ddd;
+            font-size: 10.5px;
+        }
+
+        .fin-table .fin-lbl {
+            font-weight: 800;
+            color: #800;
+            background: #fff5f5;
             width: 60%;
         }
-        
-        .two-column-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 8px;
-            font-size: 11px;
-        }
-        
-        .two-column-table td {
-            padding: 6px 6px;
-            border: 1px solid #000;
-            text-align: right;
-            font-size: 11px;
+
+        .fin-table .fin-val {
+            font-weight: 700;
             color: #000;
-        }
-        
-        .two-column-table tr:first-child td,
-        .two-column-table tr:nth-child(2) td {
-            width: 25%;
-        }
-        
-        .two-column-table tr:last-child td:first-child {
-            width: 25%;
-        }
-        
-        .two-column-table tr:last-child td[colspan="3"] {
-            width: 75%;
-        }
-        
-        .two-column-table td:nth-child(odd) {
-            font-weight: bold;
-            background: #fff;
-        }
-        
-        .financial-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 15px;
-            font-size: 13px;
-        }
-        
-        .financial-table td {
-            padding: 8px 10px;
-            border: 1px solid #000;
-            text-align: right;
-            font-size: 13px;
-            color: #000;
-        }
-        
-        .financial-table td:first-child {
-            font-weight: bold;
-            width: 70%;
-        }
-        
-        .financial-table td:last-child {
-            width: 30%;
-            text-align: left;
-        }
-        
-        .financial-table tr:last-child td {
-            font-weight: bold;
-            background: #fff;
-        }
-        
-        .company-details {
-            display: flex;
-            justify-content: space-between;
-            margin-top: 20px;
-            padding-top: 15px;
-            border-top: 1px solid #000;
-        }
-        
-        .company-details-left {
-            flex: 1;
-        }
-        
-        .company-details-right {
-            flex: 1;
-            text-align: left;
-        }
-        
-        .company-details-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 13px;
-        }
-        
-        .company-details-table td {
-            padding: 6px 8px;
-            border: 1px solid #000;
-            text-align: right;
-            font-size: 12px;
-            color: #000;
-        }
-        
-        .company-details-table td:first-child {
-            font-weight: bold;
-            width: 40%;
-            background: #fff;
-        }
-        
-        .signature-box {
-            border: 2px dashed #000;
-            padding: 15px;
             text-align: center;
-            min-height: 80px;
+            direction: ltr;
+        }
+
+        .fin-table .fin-total td {
+            background: #c00;
+            color: #fff;
+            font-weight: 900;
+            font-size: 11px;
+        }
+
+        /* ===== GRID LAYOUT ===== */
+        .two-col {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 4px;
+            margin-bottom: 4px;
+        }
+
+        .three-col {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 4px;
+            margin-bottom: 4px;
+        }
+
+        /* ===== VALIDITY BAR ===== */
+        .validity-bar {
+            border: 1.5px solid #c00;
+            margin-bottom: 4px;
+        }
+
+        .validity-bar .v-header {
+            background: #c00;
+            color: #fff;
+            text-align: center;
+            padding: 3px;
+            font-size: 10px;
+            font-weight: 800;
+        }
+
+        .validity-row {
+            display: flex;
+            align-items: stretch;
+        }
+
+        .validity-cell {
+            flex: 1;
+            text-align: center;
+            padding: 5px 4px;
+            border-right: 1px solid #c00;
+        }
+
+        .validity-cell:last-child { border-right: none; }
+
+        .validity-cell .vc-label {
+            font-size: 9px;
+            color: #c00;
+            font-weight: 700;
+            display: block;
+        }
+
+        .validity-cell .vc-value {
+            font-size: 11px;
+            font-weight: 800;
+            color: #000;
+            display: block;
+        }
+
+        /* ===== QR + DOC NUMBER ROW ===== */
+        .qr-docnum-row {
             display: flex;
             align-items: center;
-            justify-content: center;
-            margin-top: 10px;
+            gap: 8px;
+            padding: 5px 8px;
+            background: #fff8f8;
+            border-bottom: 1px solid #c00;
         }
-        
-        .signature-label {
-            font-weight: bold;
-            color: #000;
-            font-size: 13px;
+
+        .qr-box {
+            width: 72px;
+            height: 72px;
+            flex-shrink: 0;
+            border: 1px solid #c00;
+            padding: 2px;
         }
-        
-        .note-section {
-            background: #fff;
-            padding: 10px 12px;
-            border-right: 3px solid #000;
-            margin-top: 15px;
-            margin-bottom: 15px;
-            font-size: 12px;
-            line-height: 1.6;
-            color: #000;
-        }
-        
-        .terms-section {
-            margin-top: 20px;
-            padding-top: 15px;
-            border-top: 1px solid #000;
-        }
-        
-        .terms-title {
-            font-size: 15px;
-            font-weight: bold;
-            color: #000;
-            margin-bottom: 10px;
-        }
-        
-        .terms-list {
-            list-style: decimal;
-            padding-right: 20px;
-            font-size: 11px;
-            line-height: 1.8;
-            color: #000;
-        }
-        
-        .terms-list li {
-            margin-bottom: 8px;
-        }
-        
-        .jurisdiction {
-            margin-top: 15px;
-            padding-top: 10px;
-            border-top: 1px solid #000;
-            font-size: 11px;
-            line-height: 1.6;
-            color: #000;
-        }
-        
-        .footer {
+
+        .qr-box img { width: 100%; height: 100%; }
+
+        .doc-num-block {
+            flex: 1;
             text-align: center;
-            margin-top: 20px;
-            padding-top: 10px;
-            border-top: 1px solid #000;
-            font-size: 12px;
+        }
+
+        .doc-num-label {
+            font-size: 9px;
+            color: #c00;
+            font-weight: 700;
+        }
+
+        .doc-num-value {
+            font-size: 18px;
+            font-weight: 900;
+            color: #c00;
+            letter-spacing: 1px;
+        }
+
+        .doc-issue-line {
+            font-size: 9px;
+            color: #666;
+            margin-top: 2px;
+        }
+
+        /* ===== COUNTRIES BAR ===== */
+        .countries-bar {
+            background: #c00;
+            color: #fff;
+            text-align: center;
+            padding: 5px 8px;
+            font-size: 11px;
+            font-weight: 800;
+            margin-bottom: 4px;
+            border: 1px solid #900;
+        }
+
+        /* ===== SIGNATURE / STAMP ===== */
+        .sig-row {
+            display: flex;
+            gap: 4px;
+            margin-bottom: 4px;
+        }
+
+        .sig-box {
+            flex: 1;
+            border: 1.5px dashed #c00;
+            min-height: 50px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 4px;
+        }
+
+        .sig-label {
+            font-size: 9px;
+            font-weight: 800;
+            color: #c00;
+        }
+
+        /* ===== NOTES ===== */
+        .note-box {
+            border: 1.5px solid #c00;
+            margin-bottom: 4px;
+        }
+
+        .note-header {
+            background: #c00;
+            color: #fff;
+            padding: 3px 6px;
+            font-size: 10px;
+            font-weight: 800;
+        }
+
+        .note-body {
+            padding: 5px 8px;
+            font-size: 9px;
+            line-height: 1.7;
             color: #000;
         }
-        
-        .footer div {
-            display: inline-block;
+
+        /* ===== FOOTER ===== */
+        .footer {
+            border-top: 2px solid #c00;
+            padding-top: 4px;
+            text-align: center;
+            font-size: 9px;
+            color: #666;
         }
-        
+
         @media print {
-            body {
-                padding: 0;
-                margin: 0;
-            }
-            
-            .document-container {
-                max-width: 100%;
-                padding: 0;
-            }
-            
-            .no-print {
-                display: none;
-            }
-            
-            @page {
-                margin: 12mm;
-            }
+            body { padding: 0; margin: 0; }
+            .no-print { display: none; }
+            @page { margin: 8mm 10mm; }
         }
     </style>
 </head>
 <body>
-    <div class="document-container">
-        <!-- Header -->
-        <div class="header">
-            <div class="logo">
-                <img src="/img/logo.png" alt="شعار الشركة" onerror="this.style.display='none'; this.parentElement.innerHTML='<div style=\'width:85px;height:85px;background:#000;color:#fff;display:flex;align-items:center;justify-content:center;font-size:8px;text-align:center;\'>LOGO</div>';" />
+<div class="page">
+
+    {{-- ===== HEADER ===== --}}
+    <div class="header-outer">
+        <div class="header-top">
+            الاتحاد العربي للتأمين / Arab Union of Insurance &nbsp;|&nbsp;
+            شركة المدار الليبي للتأمين / Al-Madar Libyan Insurance
+        </div>
+        <div class="header-main">
+            {{-- لوجو الاتحاد العربي --}}
+            <div class="logo-box">
+                <svg class="arab-union-logo" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="50" cy="50" r="48" fill="none" stroke="#c00" stroke-width="3"/>
+                    <circle cx="50" cy="50" r="38" fill="none" stroke="#c00" stroke-width="1.5"/>
+                    <!-- Olive branches -->
+                    <path d="M18,50 Q25,30 40,28 Q30,40 35,50" fill="#2a7a2a" opacity="0.9"/>
+                    <path d="M82,50 Q75,30 60,28 Q70,40 65,50" fill="#2a7a2a" opacity="0.9"/>
+                    <path d="M18,50 Q25,70 40,72 Q30,60 35,50" fill="#2a7a2a" opacity="0.9"/>
+                    <path d="M82,50 Q75,70 60,72 Q70,60 65,50" fill="#2a7a2a" opacity="0.9"/>
+                    <!-- Globe lines -->
+                    <ellipse cx="50" cy="50" rx="18" ry="28" fill="none" stroke="#c00" stroke-width="1.2"/>
+                    <line x1="22" y1="50" x2="78" y2="50" stroke="#c00" stroke-width="1.2"/>
+                    <line x1="27" y1="35" x2="73" y2="35" stroke="#c00" stroke-width="0.8"/>
+                    <line x1="27" y1="65" x2="73" y2="65" stroke="#c00" stroke-width="0.8"/>
+                    <circle cx="50" cy="50" r="17" fill="none" stroke="#c00" stroke-width="1.2"/>
+                    <!-- Car icon -->
+                    <rect x="34" y="46" width="32" height="12" rx="3" fill="#c00"/>
+                    <rect x="38" y="40" width="24" height="9" rx="2" fill="#c00"/>
+                    <circle cx="39" cy="59" r="4" fill="#fff" stroke="#c00" stroke-width="1.5"/>
+                    <circle cx="61" cy="59" r="4" fill="#fff" stroke="#c00" stroke-width="1.5"/>
+                    <text x="50" y="75" text-anchor="middle" font-size="6" fill="#c00" font-weight="bold" font-family="Arial">ARAB UNION</text>
+                </svg>
             </div>
-            <div class="company-info">
-                <div class="company-name">شركة المدار الليبي للتأمين</div>
-                <div class="document-title">تأمين السيارات الدولي</div>
-             
-                <div class="legal-text">
-                    هذه الوثيقة صادرة وفقاً لأحكام القانون رقم ( 28 لسنة 1971م ) بشأن التأمين الاجباري من المسؤولية المدنية الناشئة من حوادث المركبات الآلية والقوانين المعدلة والقرارات.
+
+            {{-- العنوان المركزي --}}
+            <div class="header-center">
+                <div class="header-title-ar">بطاقة التأمين العربية الموحدة</div>
+                <div class="header-title-en">Arab Unified Insurance Card</div>
+                <div class="header-title-ar" style="font-size:12px; margin-top:2px;">عن سير السيارات (المركبات) عبر البلاد العربية</div>
+                <div class="header-title-en" style="font-size:9px;">For Vehicles Traveling Across Arab Countries</div>
+                <div class="header-subtitle" style="margin-top:3px; color:#c00; border-top: 1px solid #c00; padding-top:3px;">
+                    للمركبات الليبية — Libyan Vehicles
                 </div>
             </div>
-            <div class="qr-code" id="qrcode"></div>
+
+            {{-- لوجو المدار --}}
+            <div class="logo-box">
+                <img src="/img/logo.png" alt="شعار المدار"
+                     onerror="this.style.display='none'; this.parentElement.innerHTML='<div style=\'width:70px;height:70px;background:#c00;color:#fff;display:flex;align-items:center;justify-content:center;font-size:7px;text-align:center;\'>المدار الليبي</div>'" />
+            </div>
         </div>
 
-        <!-- Document Details -->
-        <div class="section">
-            <table class="two-column-table">
-                <tr style="vertical-align:top;">
-                    <td colspan="15" style="width:480px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>بيـانــــات&nbsp;الوثيـقــــــة</nobr>
-                    </td>
-                </tr>
-                <tr style="vertical-align:top;">
-                    <td colspan="2" style="width:79px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>رقـــــم&nbsp;الوثيـقــــــــــة</nobr>
-                    </td>
-                    <td colspan="4" style="width:158px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>{{ $document->document_number }}</nobr>
-                    </td>
-                    <td colspan="2" style="width:79px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>تـــاريــــخ&nbsp;الإصـــدار</nobr>
-                    </td>
-                    <td colspan="7" style="width:158px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>{{ \Carbon\Carbon::parse($document->issue_date)->format('d/m/Y h:i A') }}</nobr>
-                    </td>
-                </tr>
-                <tr style="vertical-align:top;">
-                    <td colspan="2" style="width:79px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>مـن&nbsp;(12:00)&nbsp;ظهرا</nobr>
-                    </td>
-                    <td colspan="4" style="width:158px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>{{ \Carbon\Carbon::parse($document->start_date)->format('d/m/Y') }}</nobr>
-                    </td>
-                    <td colspan="2" style="width:79px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>إلى&nbsp;(12:00)&nbsp;ظهرا</nobr>
-                    </td>
-                    <td colspan="7" style="width:158px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>{{ \Carbon\Carbon::parse($document->end_date)->format('d/m/Y') }}</nobr>
-                    </td>
-                </tr>
-                <tr style="vertical-align:top;">
-                    <td colspan="6" style="width:239px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>مــدة&nbsp;التأمـــين</nobr>
-                    </td>
-                    <td colspan="9" style="width:239px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        {{ $document->number_of_days }} يوم
-                    </td>
-                </tr>
-            </table>
+        {{-- بيانات الوثيقة والـ QR --}}
+        <div class="qr-docnum-row">
+            <div class="qr-box" id="qrcode"></div>
+            <div class="doc-num-block">
+                <div class="doc-num-label">رقم الوثيقة / Policy Number</div>
+                <div class="doc-num-value">{{ $document->document_number }}</div>
+                <div class="doc-issue-line">
+                    تاريخ الإصدار: {{ \Carbon\Carbon::parse($document->issue_date)->format('d/m/Y H:i') }}
+                    &nbsp;|&nbsp;
+                    Issue Date
+                </div>
+                @if($document->external_policy_number ?? null)
+                <div class="doc-issue-line" style="color:#c00; font-weight:700; margin-top:3px;">
+                    رقم بطاقة الاتحاد: {{ $document->external_policy_number }}
+                </div>
+                @endif
+            </div>
+            <div style="text-align:center; min-width:90px;">
+                <div style="font-size:9px; color:#c00; font-weight:700;">شركة المدار الليبي للتأمين</div>
+                <div style="font-size:8px; color:#666;">Al-Madar Libyan Insurance Co.</div>
+                <div style="font-size:9px; font-weight:700; margin-top:3px;">{{ $printData['agency_name'] ?? 'الإدارة العامة' }}</div>
+                <div style="font-size:8px; color:#666;">كود: {{ $printData['agency_code'] ?? 'ML0001' }}</div>
+                <div style="font-size:8px; font-weight:700; color:#c00;">{{ $printData['agent_name'] ?? 'الإدارة' }}</div>
+            </div>
         </div>
-
-        <!-- Insured and Vehicle Details -->
-        <div class="section">
-            <table class="two-column-table">
-                <tr style="vertical-align:top;">
-                    <td colspan="15" style="width:480px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>بيانــــات&nbsp;المؤمن&nbsp;والســــيارة</nobr>
-                    </td>
-                </tr>
-                <tr style="vertical-align:top;">
-                    <td colspan="2" style="width:79px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>اســــم&nbsp;المؤمـــــــن&nbsp;لـه</nobr>
-                    </td>
-                    <td colspan="7" style="width:237px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>{{ $document->insured_name ?? '-' }}</nobr>
-                    </td>
-                    <td colspan="2" style="width:79px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>هاتف&nbsp;/&nbsp;واتساب</nobr>
-                    </td>
-                    <td colspan="4" style="width:85px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>{{ $document->phone ?? '-' }} / {{ $document->whatsapp_number ?? '-' }}</nobr>
-                    </td>
-                </tr>
-                <tr style="vertical-align:top;">
-                    <td colspan="2" style="width:79px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>رقــم&nbsp;اللوحــة&nbsp;المعدنية</nobr>
-                    </td>
-                    <td colspan="7" style="width:158px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        {{ $document->plate_number ?? '-' }}
-                    </td>
-                    <td colspan="2" style="width:79px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>رقـــــم&nbsp;الهيكـــــــــــــــل</nobr>
-                    </td>
-                    <td colspan="4" style="width:158px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>{{ $document->chassis_number ?? '-' }}</nobr>
-                    </td>
-                </tr>
-                <tr style="vertical-align:top;">
-                    <td colspan="2" style="width:79px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>الـنــــــــــــــــــــــــــــــــوع</nobr>
-                    </td>
-                    <td colspan="7" style="width:158px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        {{ $document->vehicleType ? ($document->vehicleType->brand . ($document->vehicleType->category ? ' / ' . $document->vehicleType->category : '')) : '-' }}
-                    </td>
-                    <td colspan="2" style="width:79px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>ســنة&nbsp;الصنــــــــــــع</nobr>
-                    </td>
-                    <td colspan="4" style="width:158px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>{{ $document->year ?? '-' }}</nobr>
-                    </td>
-                </tr>
-                <tr style="vertical-align:top;">
-                    <td colspan="2" style="width:79px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>جنسية&nbsp;المركبة</nobr>
-                    </td>
-                    <td colspan="7" style="width:158px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>{{ $document->vehicle_nationality ?? '-' }}</nobr>
-                    </td>
-                    <td colspan="2" style="width:79px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>البلـد&nbsp;المزار</nobr>
-                    </td>
-                    <td colspan="4" style="width:158px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>{{ $document->visited_country ?? '-' }}</nobr>
-                    </td>
-                </tr>
-                <tr style="vertical-align:top;">
-                    <td colspan="2" style="width:79px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>العنوان</nobr>
-                    </td>
-                    <td colspan="13" style="width:401px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>{{ $document->insured_address ?? '-' }}</nobr>
-                    </td>
-                </tr>
-                <tr style="vertical-align:top;">
-                    <td colspan="6" style="width:239px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>احتساب&nbsp;القسط&nbsp;-&nbsp;البيانات&nbsp;المالية</nobr>
-                    </td>
-                    <td colspan="9" style="width:239px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;font-weight:bold;">
-                        <nobr>الشركة&nbsp;الصــادرة&nbsp;-&nbsp;معد&nbsp;الوثيقة</nobr>
-                    </td>
-                </tr>
-                <tr style="vertical-align:top;">
-                    <td colspan="3" style="width:125px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>تفاصيل&nbsp;الرسوم</nobr>
-                    </td>
-                    <td colspan="3" style="width:112px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>&nbsp;القيــمة</nobr>
-                    </td>
-                    <td colspan="3" style="width:90px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>&nbsp;اسم&nbsp;الوكيل</nobr>
-                    </td>
-                    <td colspan="4" style="width:78px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;font-weight:bold;">
-                        <nobr>&nbsp;رقم&nbsp;الوكالة</nobr>
-                    </td>
-                    <td colspan="2" style="width:67px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>اسم&nbsp;الموظف</nobr>
-                    </td>
-                </tr>
-                <tr style="vertical-align:top;">
-                    <td colspan="3" style="width:125px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>قيمة&nbsp;القسط&nbsp;المقرر</nobr>
-                    </td>
-                    <td colspan="3" style="width:112px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>{{ number_format($document->premium, 3) }}</nobr>
-                    </td>
-                    <td colspan="3" style="width:90px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>{{ $printData['agency_name'] ?? 'المدار الليبي للتأمين' }}</nobr>
-                    </td>
-                    <td colspan="4" style="width:78px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;font-weight:bold;">
-                        <nobr>{{ $printData['agency_code'] ?? 'ML0001' }}</nobr>
-                    </td>
-                    <td colspan="2" style="width:67px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>{{ $printData['agent_name'] ?? 'الإدارة' }}</nobr>
-                    </td>
-                </tr>
-                <tr style="vertical-align:top;">
-                    <td colspan="3" style="width:125px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>الضريبــــــــــــــــــــــــة</nobr>
-                    </td>
-                    <td colspan="3" style="width:112px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>{{ number_format($document->tax, 3) }}</nobr>
-                    </td>
-                    <td colspan="5" style="width:121px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>وقت&nbsp;الاعداد</nobr>
-                    </td>
-                    <td colspan="4" style="width:116px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>{{ \Carbon\Carbon::parse($document->issue_date)->format('d/m/y H:i:s') }}</nobr>
-                    </td>
-                </tr>
-                <tr style="vertical-align:top;">
-                    <td colspan="3" style="width:125px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>الدمـغــــــــــــــــــــــــة</nobr>
-                    </td>
-                    <td colspan="3" style="width:112px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>{{ number_format($document->stamp, 3) }}</nobr>
-                    </td>
-                    <td colspan="9" style="width:239px;height:12px;"></td>
-                </tr>
-                <tr style="vertical-align:top;">
-                    <td colspan="3" style="width:125px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>مصاريف&nbsp;الاصـدار</nobr>
-                    </td>
-                    <td colspan="3" style="width:112px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>{{ number_format($document->issue_fees, 3) }}</nobr>
-                    </td>
-                    <td colspan="5" style="width:121px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>التوقــيــع&nbsp;والخـــتـــم:</nobr>
-                    </td>
-                    <td colspan="4" style="width:116px;height:12px;"></td>
-                </tr>
-                <tr style="vertical-align:top;">
-                    <td colspan="3" style="width:125px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>رســوم&nbsp;الاشــــــــراف</nobr>
-                    </td>
-                    <td colspan="3" style="width:112px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>{{ number_format($document->supervision_fees, 3) }}</nobr>
-                    </td>
-                    <td colspan="9" style="width:239px;height:12px;"></td>
-                </tr>
-                <tr style="vertical-align:top;">
-                    <td colspan="3" style="width:125px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>الاجمـــ&nbsp;رقــم&nbsp;ـــالي</nobr>
-                    </td>
-                    <td colspan="3" style="width:112px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>{{ number_format($document->total, 3) }}</nobr>
-                    </td>
-                    <td colspan="9" style="width:239px;height:12px;"></td>
-                </tr>
-                <tr style="vertical-align:top;">
-                    <td colspan="3" style="width:125px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>الاجمــ&nbsp;حروف&nbsp;ـالي</nobr>
-                    </td>
-                    <td colspan="12" style="width:353px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        {{ $printData['total_in_words'] }}
-                    </td>
-                </tr>
-                <tr style="vertical-align:top;">
-                    <td colspan="3" style="width:125px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>الملاحظة&nbsp;Note</nobr>
-                    </td>
-                    <td colspan="12" style="width:353px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>للتأكد&nbsp;من&nbsp;بيانات&nbsp;وثيقتك&nbsp;ادخل&nbsp;هنا&nbsp;www.mli.ly</nobr>
-                    </td>
-                </tr>
-            </table>
-        </div>
-
-        <!-- Terms and Conditions -->
-        <div class="section">
-            <table class="two-column-table" style="width: 100%; border-collapse: collapse; margin-bottom: 8px; font-size: 8px;">
-                <tr style="vertical-align:top;">
-                    <td colspan="15" style="width:481px;height:200px;line-height:12px;direction:rtl;text-align:right;vertical-align:top;font-size:8px;font-weight:normal;padding:4px;">
-                        <nobr>شروط&nbsp;عامه</nobr><br/><nobr>1-يلتزم&nbsp;المؤمن&nbsp;بموجب&nbsp;هذه&nbsp;الوثيقة&nbsp;بتغطية&nbsp;المسؤولية&nbsp;المدنية&nbsp;الناشئة&nbsp;عن&nbsp;الوفاة&nbsp;أو&nbsp;أية&nbsp;إصابة&nbsp;بدنية&nbsp;تلحق&nbsp;بأي&nbsp;شخص&nbsp;من&nbsp;حوادث&nbsp;المركبات&nbsp;الالية&nbsp;التي&nbsp;في&nbsp;ليبيا&nbsp;المثبتة&nbsp;بياناتها&nbsp;في&nbsp;هذ&nbsp;ه&nbsp;الوثيقة&nbsp;وذالك&nbsp;عن&nbsp;مدة</nobr><br/><nobr>سريانها.</nobr><br/><nobr>ويسري&nbsp;هادا&nbsp;الالتزام&nbsp;لصالح&nbsp;الغير&nbsp;دون&nbsp;الركاب&nbsp;من&nbsp;حوادث&nbsp;المركبات&nbsp;الالية&nbsp;والدراجات&nbsp;النارية&nbsp;أيا&nbsp;كان&nbsp;نوعها&nbsp;ولصالح&nbsp;الركاب&nbsp;ايضا&nbsp;دونأعمالها&nbsp;من&nbsp;حوادث&nbsp;المركبات&nbsp;الالية&nbsp;التالية&nbsp;:</nobr><br/><nobr>•&nbsp;سيارات&nbsp;الركوبة&nbsp;العامة&nbsp;(سيارات&nbsp;الاجرة&nbsp;).</nobr><br/><nobr>•&nbsp;حافلات&nbsp;النقل&nbsp;العام&nbsp;للركاب&nbsp;والمركبات&nbsp;المقطورة&nbsp;الملحقة&nbsp;بها&nbsp;.</nobr><br/><nobr>•&nbsp;حافلات&nbsp;النقل&nbsp;الخاص&nbsp;او&nbsp;حافلات&nbsp;نل&nbsp;الركاب&nbsp;رحلات&nbsp;سياحية&nbsp;والمركبات&nbsp;الملحقة&nbsp;بها&nbsp;.</nobr><br/><nobr>•&nbsp;سيارات&nbsp;الإسعاف&nbsp;والمستشفيات&nbsp;.</nobr><br/><nobr>•&nbsp;سياراتنقل&nbsp;البضائع&nbsp;فيما&nbsp;يخصص&nbsp;الركاب&nbsp;المصرح&nbsp;بنقلهمويسري&nbsp;هدا&nbsp;التامين&nbsp;علي&nbsp;السيارات&nbsp;الخاصةوالدرجات&nbsp;النارية&nbsp;لصالح&nbsp;الغير&nbsp;دون&nbsp;الركاب&nbsp;وعلي&nbsp;باقي&nbsp;انواع&nbsp;المركبات&nbsp;الالية&nbsp;لصال&nbsp;الغير&nbsp;والركاب&nbsp;ما&nbsp;ويتبر</nobr><br/><nobr>الشخص&nbsp;راكبا&nbsp;سواء&nbsp;داخل&nbsp;المركبة&nbsp;او&nbsp;صاعدا&nbsp;اليها&nbsp;او&nbsp;نازلا&nbsp;منها&nbsp;ولايشمل&nbsp;التامين&nbsp;عمال&nbsp;المركبة&nbsp;المثبتة&nbsp;بياناتها&nbsp;في&nbsp;هده&nbsp;الوثيقة&nbsp;.</nobr><br/><nobr>2-&nbsp;يلتزم&nbsp;المؤمن&nbsp;بدفعالتعويض&nbsp;عن&nbsp;الاضرار&nbsp;المادية&nbsp;والمعنوية&nbsp;التي&nbsp;تلح&nbsp;بالأشخاص&nbsp;من&nbsp;حوادث&nbsp;المركبة&nbsp;الالية&nbsp;المؤمنة&nbsp;بموجب&nbsp;هذ&nbsp;الوثيقة&nbsp;وديا&nbsp;او&nbsp;قضائيا&nbsp;وذالك&nbsp;بقيمة&nbsp;محددة&nbsp;لا&nbsp;تتجاوزالحدالأقصىالمنصوص</nobr><br/><nobr>عليه&nbsp;بقرار&nbsp;اللجنة&nbsp;الشعبية&nbsp;العامة&nbsp;رقم&nbsp;(&nbsp;213&nbsp;لسنة&nbsp;2003&nbsp;)&nbsp;والقرارات&nbsp;المعدلة&nbsp;او&nbsp;البديلة&nbsp;له&nbsp;.</nobr><br/><nobr>3-&nbsp;يستحق&nbsp;التعويض&nbsp;عن&nbsp;الاضرار&nbsp;المادية&nbsp;والمعنوية&nbsp;للمصاب&nbsp;شخصيا&nbsp;في&nbsp;حال&nbsp;الاصابة&nbsp;الجسدية&nbsp;.والاب&nbsp;والام&nbsp;والزوج&nbsp;والاولاد&nbsp;دون&nbsp;غيرهم&nbsp;في&nbsp;حالة&nbsp;الوفاة&nbsp;ويؤدي&nbsp;التعويض&nbsp;لهم&nbsp;مرة&nbsp;واحدة&nbsp;ويوزع&nbsp;بينهم&nbsp;وفقا</nobr><br/><nobr>للقواعد&nbsp;التي&nbsp;تقررها&nbsp;المحكمة&nbsp;بحسب&nbsp;الضرر&nbsp;الذي&nbsp;لحق&nbsp;بكل&nbsp;واحد&nbsp;منهم&nbsp;.</nobr><br/><nobr>4-&nbsp;تقسط&nbsp;دعوى&nbsp;المضرور&nbsp;قبل&nbsp;المؤمن&nbsp;بانقضاء&nbsp;تلاتة&nbsp;سنوات&nbsp;من&nbsp;تاريخ&nbsp;صدور&nbsp;حكم&nbsp;نهائي&nbsp;بثبوت&nbsp;مسؤولية&nbsp;المؤمن&nbsp;له&nbsp;عن&nbsp;الحادث&nbsp;او&nbsp;الواقعة&nbsp;المسببة&nbsp;للضرر&nbsp;.</nobr><br/><nobr>5-&nbsp;لا&nbsp;يجوز&nbsp;للمؤمن&nbsp;له&nbsp;تقديم&nbsp;او&nbsp;قبول&nbsp;أي&nbsp;عرض&nbsp;فيما&nbsp;يختص&nbsp;بتعويض&nbsp;المضرور&nbsp;دون&nbsp;موافقة&nbsp;المؤمن&nbsp;كتابة&nbsp;ولا&nbsp;تعتبر&nbsp;أية&nbsp;تسوية&nbsp;بين&nbsp;المؤمن&nbsp;له&nbsp;والمضرور&nbsp;حجة&nbsp;قبل&nbsp;المؤمن&nbsp;اذا&nbsp;تمت&nbsp;دون&nbsp;موافقته&nbsp;.</nobr><br/><nobr>6-&nbsp;لا&nbsp;يجوز&nbsp;للمؤمن&nbsp;ولا&nbsp;للمؤمن&nbsp;له&nbsp;او&nbsp;يلغي&nbsp;وثيقة&nbsp;التامين&nbsp;اثناء&nbsp;مدة&nbsp;سريانها&nbsp;مادام&nbsp;الترخيص&nbsp;للمركبة&nbsp;قائما&nbsp;وفي&nbsp;حالة&nbsp;الغاء&nbsp;وثيقة&nbsp;التامين&nbsp;قبل&nbsp;انتهاء&nbsp;مدة&nbsp;سريانها&nbsp;عند&nbsp;انتاء&nbsp;الترخيص&nbsp;او&nbsp;تقديم&nbsp;وثيقة&nbsp;تامين</nobr><br/><nobr>جديدة&nbsp;بسبب&nbsp;تغيير&nbsp;بيانات&nbsp;المركبة&nbsp;او&nbsp;نقل&nbsp;قيد&nbsp;ملكيتها,&nbsp;يجب&nbsp;علي&nbsp;المؤمن&nbsp;ان&nbsp;يرد&nbsp;للمؤمن&nbsp;له&nbsp;جزء&nbsp;من&nbsp;باي&nbsp;قسط&nbsp;يتناسب&nbsp;والمدة&nbsp;من&nbsp;فترة&nbsp;التامين&nbsp;بشرط&nbsp;تقديم&nbsp;وثيقة&nbsp;للتامين&nbsp;مؤشرا&nbsp;عليها&nbsp;بما&nbsp;يفيد&nbsp;اعادتها&nbsp;الي</nobr><br/><nobr>المؤمن&nbsp;له&nbsp;من&nbsp;مكتب&nbsp;الترخيص&nbsp;المختص&nbsp;,&nbsp;وتصبح&nbsp;الوثيقة&nbsp;ملغاة&nbsp;من&nbsp;تاريخ&nbsp;التأشير&nbsp;وللمؤمن&nbsp;ان&nbsp;يستنزل&nbsp;مصروفات&nbsp;الوثيقة&nbsp;بما&nbsp;لا&nbsp;تتجاوز&nbsp;(10%)&nbsp;عشرة&nbsp;بالمائة&nbsp;من&nbsp;قيمة&nbsp;القسط&nbsp;.</nobr><br/><nobr>&nbsp;7-&nbsp;يجب&nbsp;لي&nbsp;المؤمن&nbsp;ل&nbsp;أي&nbsp;يتخدد&nbsp;كافة&nbsp;الاحتياطات&nbsp;المعقولة&nbsp;للمحافظة&nbsp;علي&nbsp;المركبة&nbsp;في&nbsp;حالة&nbsp;صالحة&nbsp;للاستعمال&nbsp;ويجوز&nbsp;للمؤمن&nbsp;التحقق&nbsp;من&nbsp;ذلك&nbsp;دون&nbsp;اعتراض&nbsp;المؤمن&nbsp;له&nbsp;:&nbsp;وعلي&nbsp;المؤمن&nbsp;له&nbsp;اخطار</nobr><br/><nobr>المؤمنوالسلطاتالمختصة&nbsp;(72)&nbsp;ساعة&nbsp;من&nbsp;وقتعلمه&nbsp;او&nbsp;علم&nbsp;من&nbsp;ينوب&nbsp;عنه&nbsp;عن&nbsp;حالات&nbsp;فقدد&nbsp;المركبة&nbsp;او&nbsp;ووقوع&nbsp;حادت&nbsp;منها&nbsp;نشأت&nbsp;عنه&nbsp;&nbsp;الوفاة&nbsp;او&nbsp;الاصابة&nbsp;البدنية&nbsp;او&nbsp;مطالبته&nbsp;بالتعويض&nbsp;الناشئ&nbsp;ن&nbsp;الوفاة&nbsp;او&nbsp;الإصابة</nobr><br/><nobr>البدنية&nbsp;ويجب&nbsp;عليه&nbsp;ايضا&nbsp;ان&nbsp;يقدم&nbsp;للمؤمن&nbsp;جميع&nbsp;الخطابات&nbsp;والمطالبات&nbsp;والانذارات&nbsp;واعلانات&nbsp;الدعاوي&nbsp;بمجرد&nbsp;تسليمها.</nobr><br/><nobr>8-&nbsp;يجوز&nbsp;للمؤمن&nbsp;ان&nbsp;يراجع&nbsp;للمؤمن&nbsp;له&nbsp;بقيمة&nbsp;ما&nbsp;يكون&nbsp;قد&nbsp;اداه&nbsp;من&nbsp;تعويض&nbsp;في&nbsp;الحالات&nbsp;الاتية&nbsp;:</nobr><br/><nobr>اذا&nbsp;تبث&nbsp;ان&nbsp;التامين&nbsp;قد&nbsp;عقد&nbsp;بناء&nbsp;علي&nbsp;ادلاء&nbsp;المؤمن&nbsp;له&nbsp;ببيانات&nbsp;كاذبة&nbsp;او&nbsp;اخفاء&nbsp;وقائع&nbsp;جوهرية&nbsp;تؤثر&nbsp;في&nbsp;حكم&nbsp;المؤمن&nbsp;علي&nbsp;قبوله&nbsp;تغطية&nbsp;الخطر&nbsp;او&nbsp;علي&nbsp;سعر&nbsp;التامين&nbsp;او&nbsp;شروطه</nobr><br/><nobr>&nbsp;استعمال&nbsp;المركب&nbsp;في&nbsp;غير&nbsp;الغرض&nbsp;المبين&nbsp;بترخيص&nbsp;او&nbsp;قبول&nbsp;ركاب&nbsp;او&nbsp;وضع&nbsp;حمولة&nbsp;اكتر&nbsp;من&nbsp;المقرر&nbsp;لها&nbsp;او&nbsp;استعمالها&nbsp;في&nbsp;السباق&nbsp;او&nbsp;اختباراتالسرعة</nobr><br/><nobr>اذا&nbsp;كان&nbsp;قائد&nbsp;المركبة&nbsp;سواء&nbsp;مؤمن&nbsp;له&nbsp;او&nbsp;شخص&nbsp;اخر&nbsp;يقودها&nbsp;بموافقته&nbsp;غير&nbsp;حائز&nbsp;على&nbsp;رخصه&nbsp;قياده&nbsp;لنوع&nbsp;المركبة&nbsp;او&nbsp;سحبت&nbsp;رخصته&nbsp;بموجب&nbsp;حكم&nbsp;جنائي</nobr><br/><nobr>اذا&nbsp;ثبت&nbsp;ان&nbsp;قائد&nbsp;المركبة&nbsp;–&nbsp;سواء&nbsp;كان&nbsp;المؤمن&nbsp;له&nbsp;او&nbsp;شخص&nbsp;اخر&nbsp;سمح&nbsp;له&nbsp;بقيادتها&nbsp;–&nbsp;ارتكب&nbsp;الحادث&nbsp;وهو&nbsp;في&nbsp;غير&nbsp;حالته&nbsp;الطبيعية&nbsp;بسبب&nbsp;سكر&nbsp;او&nbsp;تناول&nbsp;مخدرات</nobr><br/><nobr>اذا&nbsp;ثبت&nbsp;ان&nbsp;الوفاه&nbsp;او&nbsp;الإصابة&nbsp;البدنية&nbsp;&nbsp;فقد&nbsp;نشأت&nbsp;عن&nbsp;عمل&nbsp;ارتكبه&nbsp;المؤمن&nbsp;له&nbsp;عن&nbsp;اراده&nbsp;وعمد&nbsp;وسبق&nbsp;اصرار</nobr><br/><nobr>9-لا&nbsp;يترتب&nbsp;على&nbsp;حق&nbsp;الرجوع&nbsp;المقرر&nbsp;للمؤمن&nbsp;طبقا&nbsp;لأحكام&nbsp;القانون&nbsp;والشروط&nbsp;الواردة&nbsp;بهذا&nbsp;لوثي&nbsp;أي&nbsp;مساس&nbsp;بحق&nbsp;المضرور&nbsp;&nbsp;قبله&nbsp;.</nobr><br/><nobr>10-&nbsp;لا&nbsp;يتحمل&nbsp;المؤمن&nbsp;ايه&nbsp;مسؤوليه&nbsp;تقع&nbsp;بطريقه&nbsp;مباشر&nbsp;او&nbsp;غير&nbsp;مباشر&nbsp;عللا&nbsp;الاشعاعات&nbsp;الذري&nbsp;ا&nbsp;الانفجارات</nobr><br/><nobr>الاختصاص&nbsp;القضائي</nobr><br/><nobr>من&nbsp;المتفق&nbsp;عليه&nbsp;ان&nbsp;كل&nbsp;ما&nbsp;ينشئ&nbsp;من&nbsp;منازعات&nbsp;بصدد&nbsp;هذا&nbsp;العقد&nbsp;او&nbsp;بحصوص&nbsp;تنفيذه&nbsp;يكون&nbsp;من&nbsp;اختصاص&nbsp;المحاكم&nbsp;الوطنية&nbsp;التي&nbsp;يتبع&nbsp;لها&nbsp;المركز&nbsp;الرئيسي&nbsp;للشركة&nbsp;.&nbsp;وفي&nbsp;جميع&nbsp;الاحوال&nbsp;فان&nbsp;النص&nbsp;العربي&nbsp;لهذه</nobr><br/><nobr>الوثيقة&nbsp;وملاحقها.&nbsp;هو&nbsp;الواجب&nbsp;التطبيق</nobr>
-                    </td>
-                </tr>
-            </table>
-        </div>
-
-   
-     
     </div>
 
-    @php
-        $qrDataJson = json_encode($printData['qr_data']);
-    @endphp
-    <script>
-        // إنشاء QR code يحتوي على بيانات الوثيقة - محسّن للأداء
-        (function() {
-            const qrData = {!! $qrDataJson !!};
-            const qrText = JSON.stringify(qrData);
-            const qrApiUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=85x85&data=' + encodeURIComponent(qrText);
-            const qrContainer = document.getElementById('qrcode');
-            if (qrContainer) {
-                qrContainer.innerHTML = '<img src="' + qrApiUrl + '" alt="QR Code" style="width: 85px; height: 85px; display: block;" />';
-            }
-        })();
+    {{-- ===== فترة التغطية ===== --}}
+    <div class="validity-bar">
+        <div class="v-header">📅 فترة سريان التأمين — Insurance Coverage Period</div>
+        <div class="validity-row">
+            <div class="validity-cell">
+                <span class="vc-label">من (12:00 ظهراً) — From Noon</span>
+                <span class="vc-value">{{ \Carbon\Carbon::parse($document->start_date)->format('d/m/Y') }}</span>
+            </div>
+            <div class="validity-cell" style="background:#fff8f8;">
+                <span class="vc-label">مدة التأمين — Duration</span>
+                <span class="vc-value">{{ $document->number_of_days }} يوم / Day</span>
+            </div>
+            <div class="validity-cell">
+                <span class="vc-label">إلى (12:00 ظهراً) — To Noon</span>
+                <span class="vc-value">{{ \Carbon\Carbon::parse($document->end_date)->format('d/m/Y') }}</span>
+            </div>
+        </div>
+    </div>
 
-        // التفعيل التلقائي للطباعة عند التحميل
-        window.onload = function() {
-            setTimeout(function() {
-                window.print();
-            }, 500);
-        };
-    </script>
+    {{-- ===== بيانات المؤمن له والمركبة ===== --}}
+    <div class="two-col">
+        {{-- المؤمن له --}}
+        <div class="section">
+            <div class="section-header">👤 بيانات المؤمن له — Insured Details</div>
+            <div class="section-body">
+                <table class="data-table">
+                    <tr>
+                        <td class="lbl">الاسم<span class="lbl-en">Name</span></td>
+                        <td class="val">{{ $document->insured_name ?? '-' }}</td>
+                    </tr>
+                    <tr>
+                        <td class="lbl">العنوان<span class="lbl-en">Address</span></td>
+                        <td class="val">{{ $document->insured_address ?? '-' }}</td>
+                    </tr>
+                    <tr>
+                        <td class="lbl">الهاتف<span class="lbl-en">Phone</span></td>
+                        <td class="val">{{ $document->phone ?? '-' }}</td>
+                    </tr>
+                    <tr>
+                        <td class="lbl">واتساب<span class="lbl-en">WhatsApp</span></td>
+                        <td class="val">{{ $document->whatsapp_number ?? '-' }}</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
+        {{-- المركبة --}}
+        <div class="section">
+            <div class="section-header">🚗 بيانات المركبة — Vehicle Details</div>
+            <div class="section-body">
+                <table class="data-table">
+                    <tr>
+                        <td class="lbl">النوع / الماركة<span class="lbl-en">Make / Model</span></td>
+                        <td class="val">
+                            {{ $document->vehicleType
+                                ? ($document->vehicleType->brand . ($document->vehicleType->category ? ' / ' . $document->vehicleType->category : ''))
+                                : '-' }}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="lbl">سنة الصنع<span class="lbl-en">Year</span></td>
+                        <td class="val">{{ $document->year ?? '-' }}</td>
+                    </tr>
+                    <tr>
+                        <td class="lbl">رقم اللوحة<span class="lbl-en">Plate No.</span></td>
+                        <td class="val" style="font-weight:900; font-size:12px; color:#c00;">{{ $document->plate_number ?? '-' }}</td>
+                    </tr>
+                    <tr>
+                        <td class="lbl">رقم الهيكل<span class="lbl-en">Chassis No.</span></td>
+                        <td class="val" style="font-size:9px;">{{ $document->chassis_number ?? '-' }}</td>
+                    </tr>
+                    <tr>
+                        <td class="lbl">الجنسية<span class="lbl-en">Nationality</span></td>
+                        <td class="val">{{ $document->vehicle_nationality ?? 'ليبية / Libyan' }}</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    {{-- ===== البند والبلد المزار ===== --}}
+    <div class="two-col">
+        <div class="section">
+            <div class="section-header">🌍 البلد المزار — Visited Country</div>
+            <div class="section-body">
+                <table class="data-table">
+                    <tr>
+                        <td class="lbl">البلد<span class="lbl-en">Country</span></td>
+                        <td class="val" style="font-size:13px; font-weight:900; color:#c00;">{{ $document->visited_country ?? '-' }}</td>
+                    </tr>
+                    <tr>
+                        <td class="lbl">عدد الدول<span class="lbl-en">No. of Countries</span></td>
+                        <td class="val">{{ $document->number_of_countries ?? '1' }}</td>
+                    </tr>
+                    <tr>
+                        <td class="lbl">البند<span class="lbl-en">Item Type</span></td>
+                        <td class="val">{{ $document->item_type ?? '-' }}</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
+        {{-- المبالغ المالية --}}
+        <div class="section">
+            <div class="section-header">💰 البيانات المالية — Financial Data</div>
+            <div class="section-body">
+                <table class="fin-table">
+                    <tr>
+                        <td class="fin-lbl">القسط اليومي<span style="font-size:8px;font-weight:400;display:block;color:#999">Daily Premium</span></td>
+                        <td class="fin-val">{{ number_format($document->daily_premium ?? 0, 3) }} د.ل</td>
+                    </tr>
+                    <tr>
+                        <td class="fin-lbl">القسط الإجمالي<span style="font-size:8px;font-weight:400;display:block;color:#999">Total Premium</span></td>
+                        <td class="fin-val">{{ number_format($document->premium ?? 0, 3) }} د.ل</td>
+                    </tr>
+                    <tr>
+                        <td class="fin-lbl">الضريبة<span style="font-size:8px;font-weight:400;display:block;color:#999">Tax</span></td>
+                        <td class="fin-val">{{ number_format($document->tax ?? 0, 3) }} د.ل</td>
+                    </tr>
+                    <tr>
+                        <td class="fin-lbl">رسوم الإشراف<span style="font-size:8px;font-weight:400;display:block;color:#999">Supervision Fees</span></td>
+                        <td class="fin-val">{{ number_format($document->supervision_fees ?? 0, 3) }} د.ل</td>
+                    </tr>
+                    <tr>
+                        <td class="fin-lbl">مصاريف الإصدار<span style="font-size:8px;font-weight:400;display:block;color:#999">Issue Fees</span></td>
+                        <td class="fin-val">{{ number_format($document->issue_fees ?? 0, 3) }} د.ل</td>
+                    </tr>
+                    <tr>
+                        <td class="fin-lbl">دمغة المحررات<span style="font-size:8px;font-weight:400;display:block;color:#999">Stamp Duty</span></td>
+                        <td class="fin-val">{{ number_format($document->stamp ?? 0, 3) }} د.ل</td>
+                    </tr>
+                    <tr class="fin-total">
+                        <td class="fin-lbl" style="color:#fff;background:#c00;font-size:12px;">الإجمالي النهائي / TOTAL</td>
+                        <td class="fin-val" style="color:#fff;background:#c00;font-size:13px;font-weight:900;">{{ number_format($document->total ?? 0, 3) }} د.ل</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    {{-- ===== الإجمالي بالحروف ===== --}}
+    <div style="border: 1.5px solid #c00; margin-bottom:4px; padding: 5px 8px; background:#fff8f8; text-align:center;">
+        <span style="font-size:9px; color:#c00; font-weight:700;">الإجمالي بالحروف — Amount in Words: </span>
+        <span style="font-size:10px; font-weight:800; color:#000;">{{ $printData['total_in_words'] ?? '' }}</span>
+    </div>
+
+    {{-- ===== التوقيع والختم ===== --}}
+    <div class="sig-row">
+        <div class="sig-box">
+            <div class="sig-label">توقيع المؤمن له / Insured Signature</div>
+            <div style="flex:1;"></div>
+        </div>
+        <div class="sig-box">
+            <div class="sig-label">وقت الإعداد / Issued At</div>
+            <div style="font-size:10px; font-weight:700; margin-top:5px;">{{ \Carbon\Carbon::parse($document->issue_date)->format('d/m/Y H:i:s') }}</div>
+        </div>
+        <div class="sig-box">
+            <div class="sig-label">توقيع وختم الوكيل / Agent Stamp</div>
+            <div style="flex:1;"></div>
+        </div>
+    </div>
+
+    {{-- ===== ملاحظة ===== --}}
+    <div style="border: 1.5px solid #c00; margin-bottom:4px; text-align:center; padding:4px 6px; background:#fff;">
+        <span style="font-size:9px; color:#c00; font-weight:700;">ملاحظة Note: </span>
+        <span style="font-size:9px; color:#000;">للتأكد من بيانات وثيقتك ادخل هنا — To verify your policy data visit: <strong>www.mli.ly</strong></span>
+    </div>
+
+    {{-- ===== الشروط والأحكام ===== --}}
+    <div class="note-box">
+        <div class="note-header">⚖️ الشروط العامة — General Terms & Conditions</div>
+        <div class="note-body">
+            <strong>1-</strong> يلتزم المؤمن بموجب هذه الوثيقة بتغطية المسؤولية المدنية الناشئة عن الوفاة أو أية إصابة بدنية تلحق بأي شخص من حوادث المركبات الآلية في ليبيا المثبتة بياناتها في هذه الوثيقة وذلك عن مدة سريانها.<br>
+            <strong>2-</strong> يلتزم المؤمن بدفع التعويض عن الأضرار المادية والمعنوية التي تلحق بالأشخاص من حوادث المركبة الآلية المؤمنة بموجب هذه الوثيقة وديًا أو قضائيًا وذلك بقيمة محددة لا تتجاوز الحد الأقصى المنصوص عليه بقرار اللجنة الشعبية العامة رقم (213 لسنة 2003) والقرارات المعدلة أو البديلة له.<br>
+            <strong>3-</strong> يستحق التعويض عن الأضرار المادية والمعنوية للمصاب شخصيًا في حال الإصابة الجسدية، والأب والأم والزوج والأولاد دون غيرهم في حالة الوفاة.<br>
+            <strong>4-</strong> تسقط دعوى المضرور قبل المؤمن بانقضاء ثلاثة سنوات من تاريخ صدور حكم نهائي بثبوت مسؤولية المؤمن له عن الحادث أو الواقعة المسببة للضرر.<br>
+            <strong>5-</strong> لا يجوز للمؤمن له تقديم أو قبول أي عرض فيما يختص بتعويض المضرور دون موافقة المؤمن كتابةً.<br>
+            <strong>6-</strong> لا يجوز للمؤمن ولا للمؤمن له إلغاء وثيقة التأمين أثناء مدة سريانها ما دام الترخيص للمركبة قائمًا.<br>
+            <strong>الاختصاص القضائي:</strong> من المتفق عليه أن كل ما ينشأ من منازعات بصدد هذا العقد أو بخصوص تنفيذه يكون من اختصاص المحاكم الوطنية التي يتبع لها المركز الرئيسي للشركة. وفي جميع الأحوال فإن النص العربي لهذه الوثيقة هو الواجب التطبيق.
+        </div>
+    </div>
+
+    {{-- ===== FOOTER ===== --}}
+    <div class="footer">
+        <strong>شركة المدار الليبي للتأمين</strong> — Al-Madar Libyan Insurance Co.
+        &nbsp;|&nbsp; هاتف: 021-3614278 &nbsp;|&nbsp; بريد: info@mli.ly &nbsp;|&nbsp; www.mli.ly
+        &nbsp;|&nbsp; <strong>وثيقة رقم:</strong> {{ $document->document_number }}
+    </div>
+</div>
+
+@php
+    $qrDataJson = json_encode($printData['qr_data'] ?? ['doc' => $document->document_number]);
+@endphp
+<script>
+    (function() {
+        const qrData = {!! $qrDataJson !!};
+        const qrText = JSON.stringify(qrData);
+        const qrApiUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=72x72&data=' + encodeURIComponent(qrText);
+        const qrContainer = document.getElementById('qrcode');
+        if (qrContainer) {
+            qrContainer.innerHTML = '<img src="' + qrApiUrl + '" alt="QR Code" style="width:100%;height:100%;display:block;" />';
+        }
+    })();
+
+    window.onload = function() {
+        setTimeout(function() { window.print(); }, 600);
+    };
+</script>
 </body>
 </html>
-

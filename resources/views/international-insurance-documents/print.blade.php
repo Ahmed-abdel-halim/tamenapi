@@ -194,26 +194,52 @@ $visitedLow = mb_strtolower($visitedRaw);
 </tr>
 </table>
 
-{{-- ============ LEGAL / BUREAU INFO ============ --}}
+{{-- ============ LEGAL / BUREAU INFO (DYNAMIC) ============ --}}
+@php
+$allBureaus = [
+    'تونس'     => ['address'=>'85-87 نهج فلسطين - البلفيدير 1002 تونس', 'tel'=>'+21671841784', 'email'=>'buat@buat.com.tn', 'fax'=>'+21671845124', 'coverage'=>'الأضرار الجسمانية بقيمة محددة والأضرار المادية بقيمة غير محددة'],
+    'الجزائر'  => ['address'=>'إقامة شعيلي / واد حيدرة - حيدرة', 'tel'=>'+21321604507', 'email'=>'bua.algerie@gmail.com', 'fax'=>'+21321609295', 'coverage'=>'الأضرار البدنية بقيمة محددة والأضرار المادية بقيمة غير محددة'],
+    'المغرب'   => ['address'=>'101 بوليفار محمد الخامس الدار البيضاء 20000', 'tel'=>'+212522294243', 'email'=>'bua@bua.ma', 'fax'=>'+212522294245', 'coverage'=>'الأضرار الجسمانية بقيمة محددة والأضرار المادية بقيمة غير محددة'],
+    'مصر'      => ['address'=>'42 شارع البستان، القاهرة', 'tel'=>'+20223930373', 'email'=>'info@bua-eg.com', 'fax'=>'+20223930374', 'coverage'=>'الأضرار الجسمانية والمادية بقيمة محددة'],
+    'الأردن'   => ['address'=>'شارع مكة، عمان 11118', 'tel'=>'+962065536151', 'email'=>'bua@bua.jo', 'fax'=>'+962065536152', 'coverage'=>'الأضرار الجسمانية والمادية بقيمة محددة'],
+    'السعودية' => ['address'=>'الرياض - المملكة العربية السعودية', 'tel'=>'+966114787220', 'email'=>'info@bua.org.sa', 'fax'=>'+966114787221', 'coverage'=>'الأضرار الجسمانية والمادية وفق نظام السير السعودي'],
+    'الإمارات' => ['address'=>'أبو ظبي - دولة الإمارات العربية المتحدة', 'tel'=>'+97126226820', 'email'=>'bua@bua.ae', 'fax'=>'+97126226821', 'coverage'=>'الأضرار الجسمانية والمادية بقيمة محددة'],
+    'الكويت'   => ['address'=>'شارع الشيخ أحمد الجابر الصباح - الكويت', 'tel'=>'+96522484424', 'email'=>'info@bua.org.kw', 'fax'=>'+96522484425', 'coverage'=>'الأضرار الجسمانية والمادية بقيمة محددة'],
+    'قطر'      => ['address'=>'شارع الكورنيش، الدوحة - قطر', 'tel'=>'+97444835111', 'email'=>'bua@bua.qa', 'fax'=>'+97444835112', 'coverage'=>'الأضرار الجسمانية والمادية بقيمة محددة'],
+    'البحرين'  => ['address'=>'المنامة - مملكة البحرين', 'tel'=>'+97317225252', 'email'=>'bua@bua.bh', 'fax'=>'+97317225253', 'coverage'=>'الأضرار الجسمانية والمادية بقيمة محددة'],
+    'العراق'   => ['address'=>'شارع الجمهورية - بغداد', 'tel'=>'+96417816800', 'email'=>'info@bua.iq', 'fax'=>'+96417816801', 'coverage'=>'الأضرار الجسمانية والمادية وفق قانون التأمين العراقي'],
+    'سوريا'    => ['address'=>'شارع بغداد - دمشق', 'tel'=>'+963114420300', 'email'=>'bua@bua.sy', 'fax'=>'+963114420301', 'coverage'=>'الأضرار الجسمانية والمادية بقيمة محددة'],
+    'لبنان'    => ['address'=>'ساحة رياض الصلح - بيروت', 'tel'=>'+9611970270', 'email'=>'info@bua.lb', 'fax'=>'+9611970271', 'coverage'=>'الأضرار الجسمانية والمادية بقيمة محددة'],
+    'اليمن'    => ['address'=>'شارع الزبيري - صنعاء', 'tel'=>'+96701441456', 'email'=>'bua@bua.ye', 'fax'=>'+96701441457', 'coverage'=>'الأضرار الجسمانية والمادية بقيمة محددة'],
+    'عمان'     => ['address'=>'الخوير - مسقط - سلطنة عُمان', 'tel'=>'+96824817300', 'email'=>'bua@bua.om', 'fax'=>'+96824817301', 'coverage'=>'الأضرار الجسمانية والمادية بقيمة محددة'],
+];
+$shownBureaus = [];
+foreach ($allBureaus as $country => $info) {
+    $cLow     = mb_strtolower($country);
+    $cStripped = preg_replace('/^ال/', '', $cLow);
+    if (mb_strpos($visitedLow, $cLow) !== false || mb_strpos($visitedLow, $cStripped) !== false) {
+        $shownBureaus[$country] = $info;
+    }
+}
+@endphp
 <table>
 <tr>
     <td class="hdr-blk" style="width:60px;">البلد</td>
     <td class="hdr-blk">بيان مختصر عن نوعية التغطيات طبقاً لقوانين التأمين الإلزامي في البلاد العربية</td>
 </tr>
+@forelse($shownBureaus as $country => $info)
 <tr>
-    <td style="text-align:center;font-weight:800;font-size:9px;">تونس</td>
-    <td style="font-size:8px;line-height:1.6;padding:3px 6px;">
-        85-87 نهج فلسطين - البلفيدير 1002 تونس &nbsp;+21671841784 &nbsp;| buat@buat.com.tn &nbsp;+21671845124<br>
-        <b>الأضرار الجسمانية</b> بقيمة محددة <b>والأضرار المادية</b> بقيمة غير محددة
+    <td style="text-align:center;font-weight:800;font-size:9px;">{{ $country }}</td>
+    <td style="font-size:8px;line-height:1.65;padding:3px 6px;">
+        {{ $info['address'] }} &nbsp; {{ $info['tel'] }} &nbsp;| {{ $info['email'] }} &nbsp; {{ $info['fax'] }}<br>
+        <b>{{ $info['coverage'] }}</b>
     </td>
 </tr>
+@empty
 <tr>
-    <td style="text-align:center;font-weight:800;font-size:9px;">الجزائر</td>
-    <td style="font-size:8px;line-height:1.6;padding:3px 6px;">
-        إقامة شعيلي / واد حيدرة - حيدرة &nbsp;+21321604507 &nbsp;| bua.algerie@gmail.com &nbsp;+21321609295<br>
-        <b>الأضرار البدنية</b> بقيمة محددة <b>والأضرار المادية</b> بقيمة غير محددة
-    </td>
+    <td colspan="2" style="text-align:center;font-size:8.5px;padding:4px;">يرجى الرجوع إلى مكتب الاتحاد العربي للتأمين في البلد المزار</td>
 </tr>
+@endforelse
 </table>
 
 {{-- ============ GENERAL TERMS ============ --}}

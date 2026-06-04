@@ -5,92 +5,29 @@
     <title>بطاقة تأمين دولي - {{ $document->document_number }}</title>
     <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;600;700;800;900&display=swap" rel="stylesheet">
     <style>
-        @page { size: A4 portrait; margin: 7mm 9mm; }
-
+        @page { size: A4 portrait; margin: 6mm 8mm; }
         * { margin:0; padding:0; box-sizing:border-box; }
-
-        body {
-            font-family: 'Tajawal', 'Arial', sans-serif;
-            font-size: 10px;
-            color: #000;
-            background: #fff;
-            direction: rtl;
-        }
-
-        /* ===== PRINT BUTTON BAR ===== */
-        .print-bar {
-            text-align: center;
-            padding: 8px;
-            background: #1d4ed8;
-            margin-bottom: 10px;
-            border-radius: 6px;
-        }
-        .print-bar button {
-            background: #fff;
-            color: #1d4ed8;
-            border: none;
-            padding: 8px 28px;
-            font-size: 14px;
-            font-weight: 900;
-            border-radius: 4px;
-            cursor: pointer;
-            font-family: 'Tajawal', Arial, sans-serif;
-        }
-        @media print {
-            .print-bar { display: none !important; }
-        }
-
-        /* ===== CARD ===== */
-        .card {
-            width: 100%;
-            border: 2px solid #000;
-            font-family: 'Tajawal', 'Arial', sans-serif;
-        }
-
-        table {
-            border-collapse: collapse;
-            width: 100%;
-            font-family: 'Tajawal', 'Arial', sans-serif;
-        }
-
-        td, th {
-            border: 1px solid #000;
-            padding: 3px 5px;
-            vertical-align: middle;
-            font-size: 9.5px;
-        }
-
-        .lbl {
-            font-weight: 800;
-            background: #f2f2f2;
-            white-space: nowrap;
-        }
-
-        .hdr-row {
-            background: #000;
-            color: #fff;
-            text-align: center;
-            font-weight: 800;
-            font-size: 10px;
-            padding: 3px 5px;
-        }
+        body { font-family:'Tajawal','Arial',sans-serif; font-size:9.5px; color:#000; background:#fff; direction:rtl; }
+        .card { width:100%; border:2px solid #000; }
+        table { border-collapse:collapse; width:100%; }
+        td,th { border:1px solid #000; padding:2.5px 5px; vertical-align:middle; font-size:9px; }
+        b { font-weight:800; }
+        .hdr-blk { background:#000; color:#fff; text-align:center; font-weight:800; font-size:9.5px; padding:3px 5px; }
+        .lbl { font-weight:800; background:#f0f0f0; white-space:nowrap; width:115px; }
+        .val { font-weight:600; }
+        .chk { display:inline-block; width:11px; height:11px; border:1px solid #555; vertical-align:middle; text-align:center; font-size:9px; font-weight:900; line-height:11px; margin-left:2px; }
+        .chk-on { background:#000; color:#fff; }
     </style>
 </head>
 <body>
-
-{{-- زر الطباعة --}}
-<div class="print-bar">
-    <button onclick="window.print()">🖨️ &nbsp; اطبع الوثيقة &nbsp; Print</button>
-</div>
-
 <div class="card">
 
-{{-- ======= HEADER: شعار الاتحاد | العنوان | علم ليبيا ======= --}}
+{{-- ============ HEADER ============ --}}
 <table>
 <tr>
     {{-- شعار الاتحاد + شعار المدار --}}
-    <td style="width:100px; border:1px solid #000; text-align:center; padding:5px 3px; vertical-align:middle;">
-        <svg width="50" height="50" viewBox="0 0 100 100">
+    <td style="width:105px; text-align:center; padding:5px 3px; border:1px solid #000;">
+        <svg width="52" height="52" viewBox="0 0 100 100">
             <circle cx="50" cy="50" r="46" fill="none" stroke="#1a4a8a" stroke-width="3.5"/>
             <circle cx="50" cy="50" r="35" fill="none" stroke="#1a4a8a" stroke-width="1.5"/>
             <path d="M14,50 C18,30 33,22 44,25 C35,36 27,44 27,50Z" fill="#2d7a2d"/>
@@ -107,251 +44,279 @@
             <circle cx="59" cy="57" r="4" fill="#fff" stroke="#1a4a8a" stroke-width="1.5"/>
         </svg>
         <br>
-        <img src="/img/logo.png" alt="" style="width:45px;height:45px;object-fit:contain;margin-top:3px;" onerror="this.style.display='none'">
-        <div style="font-size:6px;font-weight:800;color:#1a4a8a;line-height:1.3;margin-top:2px;">المدار الليبي للتأمين</div>
+        <img src="/img/logo.png" alt="" style="width:46px;height:46px;object-fit:contain;margin-top:3px;" onerror="this.style.display='none'">
+        <div style="font-size:6px;font-weight:800;color:#1a4a8a;margin-top:2px;line-height:1.3;">المدار الليبي<br>للتأمين</div>
     </td>
 
     {{-- العنوان --}}
-    <td style="border:1px solid #000; text-align:center; padding:8px 4px; vertical-align:middle;">
+    <td style="text-align:center; padding:7px 4px; border:1px solid #000;">
         <div style="font-size:20px;font-weight:900;line-height:1.2;">بطاقة التأمين العربية الموحدة</div>
-        <div style="font-size:13px;font-weight:700;margin-top:4px;">عن سير السيارات (المركبات) عبر البلاد العربية</div>
-        <div style="font-size:15px;font-weight:900;color:#cc0000;margin-top:4px;">للمركبات الليبية</div>
+        <div style="font-size:13px;font-weight:700;margin-top:3px;">عن سير السيارات (المركبات) عبر البلاد العربية</div>
+        <div style="font-size:16px;font-weight:900;color:#cc0000;margin-top:4px;">للمركبات الليبية</div>
     </td>
 
     {{-- علم ليبيا --}}
-    <td style="width:90px; border:1px solid #000; text-align:center; padding:5px; vertical-align:middle;">
-        <svg width="72" height="82" viewBox="0 0 72 82">
-            <rect x="1" y="1" width="70" height="80" rx="2" fill="none" stroke="#000" stroke-width="1.5"/>
-            <rect x="1" y="1" width="70" height="27" fill="#000"/>
-            <rect x="1" y="28" width="70" height="13" fill="#cc0000"/>
-            <rect x="1" y="41" width="70" height="40" fill="#239e45"/>
-            <circle cx="36" cy="41" r="11" fill="none" stroke="#fff" stroke-width="8"/>
-            <circle cx="40" cy="41" r="11" fill="#cc0000"/>
-            <polygon points="36,26 37.8,31.7 43.8,31.7 39.1,35.1 40.9,40.8 36,37.4 31.1,40.8 32.9,35.1 28.2,31.7 34.2,31.7" fill="#fff"/>
-            <line x1="1" y1="28" x2="71" y2="28" stroke="#000" stroke-width="0.5"/>
-            <line x1="1" y1="41" x2="71" y2="41" stroke="#000" stroke-width="0.5"/>
+    <td style="width:95px; text-align:center; padding:5px; border:1px solid #000;">
+        <svg width="75" height="86" viewBox="0 0 75 86">
+            <rect x="1" y="1" width="73" height="84" rx="3" fill="none" stroke="#000" stroke-width="1.5"/>
+            <rect x="1" y="1" width="73" height="29" fill="#000"/>
+            <rect x="1" y="30" width="73" height="14" fill="#cc0000"/>
+            <rect x="1" y="44" width="73" height="41" fill="#239e45"/>
+            <circle cx="37" cy="44" r="12" fill="none" stroke="#fff" stroke-width="9"/>
+            <circle cx="41" cy="44" r="12" fill="#cc0000"/>
+            <polygon points="37,28 39,34 45,34 40,38 42,44 37,40 32,44 34,38 29,34 35,34" fill="#fff"/>
+            <line x1="1" y1="30" x2="74" y2="30" stroke="#000" stroke-width="0.5"/>
+            <line x1="1" y1="44" x2="74" y2="44" stroke="#000" stroke-width="0.5"/>
         </svg>
     </td>
 </tr>
 </table>
 
-{{-- ======= COMPANY INFO + QR + DOC NUMBER ======= --}}
+{{-- ============ COMPANY + QR + AGENT ============ --}}
 <table>
 <tr>
-    {{-- بيانات الشركة --}}
-    <td style="width:44%; border:1px solid #000; padding:4px 6px; vertical-align:top; font-size:8.5px; line-height:1.7;">
-        <div style="font-weight:900;font-size:10px;border-bottom:1px solid #ccc;padding-bottom:2px;margin-bottom:3px;">
-            الشركة المصدرة للبطاقة: <span style="color:#cc0000;">شركة المدار الليبي للتأمين</span>
+    {{-- بيانات الشركة المصدرة (المدار) --}}
+    <td style="width:37%; border:1px solid #000; padding:4px 6px; vertical-align:top; font-size:8.5px;">
+        <div style="font-weight:900;font-size:9.5px;text-align:center;border-bottom:1px solid #ccc;padding-bottom:2px;margin-bottom:3px;">الشركة المصدرة للبطاقة</div>
+        <div style="line-height:1.75;">
+            <div><b>الشركة: </b>المدار الليبي للتأمين</div>
+            <div><b>العنوان: </b>طرابلس</div>
+            <div><b>صندوق البريد: </b>1002</div>
+            <div><b>الهاتف: </b>021-3614278</div>
+            <div><b>الفاكس: </b>021-3614279</div>
+            <div><b>البريد الإلكتروني: </b>info@mli.ly</div>
         </div>
-        <div><b>المكتب / الوكيل: </b>{{ $printData['agency_name'] ?? 'الإدارة العامة' }}</div>
-        <div><b>معد الوثيقة: </b>{{ $printData['agent_name'] ?? 'الإدارة' }}</div>
-        <div><b>العنوان: </b>طرابلس - ليبيا</div>
-        <div><b>صندوق بريد: </b>1002 &nbsp;&nbsp; <b>هاتف: </b>0213614278</div>
-        <div><b>فاكس: </b>0213614279 &nbsp;&nbsp; <b>البريد: </b>info@mli.ly</div>
     </td>
-    {{-- QR --}}
-    <td style="width:15%; border:1px solid #000; text-align:center; vertical-align:middle; padding:4px;">
-        <div id="qrcode" style="width:72px;height:72px;margin:0 auto;"></div>
-        <div style="font-size:7px;font-weight:700;margin-top:2px;">مسح للتحقق</div>
-    </td>
-    {{-- رقم الوثيقة --}}
-    <td style="border:1px solid #000; padding:5px 8px; vertical-align:top;">
-        <div style="font-size:8px;color:#555;">رقم الوثيقة / Policy Number</div>
-        <div style="font-size:20px;font-weight:900;color:#cc0000;line-height:1.1;">{{ $document->document_number }}</div>
-        <div style="font-size:8.5px;margin-top:3px;"><b>تاريخ الإصدار: </b>{{ \Carbon\Carbon::parse($document->issue_date)->format('d/m/Y') }}</div>
-        <div style="font-size:8.5px;"><b>الوقت: </b>{{ \Carbon\Carbon::parse($document->issue_date)->format('H:i:s') }}</div>
+
+    {{-- QR + رقم الوثيقة --}}
+    <td style="width:26%; border:1px solid #000; text-align:center; vertical-align:middle; padding:4px;">
+        <div id="qrcode" style="width:72px;height:72px;margin:0 auto 3px;"></div>
+        <div style="font-size:16px;font-weight:900;color:#cc0000;line-height:1.1;">{{ $document->document_number }}</div>
+        <div style="font-size:7.5px;"><b>تاريخ الإصدار: </b>{{ \Carbon\Carbon::parse($document->issue_date)->format('d/m/Y') }}</div>
+        <div style="font-size:7.5px;"><b>الوقت: </b>{{ \Carbon\Carbon::parse($document->issue_date)->format('H:i:s') }}</div>
         @if($document->external_policy_number)
-        <div style="font-size:8.5px;color:#cc0000;font-weight:800;margin-top:2px;"><b>بطاقة الاتحاد: </b>{{ $document->external_policy_number }}</div>
+        <div style="font-size:7.5px;color:#cc0000;font-weight:800;"><b>LIFO: </b>{{ $document->external_policy_number }}</div>
         @endif
+    </td>
+
+    {{-- بيانات المكتب المحلي / الوكيل --}}
+    <td style="border:1px solid #000; padding:4px 6px; vertical-align:top; font-size:8.5px;">
+        <div style="font-weight:900;font-size:9.5px;text-align:center;border-bottom:1px solid #ccc;padding-bottom:2px;margin-bottom:3px;">المكتب الموحد المحلي</div>
+        <div style="line-height:1.75;">
+            <div><b>اسم المكتب: </b>{{ $printData['agency_name'] ?? 'الإدارة العامة' }}</div>
+            <div><b>كود الوكيل: </b>{{ $printData['agency_code'] ?? 'ML0001' }}</div>
+            <div><b>معد الوثيقة: </b>{{ $printData['agent_name'] ?? 'الإدارة' }}</div>
+            <div><b>الهاتف: </b>021-3614278</div>
+            <div><b>البريد: </b>info@mli.ly</div>
+        </div>
     </td>
 </tr>
 </table>
 
-{{-- ======= INSURED DATA ======= --}}
+{{-- ============ INSURED DATA ============ --}}
 <table>
-    <tr>
-        <td class="lbl" style="width:90px;">اسم المؤمن له</td>
-        <td colspan="3" style="font-weight:800;font-size:11px;">{{ $document->insured_name ?? '-' }}</td>
-        <td class="lbl" style="width:55px;">الهاتف</td>
-        <td style="width:110px;">{{ $document->phone ?? '-' }}</td>
-    </tr>
-    <tr>
-        <td class="lbl">العنوان</td>
-        <td colspan="5">{{ $document->insured_address ?? '-' }} &nbsp;|&nbsp; واتساب: {{ $document->whatsapp_number ?? '-' }}</td>
-    </tr>
-    <tr>
-        <td class="lbl">نوع المركبة</td>
-        <td colspan="2">
-            @if($document->vehicleType){{ $document->vehicleType->brand }}{{ $document->vehicleType->category ? ' / '.$document->vehicleType->category : '' }}@else-@endif
-        </td>
-        <td class="lbl">جنسية المركبة / الشاصي</td>
-        <td colspan="2">{{ $document->vehicle_nationality ?? 'ليبية' }} &nbsp;/&nbsp; {{ $document->chassis_number ?? '-' }}</td>
-    </tr>
-    <tr>
-        <td class="lbl">سنة الصنع</td>
-        <td colspan="2">{{ $document->year ?? '-' }}</td>
-        <td class="lbl">رقم اللوحة المعدنية</td>
-        <td colspan="2" style="font-weight:900;font-size:13px;color:#cc0000;">{{ $document->plate_number ?? '-' }}</td>
-    </tr>
-    <tr>
-        <td class="lbl">البلد المزار</td>
-        <td colspan="2" style="font-weight:900;font-size:12px;">{{ $document->visited_country ?? '-' }}</td>
-        <td class="lbl">بند / نوع التأمين</td>
-        <td colspan="2">{{ $document->item_type ?? '-' }}</td>
-    </tr>
+<tr>
+    <td class="lbl" style="width:110px;">اسم المؤمن له</td>
+    <td class="val" style="font-weight:800;font-size:11px;">{{ $document->insured_name ?? '-' }}</td>
+    <td class="lbl" style="width:70px;">الهاتف</td>
+    <td class="val" style="width:120px;">{{ $document->phone ?? '-' }}</td>
+</tr>
+<tr>
+    <td class="lbl">العنوان</td>
+    <td class="val" colspan="3">{{ $document->insured_address ?? '-' }} &nbsp;|&nbsp; واتساب: {{ $document->whatsapp_number ?? '-' }}</td>
+</tr>
 </table>
 
-{{-- ======= VALIDITY DATES ======= --}}
+{{-- ============ VEHICLE DATA (2 columns) ============ --}}
 <table>
-    <tr>
-        <td class="hdr-row" colspan="6">مدة التأمين من الساعة 12:00 منتصف النهار يوم</td>
-    </tr>
-    <tr>
-        <td class="lbl" style="width:80px;">من (الإقلاع)</td>
-        <td style="width:25px;text-align:center;">من</td>
-        <td style="font-weight:900;font-size:12px;">{{ \Carbon\Carbon::parse($document->start_date)->format('d/m/Y') }}</td>
-        <td class="lbl" style="width:80px;">إلى (الوصول)</td>
-        <td style="width:25px;text-align:center;">إلى</td>
-        <td style="font-weight:900;font-size:12px;">{{ \Carbon\Carbon::parse($document->end_date)->format('d/m/Y') }}</td>
-    </tr>
-    <tr>
-        <td class="lbl" colspan="2">المدة / Duration</td>
-        <td style="font-weight:900;font-size:13px;color:#cc0000;">{{ $document->number_of_days }} يوم / Day</td>
-        <td class="lbl" colspan="2">الساعة / Time</td>
-        <td>12:00 منتصف النهار / Noon</td>
-    </tr>
+<tr>
+    {{-- العمود الأيسر --}}
+    <td class="lbl" style="width:110px;">نوع المركبة</td>
+    <td class="val" style="width:140px;">
+        @if($document->vehicleType){{ $document->vehicleType->brand }}@else -- @endif
+    </td>
+    <td class="lbl" style="width:110px;">جنسية المركبة</td>
+    <td class="val">{{ $document->vehicle_nationality ?? 'ليبية' }}</td>
+</tr>
+<tr>
+    <td class="lbl">سنة الصنع</td>
+    <td class="val">{{ $document->year ?? '-' }}</td>
+    <td class="lbl">رقم الهيكل (الشاصي)</td>
+    <td class="val">{{ $document->chassis_number ?? '-' }}</td>
+</tr>
+<tr>
+    <td class="lbl">رقم اللوحة (الموتور)</td>
+    <td class="val" style="font-weight:900;font-size:12px;color:#cc0000;">{{ $document->plate_number ?? '-' }}</td>
+    <td class="lbl">رقم المحرك (الموتور)</td>
+    <td class="val">{{ $document->plate_number ?? '-' }}</td>
+</tr>
+<tr>
+    <td class="lbl">الغرض من الاستعمال</td>
+    <td class="val">
+        @if($document->vehicleType && $document->vehicleType->category){{ $document->vehicleType->category }}@else خاصة @endif
+    </td>
+    <td class="lbl">البلد المزار</td>
+    <td class="val" style="font-weight:900;">{{ $document->visited_country ?? '-' }}</td>
+</tr>
 </table>
 
-{{-- ======= COUNTRIES ======= --}}
+{{-- ============ VALIDITY DATES ============ --}}
 @php
-$allCountries = ['البحرين','تونس','سوريا','اليمن','العراق','ليبيا','مصر','الأردن','المغرب','الكويت','قطر','الإمارات','الجزائر','السعودية'];
-$visitedStr = mb_strtolower($document->visited_country ?? '');
+    $startCarbon = \Carbon\Carbon::parse($document->start_date);
+    $endCarbon = \Carbon\Carbon::parse($document->end_date);
+    $arabicDays = ['Sunday'=>'الأحد','Monday'=>'الاثنين','Tuesday'=>'الثلاثاء','Wednesday'=>'الأربعاء','Thursday'=>'الخميس','Friday'=>'الجمعة','Saturday'=>'السبت'];
+    $arabicMonths = [1=>'يناير',2=>'فبراير',3=>'مارس',4=>'أبريل',5=>'مايو',6=>'يونيو',7=>'يوليو',8=>'أغسطس',9=>'سبتمبر',10=>'أكتوبر',11=>'نوفمبر',12=>'ديسمبر'];
+    $startDay = $arabicDays[$startCarbon->format('l')] ?? $startCarbon->format('l');
+    $endDay = $arabicDays[$endCarbon->format('l')] ?? $endCarbon->format('l');
+    $startDateAr = $startCarbon->format('d') . '/' . ($arabicMonths[(int)$startCarbon->format('m')] ?? $startCarbon->format('m')) . '/' . $startCarbon->format('Y');
+    $endDateAr = $endCarbon->format('d') . '/' . ($arabicMonths[(int)$endCarbon->format('m')] ?? $endCarbon->format('m')) . '/' . $endCarbon->format('Y');
 @endphp
 <table>
-    <tr>
-        <td class="hdr-row" colspan="{{ count($allCountries) }}">البلاد التي يسري فيها البطاقة</td>
-    </tr>
-    <tr>
-        @foreach($allCountries as $country)
-        @php $isVisited = (mb_strtolower($country) === $visitedStr || $country === 'ليبيا'); @endphp
-        <td style="text-align:center; padding:4px 2px; font-size:8.5px; font-weight:{{ $isVisited ? '900' : '600' }}; background:{{ $isVisited ? '#000' : '#fff' }}; color:{{ $isVisited ? '#fff' : '#000' }};">
-            {{ $country }}
-        </td>
-        @endforeach
-    </tr>
+<tr>
+    <td class="lbl" style="width:110px;">سريان التأمينيـن</td>
+    <td style="font-size:9px; width:50%;">
+        <b>من الساعة: </b>12:00 ظهراً &nbsp;|&nbsp; <b>يوم: </b>{{ $startDay }} &nbsp;|&nbsp; <b>الموافق: </b>{{ $startDateAr }}
+    </td>
+    <td style="font-size:9px;">
+        <b>إلى الساعة: </b>12:00 ظهراً &nbsp;|&nbsp; <b>يوم: </b>{{ $endDay }} &nbsp;|&nbsp; <b>الموافق: </b>{{ $endDateAr }}
+    </td>
+</tr>
 </table>
 
-{{-- ======= LEGAL TEXT ======= --}}
+{{-- ============ COUNTRIES ============ --}}
+@php
+$countriesRow1 = ['عمان','العراق','سوريا','الجزائر','تونس','البحرين','الإمارات'];
+$countriesRow2 = ['الأردن','اليمن','مصر','ليبيا','لبنان','الكويت','قطر'];
+$visitedLow = mb_strtolower($document->visited_country ?? '');
+$visitedArr = array_map('mb_strtolower', explode(',', $document->visited_country ?? ''));
+function isCountryVisited($c, $visited) {
+    return mb_strtolower($c) === $visited || in_array(mb_strtolower($c), $visited);
+}
+@endphp
 <table>
-    <tr>
-        <td class="hdr-row">قانون المكتب المحلي الذي يرجع فيه هذا الإهلاء في حالة الحوادث</td>
-    </tr>
-    <tr>
-        <td style="font-size:8.5px; line-height:1.6; padding:4px 7px;">
-            قانون المسؤولية المدنية الناشئة عن حوادث المركبات الآلية في ليبيا رقم 28 لسنة 1971م والقرارات المعدلة والمكملة له. يلتزم المؤمن بتغطية المسؤولية المدنية عن الوفاة أو الإصابة البدنية الناشئة عن حوادث المركبة خلال مدة سريان الوثيقة. يلتزم المؤمن بدفع التعويض عن الأضرار المادية والمعنوية وديًا أو قضائيًا بما لا يتجاوز الحد الأقصى وفق قرار اللجنة الشعبية رقم (213 لسنة 2003).<br>
-            <b>بيانات الاتصال لشركة المدار:</b> ص.ب 1002 طرابلس &nbsp;|&nbsp; هاتف: 0213614278 &nbsp;|&nbsp; فاكس: 0213614279 &nbsp;|&nbsp; info@mli.ly &nbsp;|&nbsp; www.mli.ly
-        </td>
-    </tr>
+<tr><td class="hdr-blk" colspan="7">البلاد التي تسري فيها البطاقة</td></tr>
+<tr>
+    @foreach($countriesRow1 as $c)
+    @php $on = isCountryVisited($c, $visitedLow) || isCountryVisited($c, $visitedArr); @endphp
+    <td style="text-align:center;padding:3px 2px;font-size:9px;">
+        <span class="chk {{ $on ? 'chk-on' : '' }}">{{ $on ? '✓' : '&nbsp;' }}</span> {{ $c }}
+    </td>
+    @endforeach
+</tr>
+<tr>
+    @foreach($countriesRow2 as $c)
+    @php $on = isCountryVisited($c, $visitedLow) || isCountryVisited($c, $visitedArr); @endphp
+    <td style="text-align:center;padding:3px 2px;font-size:9px;">
+        <span class="chk {{ $on ? 'chk-on' : '' }}">{{ $on ? '✓' : '&nbsp;' }}</span> {{ $c }}
+    </td>
+    @endforeach
+</tr>
 </table>
 
-{{-- ======= FINANCIAL ROW ======= --}}
+{{-- ============ LEGAL / BUREAU INFO ============ --}}
 <table>
-    <tr>
-        <td class="hdr-row">القسط اليومي</td>
-        <td class="hdr-row">القسط الإجمالي</td>
-        <td class="hdr-row">الضريبة</td>
-        <td class="hdr-row">رسوم الإشراف</td>
-        <td class="hdr-row">مصاريف الإصدار</td>
-        <td class="hdr-row">الدمغة</td>
-        <td class="hdr-row" style="background:#cc0000;">الإجمالي الكلي</td>
-    </tr>
-    <tr>
-        <td style="text-align:center;font-weight:700;">{{ number_format($document->daily_premium ?? 0, 3) }} د.ل</td>
-        <td style="text-align:center;font-weight:700;">{{ number_format($document->premium ?? 0, 3) }} د.ل</td>
-        <td style="text-align:center;font-weight:700;">{{ number_format($document->tax ?? 0, 3) }} د.ل</td>
-        <td style="text-align:center;font-weight:700;">{{ number_format($document->supervision_fees ?? 0, 3) }} د.ل</td>
-        <td style="text-align:center;font-weight:700;">{{ number_format($document->issue_fees ?? 0, 3) }} د.ل</td>
-        <td style="text-align:center;font-weight:700;">{{ number_format($document->stamp ?? 0, 3) }} د.ل</td>
-        <td style="text-align:center;font-weight:900;font-size:13px;color:#cc0000;">{{ number_format($document->total ?? 0, 3) }} د.ل</td>
-    </tr>
+<tr>
+    <td class="hdr-blk" style="width:60px;">البلد</td>
+    <td class="hdr-blk">بيان مختصر عن نوعية التغطيات طبقاً لقوانين التأمين الإلزامي في البلاد العربية</td>
+</tr>
+<tr>
+    <td style="text-align:center;font-weight:800;font-size:9px;">تونس</td>
+    <td style="font-size:8px;line-height:1.6;padding:3px 6px;">
+        85-87 نهج فلسطين - البلفيدير 1002 تونس &nbsp;+21671841784 &nbsp;| buat@buat.com.tn &nbsp;+21671845124<br>
+        <b>الأضرار الجسمانية</b> بقيمة محددة <b>والأضرار المادية</b> بقيمة غير محددة
+    </td>
+</tr>
+<tr>
+    <td style="text-align:center;font-weight:800;font-size:9px;">الجزائر</td>
+    <td style="font-size:8px;line-height:1.6;padding:3px 6px;">
+        إقامة شعيلي / واد حيدرة - حيدرة &nbsp;+21321604507 &nbsp;| bua.algerie@gmail.com &nbsp;+21321609295<br>
+        <b>الأضرار البدنية</b> بقيمة محددة <b>والأضرار المادية</b> بقيمة غير محددة
+    </td>
+</tr>
 </table>
 
-{{-- ======= TOTAL IN WORDS ======= --}}
+{{-- ============ GENERAL TERMS ============ --}}
 <table>
-    <tr>
-        <td style="text-align:center; padding:4px; font-size:10px;">
-            <b>إجمالي القسط والرسوم بالحروف ( الإجمالي ) :</b> {{ $printData['total_in_words'] ?? '' }}
-        </td>
-    </tr>
+<tr><td class="hdr-blk">إرشادات وشروط عامة</td></tr>
+<tr>
+    <td style="font-size:8.5px;line-height:1.65;padding:4px 7px;">
+        1. يجب على قائد (سائق) المركبة أن يكون لديه رخصة قيادة وفق قوانين البلد المراد.
+        وتعتبر هذه البطاقة الوثيقة الرسمية لأغراض قانون التأمين الإلزامي.<br>
+        2. تطبق هذه البطاقة أحكام القانون الثالث (الليبي) الناشئة عن الحوادث المثبتة في هذه الوثيقة ولا تضمن الأضرار التي تلحق بها إذا كانت أيا كان سببها.<br>
+        3. لا تزيد المبالغ المضمونة بهذه البطاقة في كل دولة عن الحدود الدنيا المنصوص عليها في قانون التأمين الإلزامي المعمول به في ذلك البلد.<br>
+        4. لا تلزم المكتب الموحد بإرسال إشعار (المسؤولية الحدودية / المنشأة الحدودية) الاتصال بالمكتب المنشور للحصول على إرشادات المرور النافع بالاتصال بالمكتب المحلي مباشرة.<br>
+        5. في حالة وقوع حادث أو كسر أو تلف في الدولة التي توجد فيها البطاقة، يتوجب على قائد المركبة الاتصال الفوري بالمكتب الموحد أو الوكيل والشركة الأعضاء.<br>
+        6. لا يحق للوكيل أو المؤمن له الاعتراف بأي مسؤولية له وذلك بدون الموافقة المكتوبة من أي بلد زار.
+        7. للحصول على المزيد من المعلومات يرجى مراجعة قانون التأمين الإلزامي في البلد المصدر للبطاقة / أو البلد المزار.
+    </td>
+</tr>
 </table>
 
-{{-- ======= ISSUE ROW ======= --}}
+{{-- ============ FINANCIAL TOTAL ============ --}}
 <table>
-    <tr>
-        <td class="hdr-row">تاريخ الإصدار</td>
-        <td class="hdr-row">وقت الإصدار</td>
-        <td class="hdr-row">الموقف</td>
-        <td class="hdr-row">من شهر</td>
-        <td class="hdr-row">سنة</td>
-        <td class="hdr-row">قوام الفئة والرسوم</td>
-    </tr>
-    <tr>
-        <td style="text-align:center;font-weight:700;">{{ \Carbon\Carbon::parse($document->issue_date)->format('d/m/Y') }}</td>
-        <td style="text-align:center;font-weight:700;">{{ \Carbon\Carbon::parse($document->issue_date)->format('H:i') }}</td>
-        <td style="text-align:center;font-weight:700;">طرابلس</td>
-        <td style="text-align:center;font-weight:700;">{{ \Carbon\Carbon::parse($document->issue_date)->format('m') }}</td>
-        <td style="text-align:center;font-weight:700;">{{ \Carbon\Carbon::parse($document->issue_date)->format('Y') }}</td>
-        <td style="text-align:center;font-weight:900;color:#cc0000;font-size:12px;">{{ number_format($document->total ?? 0, 3) }} د.ل</td>
-    </tr>
+<tr>
+    <td style="font-size:11px;font-weight:900;padding:4px 7px;">
+        إجمالي القسط والرسوم ( شامل الضرائب الحكومية ) : &nbsp;
+        <span style="color:#cc0000;font-size:13px;">{{ number_format($document->total ?? 0, 3) }}</span> د.ل
+    </td>
+</tr>
+<tr>
+    <td style="font-size:8.5px;padding:2px 7px;">
+        تقوم الشركة المصدرة للبطاقة بمحاسبة مصلحة الضرائب على الرسوم المستحقة.
+        &nbsp;&nbsp; <b>الإجمالي بالحروف: </b>{{ $printData['total_in_words'] ?? '' }}
+    </td>
+</tr>
 </table>
 
-{{-- ======= STAMP / SIGNATURE ======= --}}
+{{-- ============ ISSUE INFO ============ --}}
+@php
+    $issueCarbon = \Carbon\Carbon::parse($document->issue_date);
+    $issueDay = $arabicDays[$issueCarbon->format('l')] ?? $issueCarbon->format('l');
+    $issueMonth = $arabicMonths[(int)$issueCarbon->format('m')] ?? $issueCarbon->format('m');
+@endphp
 <table>
-    <tr>
-        <td style="width:33%; min-height:50px; padding:5px 6px; vertical-align:top;">
-            <div style="font-weight:800;font-size:9px;">توقيع المؤمن له / Insured Signature</div>
-            <div style="height:38px;"></div>
-        </td>
-        <td style="width:34%; padding:5px 6px; vertical-align:top;">
-            <div style="font-weight:800;font-size:8.5px;">قوام الفئة والرسوم التي يتقاضاها المكتب المحلي بما فيها ضريبة الدمغة على الرسوم</div>
-            <div style="font-weight:900;font-size:12px;color:#cc0000;margin-top:5px;">{{ number_format($document->total ?? 0, 3) }} دينار ليبي</div>
-            <div style="font-size:9px;margin-top:2px;">{{ $printData['total_in_words'] ?? '' }}</div>
-        </td>
-        <td style="width:33%; padding:5px 6px; vertical-align:top;">
-            <div style="font-weight:800;font-size:9px;">توقيع وختم الوكيل / Agent Stamp</div>
-            <div style="height:38px;"></div>
-        </td>
-    </tr>
+<tr>
+    <td style="font-size:9px;padding:4px 7px;">
+        <b>تحريراً في يوم:</b> {{ $issueCarbon->format('d') }}
+        &nbsp;&nbsp;
+        <b>الموافق:</b> {{ $issueDay }}
+        &nbsp;&nbsp;
+        <b>من شهر:</b> {{ $issueMonth }}
+        &nbsp;&nbsp;
+        <b>سنة:</b> {{ $issueCarbon->format('Y') }}
+    </td>
+</tr>
 </table>
 
-{{-- ======= NOTE ======= --}}
+{{-- ============ NOTE ============ --}}
 <table>
-    <tr>
-        <td style="background:#fffde7; padding:4px 7px; font-size:9px;">
-            <b style="color:#cc0000;">هام: </b>أي كتابة أو تعديل في هذه الصفحة يُبطل البطاقة ويُلغيها. للتأكد من صحة الوثيقة: <b>www.mli.ly</b> &nbsp;|&nbsp; info@mli.ly
-        </td>
-    </tr>
+<tr>
+    <td style="padding:4px 7px;font-size:9.5px;font-weight:900;color:#cc0000;text-align:center;">
+        هـام : أي كشط أو شطب أو تعديل في هذه الصفحة يبطل البطاقة وتعد لاغية.
+    </td>
+</tr>
 </table>
 
-</div>{{-- end .card --}}
+</div>
 
 @php
-    $qrData = $printData['qr_data'] ?? ['doc' => $document->document_number, 'company' => 'شركة المدار الليبي للتأمين'];
+    $qrData = $printData['qr_data'] ?? ['doc' => $document->document_number];
     $qrText = json_encode($qrData, JSON_UNESCAPED_UNICODE);
 @endphp
 <script>
-    (function() {
-        var qrText = @json($qrText);
-        var url = 'https://api.qrserver.com/v1/create-qr-code/?size=72x72&data=' + encodeURIComponent(qrText);
-        var el = document.getElementById('qrcode');
-        if (el) {
-            var img = document.createElement('img');
-            img.src = url;
-            img.style.width = '72px';
-            img.style.height = '72px';
-            el.appendChild(img);
-        }
-    })();
+(function() {
+    var txt = @json($qrText);
+    var url = 'https://api.qrserver.com/v1/create-qr-code/?size=72x72&data=' + encodeURIComponent(txt);
+    var el = document.getElementById('qrcode');
+    if (el) { el.innerHTML = '<img src="' + url + '" style="width:72px;height:72px;">'; }
+})();
+// طباعة تلقائية
+window.addEventListener('load', function() {
+    setTimeout(function() {
+        window.focus();
+        window.print();
+    }, 900);
+});
 </script>
 </body>
 </html>

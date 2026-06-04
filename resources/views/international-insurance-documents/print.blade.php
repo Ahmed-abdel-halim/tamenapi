@@ -188,16 +188,12 @@
 $countriesRow1 = ['عمان','العراق','سوريا','الجزائر','تونس','البحرين','الإمارات'];
 $countriesRow2 = ['الأردن','اليمن','مصر','ليبيا','لبنان','الكويت','قطر'];
 $visitedLow = mb_strtolower($document->visited_country ?? '');
-$visitedArr = array_map('mb_strtolower', explode(',', $document->visited_country ?? ''));
-function isCountryVisited($c, $visited) {
-    return mb_strtolower($c) === $visited || in_array(mb_strtolower($c), $visited);
-}
 @endphp
 <table>
 <tr><td class="hdr-blk" colspan="7">البلاد التي تسري فيها البطاقة</td></tr>
 <tr>
     @foreach($countriesRow1 as $c)
-    @php $on = isCountryVisited($c, $visitedLow) || isCountryVisited($c, $visitedArr); @endphp
+    @php $on = (mb_strtolower($c) === $visitedLow); @endphp
     <td style="text-align:center;padding:3px 2px;font-size:9px;">
         <span class="chk {{ $on ? 'chk-on' : '' }}">{{ $on ? '✓' : '&nbsp;' }}</span> {{ $c }}
     </td>
@@ -205,7 +201,7 @@ function isCountryVisited($c, $visited) {
 </tr>
 <tr>
     @foreach($countriesRow2 as $c)
-    @php $on = isCountryVisited($c, $visitedLow) || isCountryVisited($c, $visitedArr); @endphp
+    @php $on = (mb_strtolower($c) === $visitedLow); @endphp
     <td style="text-align:center;padding:3px 2px;font-size:9px;">
         <span class="chk {{ $on ? 'chk-on' : '' }}">{{ $on ? '✓' : '&nbsp;' }}</span> {{ $c }}
     </td>

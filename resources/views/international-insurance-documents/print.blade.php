@@ -195,9 +195,10 @@ $visitedLow = mb_strtolower($visitedRaw);
 <tr>
     @foreach($countriesRow1 as $c)
     @php
-        $cLow = mb_strtolower($c);
+        $cLow  = mb_strtolower($c);
+        $cStripped = preg_replace('/^ال/', '', $cLow);
         $on = (mb_strpos($visitedLow, $cLow) !== false)
-           || (mb_strpos($cLow, $visitedLow) !== false && mb_strlen($visitedLow) > 2);
+           || (mb_strpos($visitedLow, $cStripped) !== false);
     @endphp
     <td style="text-align:center;padding:3px 1px;font-size:8.5px;white-space:nowrap;">
         <span class="chk {{ $on ? 'chk-on' : '' }}">{!! $on ? '&#10003;' : '&nbsp;' !!}</span>&nbsp;{{ $c }}
@@ -207,9 +208,10 @@ $visitedLow = mb_strtolower($visitedRaw);
 <tr>
     @foreach($countriesRow2 as $c)
     @php
-        $cLow = mb_strtolower($c);
+        $cLow  = mb_strtolower($c);
+        $cStripped = preg_replace('/^ال/', '', $cLow);
         $on = (mb_strpos($visitedLow, $cLow) !== false)
-           || (mb_strpos($cLow, $visitedLow) !== false && mb_strlen($visitedLow) > 2);
+           || (mb_strpos($visitedLow, $cStripped) !== false);
     @endphp
     <td style="text-align:center;padding:3px 1px;font-size:8.5px;white-space:nowrap;">
         <span class="chk {{ $on ? 'chk-on' : '' }}">{!! $on ? '&#10003;' : '&nbsp;' !!}</span>&nbsp;{{ $c }}

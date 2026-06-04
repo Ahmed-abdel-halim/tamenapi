@@ -187,23 +187,24 @@
 @php
 $countriesRow1 = ['عمان','العراق','سوريا','الجزائر','تونس','البحرين','الإمارات'];
 $countriesRow2 = ['الأردن','اليمن','مصر','ليبيا','لبنان','الكويت','قطر'];
-$visitedLow = mb_strtolower($document->visited_country ?? '');
+$visitedRaw = $document->visited_country ?? '';
+$visitedLow = mb_strtolower($visitedRaw);
 @endphp
 <table>
 <tr><td class="hdr-blk" colspan="7">البلاد التي تسري فيها البطاقة</td></tr>
 <tr>
     @foreach($countriesRow1 as $c)
-    @php $on = (mb_strtolower($c) === $visitedLow); @endphp
-    <td style="text-align:center;padding:3px 2px;font-size:9px;">
-        <span class="chk {{ $on ? 'chk-on' : '' }}">{{ $on ? '✓' : '&nbsp;' }}</span> {{ $c }}
+    @php $on = (mb_strpos($visitedLow, mb_strtolower($c)) !== false); @endphp
+    <td style="text-align:center;padding:3px 1px;font-size:8.5px;white-space:nowrap;">
+        <span class="chk {{ $on ? 'chk-on' : '' }}">{{ $on ? '✓' : '&nbsp;' }}</span>&nbsp;{{ $c }}
     </td>
     @endforeach
 </tr>
 <tr>
     @foreach($countriesRow2 as $c)
-    @php $on = (mb_strtolower($c) === $visitedLow); @endphp
-    <td style="text-align:center;padding:3px 2px;font-size:9px;">
-        <span class="chk {{ $on ? 'chk-on' : '' }}">{{ $on ? '✓' : '&nbsp;' }}</span> {{ $c }}
+    @php $on = (mb_strpos($visitedLow, mb_strtolower($c)) !== false); @endphp
+    <td style="text-align:center;padding:3px 1px;font-size:8.5px;white-space:nowrap;">
+        <span class="chk {{ $on ? 'chk-on' : '' }}">{{ $on ? '✓' : '&nbsp;' }}</span>&nbsp;{{ $c }}
     </td>
     @endforeach
 </tr>

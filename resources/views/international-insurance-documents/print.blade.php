@@ -25,27 +25,10 @@
 {{-- ============ HEADER ============ --}}
 <table>
 <tr>
-    {{-- شعار الاتحاد + شعار المدار --}}
-    <td style="width:105px; text-align:center; padding:5px 3px; border:1px solid #000;">
-        <svg width="52" height="52" viewBox="0 0 100 100">
-            <circle cx="50" cy="50" r="46" fill="none" stroke="#1a4a8a" stroke-width="3.5"/>
-            <circle cx="50" cy="50" r="35" fill="none" stroke="#1a4a8a" stroke-width="1.5"/>
-            <path d="M14,50 C18,30 33,22 44,25 C35,36 27,44 27,50Z" fill="#2d7a2d"/>
-            <path d="M14,50 C18,70 33,78 44,75 C35,64 27,56 27,50Z" fill="#2d7a2d"/>
-            <path d="M86,50 C82,30 67,22 56,25 C65,36 73,44 73,50Z" fill="#2d7a2d"/>
-            <path d="M86,50 C82,70 67,78 56,75 C65,64 73,56 73,50Z" fill="#2d7a2d"/>
-            <ellipse cx="50" cy="50" rx="15" ry="25" fill="none" stroke="#1a4a8a" stroke-width="1.5"/>
-            <line x1="24" y1="50" x2="76" y2="50" stroke="#1a4a8a" stroke-width="1.2"/>
-            <line x1="28" y1="35" x2="72" y2="35" stroke="#1a4a8a" stroke-width="0.8"/>
-            <line x1="28" y1="65" x2="72" y2="65" stroke="#1a4a8a" stroke-width="0.8"/>
-            <rect x="35" y="44" width="30" height="12" rx="3" fill="#1a4a8a"/>
-            <rect x="39" y="37" width="22" height="9" rx="2" fill="#1a4a8a"/>
-            <circle cx="41" cy="57" r="4" fill="#fff" stroke="#1a4a8a" stroke-width="1.5"/>
-            <circle cx="59" cy="57" r="4" fill="#fff" stroke="#1a4a8a" stroke-width="1.5"/>
-        </svg>
-        <br>
-        <img src="/img/logo.png" alt="" style="width:46px;height:46px;object-fit:contain;margin-top:3px;" onerror="this.style.display='none'">
-        <div style="font-size:6px;font-weight:800;color:#1a4a8a;margin-top:2px;line-height:1.3;">المدار الليبي<br>للتأمين</div>
+    {{-- لوجو المدار لوحده --}}
+    <td style="width:105px; text-align:center; padding:6px 4px; border:1px solid #000; vertical-align:middle;">
+        <img src="/img/logo.png" alt="المدار" style="width:80px;height:80px;object-fit:contain;" onerror="this.style.display='none'">
+        <div style="font-size:7px;font-weight:800;color:#1a4a8a;margin-top:3px;line-height:1.4;">شركة المدار الليبي<br>للتأمين</div>
     </td>
 
     {{-- العنوان --}}
@@ -55,19 +38,11 @@
         <div style="font-size:16px;font-weight:900;color:#cc0000;margin-top:4px;">للمركبات الليبية</div>
     </td>
 
-    {{-- علم ليبيا --}}
-    <td style="width:95px; text-align:center; padding:5px; border:1px solid #000;">
-        <svg width="75" height="86" viewBox="0 0 75 86">
-            <rect x="1" y="1" width="73" height="84" rx="3" fill="none" stroke="#000" stroke-width="1.5"/>
-            <rect x="1" y="1" width="73" height="29" fill="#000"/>
-            <rect x="1" y="30" width="73" height="14" fill="#cc0000"/>
-            <rect x="1" y="44" width="73" height="41" fill="#239e45"/>
-            <circle cx="37" cy="44" r="12" fill="none" stroke="#fff" stroke-width="9"/>
-            <circle cx="41" cy="44" r="12" fill="#cc0000"/>
-            <polygon points="37,28 39,34 45,34 40,38 42,44 37,40 32,44 34,38 29,34 35,34" fill="#fff"/>
-            <line x1="1" y1="30" x2="74" y2="30" stroke="#000" stroke-width="0.5"/>
-            <line x1="1" y1="44" x2="74" y2="44" stroke="#000" stroke-width="0.5"/>
-        </svg>
+    {{-- لوجو الاتحاد العربي (PNG) --}}
+    <td style="width:105px; text-align:center; padding:5px 4px; border:1px solid #000; vertical-align:middle;">
+        <img src="/img/الاتحاد.PNG" alt="الاتحاد العربي للتأمين"
+             style="width:90px;height:90px;object-fit:contain;"
+             onerror="this.outerHTML='<div style=&quot;font-size:8px;font-weight:800;color:#1a4a8a;&quot;>الاتحاد العربي</div>'">
     </td>
 </tr>
 </table>

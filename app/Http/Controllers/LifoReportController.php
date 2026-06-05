@@ -9,6 +9,13 @@ use GuzzleHttp\Client;
 
 class LifoReportController extends Controller
 {
+    public function __construct()
+    {
+        // Increase memory and execution time limits to handle large LIFO datasets (e.g., 88k+ cards)
+        ini_set('memory_limit', '1024M');
+        set_time_limit(300);
+    }
+
     /**
      * Proxy request to the production LIFO API.
      */

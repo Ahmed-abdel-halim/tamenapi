@@ -164,7 +164,7 @@ class LifoReportController extends Controller
 
                 if (isset($data['code']) && $data['code'] === 1 && isset($data['data'])) {
                     $list = is_array($data['data']) ? $data['data'] : [];
-                    Cache::put($cacheKey, $list, 7200); // 2 hours
+                    Cache::put($cacheKey, $list, 86400); // 24 hours
                 } else {
                     $msg = $data['message'] ?? $data['messages'] ?? 'فشل جلب البيانات من خادم الاتحاد';
                     return response()->json([
@@ -181,56 +181,67 @@ class LifoReportController extends Controller
             }
         }
 
-        // Filter list locally
-        $filteredList = $list;
+        // Filter list locally in a single pass
+        $hasOffice = !empty($officeName);
+        $hasCard = !empty($cardNumber);
+        $hasReq = !empty($reqNumberParam);
+        $hasDateFrom = !empty($dateFrom);
+        $hasDateTo = !empty($dateTo);
+        $hasSearch = !empty($search);
 
-        if (!empty($officeName)) {
-            $officeName = strtolower(trim($officeName));
-            $filteredList = array_values(array_filter($filteredList, function ($card) use ($officeName) {
-                return strpos(strtolower($card['offices'] ?? ''), $officeName) !== false;
-            }));
-        }
+        if ($hasOffice) $officeName = strtolower(trim($officeName));
+        if ($hasCard) $cardNumber = strtolower(trim($cardNumber));
+        if ($hasReq) $reqNumberParam = strtolower(trim($reqNumberParam));
+        if ($hasSearch) $search = strtolower(trim($search));
 
-        if (!empty($cardNumber)) {
-            $cardNumber = strtolower(trim($cardNumber));
-            $filteredList = array_values(array_filter($filteredList, function ($card) use ($cardNumber) {
-                $num = strtolower($card['card_number'] ?? $card['card_serial'] ?? '');
-                return strpos($num, $cardNumber) !== false;
-            }));
-        }
-
-        if (!empty($reqNumberParam)) {
-            $reqNumberParam = strtolower(trim($reqNumberParam));
-            $filteredList = array_values(array_filter($filteredList, function ($card) use ($reqNumberParam) {
-                $req = strtolower($card['request_numberr'] ?? '');
-                return strpos($req, $reqNumberParam) !== false;
-            }));
-        }
-
-        if (!empty($dateFrom)) {
-            $filteredList = array_values(array_filter($filteredList, function ($card) use ($dateFrom) {
-                $date = substr($card['created_at'] ?? '', 0, 10);
-                return $date >= $dateFrom;
-            }));
-        }
-
-        if (!empty($dateTo)) {
-            $filteredList = array_values(array_filter($filteredList, function ($card) use ($dateTo) {
-                $date = substr($card['created_at'] ?? '', 0, 10);
-                return $date <= $dateTo;
-            }));
-        }
-
-        if (!empty($search)) {
-            $search = strtolower(trim($search));
-            $filteredList = array_values(array_filter($filteredList, function ($card) use ($search) {
-                $cardNumber = strtolower($card['card_number'] ?? $card['card_serial'] ?? '');
-                $reqNumber  = strtolower($card['request_numberr'] ?? '');
-                $status     = strtolower($card['cardstautesname'] ?? '');
-                return strpos($cardNumber, $search) !== false || 
-                       strpos($reqNumber, $search) !== false || 
-                       strpos($status, $search) !== false;
-            }));
+        if ($hasOffice || $hasCard || $hasReq || $hasDateFrom || $hasDateTo || $hasSearch) {
+            $filteredList = [];
+            foreach ($list as $card) {
+                if ($hasOffice) {
+                    $val = isset($card['offices']) ? strtolower($card['offices']) : '';
+                    if (strpos($val, $officeName) === false) {
+                        continue;
+                    }
+                }
+                if ($hasCard) {
+                    $num = isset($card['card_number']) ? strtolower($card['card_number']) : (isset($card['card_serial']) ? strtolower($card['card_serial']) : '');
+                    if (strpos($num, $cardNumber) === false) {
+                        continue;
+                    }
+                }
+                if ($hasReq) {
+                    $req = isset($card['request_numberr']) ? strtolower($card['request_numberr']) : '';
+                    if (strpos($req, $reqNumberParam) === false) {
+                        continue;
+                    }
+                }
+                if ($hasDateFrom) {
+                    $date = isset($card['created_at']) ? substr($card['created_at'], 0, 10) : '';
+                    if ($date < $dateFrom) {
+                        continue;
+                    }
+                }
+                if ($hasDateTo) {
+                    $date = isset($card['created_at']) ? substr($card['created_at'], 0, 10) : '';
+                    if ($date > $dateTo) {
+                        continue;
+                    }
+                }
+                if ($hasSearch) {
+                    $num = isset($card['card_number']) ? strtolower($card['card_number']) : (isset($card['card_serial']) ? strtolower($card['card_serial']) : '');
+                    $req = isset($card['request_numberr']) ? strtolower($card['request_numberr']) : '';
+                    $status = isset($card['cardstautesname']) ? strtolower($card['cardstautesname']) : '';
+                    
+                    if (strpos($num, $search) === false && 
+                        strpos($req, $search) === false && 
+                        strpos($status, $search) === false) {
+                        continue;
+                    }
+                }
+                $filteredList[] = $card;
+            }
+        } else {
+            $filteredList = $list;
         }
 
         $total = count($filteredList);
@@ -457,7 +468,7 @@ class LifoReportController extends Controller
             }
 
             $reports = $fetchedReports;
-            Cache::put($reportsCacheKey, $reports, 600);
+            Cache::put($reportsCacheKey, $reports, 7200); // 2 hours
         }
 
         // 4. Filter reports based on search inputs
@@ -806,7 +817,7 @@ class LifoReportController extends Controller
             }
 
             $reports = $fetchedReports;
-            Cache::put($reportsCacheKey, $reports, 600);
+            Cache::put($reportsCacheKey, $reports, 7200); // 2 hours
         }
 
         // 4. Map offices names for quick resolution

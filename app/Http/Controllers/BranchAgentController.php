@@ -3115,5 +3115,53 @@ class BranchAgentController extends Controller
                 ->header('Content-Type', 'text/html; charset=utf-8');
         }
     }
+
+    public function adminPendingCounts(Request $request)
+    {
+        // Only admins or authorized employees can access these counts
+        $userId = $request->header('X-User-Id') ?? $request->query('user_id');
+        if ($userId) {
+            $user = \App\Models\User::find($userId);
+            if (!$user) {
+                return response()->json(['message' => 'المستخدم غير موجود'], 404);
+            }
+            
+            $isAdmin = $user->is_admin ?? false;
+            $authorizedDocs = $user->authorized_documents ?? [];
+            
+            $hasAccess = $isAdmin || 
+                         in_array('إدارة الفروع والوكلاء', $authorizedDocs) || 
+                         in_array('إدارة الموظفين', $authorizedDocs) || 
+                         in_array('المحاسب المالي', $authorizedDocs);
+                         
+            if (!$hasAccess) {
+                return response()->json(['message' => 'غير مصرح لك بالوصول لهذا الإجراء'], 403);
+            }
+        }
+
+        $newAgents = \App\Models\BranchAgent::where('status', 'قيد الانتظار')->count();
+        $agentRequests = \App\Models\AgentRequest::where('status', 'pending')->count();
+        $agencyCancellations = \App\Models\AgencyCancellation::where('status', 'pending')->count();
+        $employeeRequests = \App\Models\EmployeeRequest::where('status', 'pending')->count();
+        $agentTransfers = \App\Models\AgentTransfer::where('status', 'pending')->count();
+
+        // Profile update requests
+        $agentProfileUpdates = \App\Models\ProfileUpdateRequest::where('status', 'pending')
+            ->whereHas('user.branchAgent')
+            ->count();
+        $employeeProfileUpdates = \App\Models\ProfileUpdateRequest::where('status', 'pending')
+            ->whereDoesntHave('user.branchAgent')
+            ->count();
+
+        return response()->json([
+            'new_agents' => $newAgents,
+            'agent_requests' => $agentRequests,
+            'agency_cancellations' => $agencyCancellations,
+            'agent_profile_updates' => $agentProfileUpdates,
+            'employee_requests' => $employeeRequests,
+            'employee_profile_updates' => $employeeProfileUpdates,
+            'agent_transfers' => $agentTransfers,
+        ]);
+    }
 }
 

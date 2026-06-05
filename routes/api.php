@@ -34,6 +34,7 @@ use App\Http\Controllers\CompanyDocumentController;
 use App\Http\Controllers\RentalVoucherController;
 use App\Http\Controllers\ExpenseCategoryController;
 use App\Http\Controllers\ExpenseSubCategoryController;
+use App\Http\Controllers\LifoReportController;
 
 
 
@@ -189,6 +190,7 @@ Route::get('/branches-agents/monthly-account-closure', [BranchAgentController::c
 Route::post('/branches-agents/monthly-account-closure', [BranchAgentController::class, 'saveMonthlyAccountClosure']);
 Route::get('/branches-agents/{id}/monthly-account-closure-print', [BranchAgentController::class, 'printMonthlyAccountClosure']);
 Route::get('/branches-agents/monthly-account-closures-report', [BranchAgentController::class, 'getMonthlyAccountClosuresReport']);
+Route::get('/branches-agents/pending-counts', [BranchAgentController::class, 'adminPendingCounts']);
 Route::apiResource('branches-agents', BranchAgentController::class);
 Route::apiResource('payment-vouchers', 'App\Http\Controllers\PaymentVoucherController');
 Route::apiResource('expenses', 'App\Http\Controllers\ExpenseController');
@@ -318,6 +320,7 @@ Route::post('/professions', [ProfessionController::class, 'store']);
 Route::delete('/professions/{id}', [ProfessionController::class, 'destroy']);
 
 use App\Http\Controllers\DocumentRequestController;
+Route::get('/document-requests/pending-count', [DocumentRequestController::class, 'pendingCount']);
 Route::apiResource('document-requests', DocumentRequestController::class);
 
 Route::apiResource('personal-accident-insurance-documents', PersonalAccidentInsuranceDocumentController::class)->parameters([
@@ -416,241 +419,12 @@ Route::prefix('agent-wallet')->group(function () {
     Route::get('/{id}/referrals', [\App\Http\Controllers\AgentWalletController::class, 'getReferrals']);
 });
 
-// ─── LIFO API Proxy Route ────────────────────────────────────────────────────
-Route::any('/lifo-prod/{any}', function (Illuminate\Http\Request $request, $any) {
-    $targetUrl = 'https://prodapi.lifo.ly/' . $any;
-
-    $client = new \GuzzleHttp\Client([
-        'verify'          => false,
-        'timeout'         => 30.0,
-        'connect_timeout' => 10.0,
-        'proxy'           => '',
-        'curl'            => [CURLOPT_IPRESOLVE => CURL_IPRESOLVE_V4],
-    ]);
-
-    // Headers to strip before forwarding to LIFO
-    $stripHeaders = [
-        'host', 'content-length', 'cookie', 'origin', 'referer',
-        'accept-encoding', 'sec-fetch-dest', 'sec-fetch-mode', 'sec-fetch-site',
-        'connection', 'authorization', 'content-type',
-    ];
-
-    // Flatten Laravel's array-of-arrays headers into plain strings for Guzzle
-    $flatHeaders = [];
-    foreach ($request->headers->all() as $key => $value) {
-        if (!in_array(strtolower($key), $stripHeaders)) {
-            $flatHeaders[$key] = is_array($value) ? implode(', ', $value) : $value;
-        }
-    }
-
-    $options = [
-        'headers'     => $flatHeaders,
-        'query'       => $request->query(),
-        'http_errors' => false,
-    ];
-
-    // For non-GET: forward body to LIFO
-    // Supports both FormData (multipart) and JSON body
-    if (!$request->isMethod('get')) {
-        $contentType = strtolower($request->headers->get('Content-Type', ''));
-        
-        if (str_contains($contentType, 'application/json')) {
-            // JSON body: decode and re-send via Guzzle 'json' option
-            $rawBody = $request->getContent();
-            if (!empty($rawBody)) {
-                $decoded = json_decode($rawBody, true);
-                if (json_last_error() === JSON_ERROR_NONE && $decoded !== null) {
-                    $options['json'] = $decoded;
-                } else {
-                    $options['body']                    = $rawBody;
-                    $options['headers']['Content-Type'] = 'application/json';
-                }
-            }
-        } else {
-            // FormData or URL-encoded: Laravel already parsed it into $request->all()
-            // Re-send as form_params (Content-Type: application/x-www-form-urlencoded)
-            $allParams = $request->all();
-            if (!empty($allParams)) {
-                $options['form_params'] = $allParams;
-            }
-        }
-    }
-
-    try {
-        $response = $client->request($request->method(), $targetUrl, $options);
-        return response($response->getBody()->getContents(), $response->getStatusCode())
-            ->header('Content-Type', $response->getHeaderLine('Content-Type') ?: 'application/json');
-    } catch (\Exception $e) {
-        return response()->json([
-            'code'    => 0,
-            'success' => false,
-            'message' => 'تعذر الاتصال بخادم الاتحاد: ' . $e->getMessage(),
-            'error'   => $e->getMessage(),
-        ], 200);
-    }
-})->where('any', '.*');
-
-// ─── LIFO Paginated Cards Endpoint ───────────────────────────────────────────
-Route::post('/lifo-reports/cards-paginated', function (Illuminate\Http\Request $request) {
-    $request->validate([
-        'user_name' => 'required|string',
-        'pass_word' => 'required|string',
-        'category'  => 'required|string|in:all,active,cancel,sold',
-        'page'      => 'nullable|integer|min:1',
-        'per_page'  => 'nullable|integer|min:1|max:100',
-        'search'    => 'nullable|string',
-    ]);
-
-    $userName = $request->user_name;
-    $password = $request->pass_word;
-    $category = $request->category;
-    $page     = (int) $request->input('page', 1);
-    $perPage  = (int) $request->input('per_page', 10);
-    $search   = $request->input('search');
-    $forceRefresh = $request->boolean('force_refresh', false);
-
-    $userHash = md5($userName);
-    $cacheKey = "lifo_cards_{$userHash}_{$category}";
-
-    $list = null;
-    $fromCache = true;
-
-    if (!$forceRefresh) {
-        $list = Cache::get($cacheKey);
-    }
-
-    if (!$list) {
-        $fromCache = false;
-        $endpoint = '';
-        switch ($category) {
-            case 'all':    $endpoint = '/cards/all';    break;
-            case 'active': $endpoint = '/cards/active'; break;
-            case 'cancel': $endpoint = '/cards/cancel'; break;
-            case 'sold':   $endpoint = '/cards/sold';   break;
-        }
-
-        $targetUrl = 'https://prodapi.lifo.ly/api' . $endpoint;
-
-        $client = new \GuzzleHttp\Client([
-            'verify'          => false,
-            'timeout'         => 180.0, // generous timeout for slow LIFO server
-            'connect_timeout' => 15.0,
-            'proxy'           => '',
-            'curl'            => [CURLOPT_IPRESOLVE => CURL_IPRESOLVE_V4],
-        ]);
-
-        try {
-            $response = $client->request('POST', $targetUrl, [
-                'form_params' => [
-                    'user_name' => $userName,
-                    'pass_word' => $password,
-                ]
-            ]);
-
-            $contents = $response->getBody()->getContents();
-            $data = json_decode($contents, true);
-
-            if (isset($data['code']) && $data['code'] === 1 && isset($data['data'])) {
-                $list = is_array($data['data']) ? $data['data'] : [];
-                Cache::put($cacheKey, $list, 7200); // 2 hours
-            } else {
-                $msg = $data['message'] ?? $data['messages'] ?? 'فشل جلب البيانات من خادم الاتحاد';
-                return response()->json([
-                    'success' => false,
-                    'message' => $msg
-                ], 400);
-            }
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'تعذر الاتصال بخادم الاتحاد: ' . $e->getMessage(),
-                'error'   => $e->getMessage()
-            ], 500);
-        }
-    }
-
-    // Filter list locally
-    $filteredList = $list;
-    if (!empty($search)) {
-        $search = strtolower(trim($search));
-        $filteredList = array_values(array_filter($list, function ($card) use ($search) {
-            $cardNumber = strtolower($card['card_number'] ?? $card['card_serial'] ?? '');
-            $reqNumber  = strtolower($card['request_numberr'] ?? '');
-            $status     = strtolower($card['cardstautesname'] ?? '');
-            return strpos($cardNumber, $search) !== false || 
-                   strpos($reqNumber, $search) !== false || 
-                   strpos($status, $search) !== false;
-        }));
-    }
-
-    $total = count($filteredList);
-    $offset = ($page - 1) * $perPage;
-    $slicedList = array_slice($filteredList, $offset, $perPage);
-
-    return response()->json([
-        'success'    => true,
-        'data'       => $slicedList,
-        'total'      => $total,
-        'page'       => $page,
-        'per_page'   => $perPage,
-        'from_cache' => $fromCache,
-    ]);
-});
-
-// ─── LIFO Connection Diagnostic Endpoint ──────────────────────────────────────
-Route::get('/test-lifo-connection', function () {
-    $results = [];
-    
-    // Test 1: Resolve DNS
-    $ip = gethostbyname('prodapi.lifo.ly');
-    $results['dns_resolution'] = [
-        'host' => 'prodapi.lifo.ly',
-        'ip' => $ip,
-        'success' => ($ip !== 'prodapi.lifo.ly')
-    ];
-    
-    // Test 2: Curl test
-    $ch = curl_init();
-    curl_setopt($ch, CURLOPT_URL, "https://prodapi.lifo.ly/api/countries/all");
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
-    curl_setopt($ch, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4); // Force IPv4 in curl test
-    curl_setopt($ch, CURLOPT_TIMEOUT, 10);
-    
-    $output = curl_exec($ch);
-    $error = curl_error($ch);
-    $info = curl_getinfo($ch);
-    curl_close($ch);
-    
-    $results['curl_test'] = [
-        'url' => 'https://prodapi.lifo.ly/api/countries/all',
-        'http_code' => $info['http_code'],
-        'error' => $error,
-        'total_time' => $info['total_time'],
-        'output_snippet' => substr($output, 0, 500)
-    ];
-    
-    // Test 3: Laravel Http client test
-    try {
-        $res = \Illuminate\Support\Facades\Http::timeout(10)
-            ->withoutVerifying()
-            ->withOptions([
-                'force_ip_resolve' => 'v4',
-                'proxy' => ''
-            ])
-            ->get('https://prodapi.lifo.ly/api/countries/all');
-        $results['laravel_http_test'] = [
-            'status' => $res->status(),
-            'body' => substr($res->body(), 0, 500)
-        ];
-    } catch (\Exception $e) {
-        $results['laravel_http_test'] = [
-            'error' => $e->getMessage()
-        ];
-    }
-    
-    return response()->json($results);
-});
+// ─── LIFO API Routes ─────────────────────────────────────────────────────────
+Route::any('/lifo-prod/{any}', [LifoReportController::class, 'lifoProxy'])->where('any', '.*');
+Route::post('/lifo-reports/cards-paginated', [LifoReportController::class, 'cardsPaginated']);
+Route::post('/lifo-reports/reports-paginated', [LifoReportController::class, 'reportsPaginated']);
+Route::post('/lifo-reports/inventory-summary', [LifoReportController::class, 'inventorySummary']);
+Route::post('/lifo-reports/offices-aggregated', [LifoReportController::class, 'officesAggregated']);
+Route::get('/test-lifo-connection', [LifoReportController::class, 'testLifoConnection']);
 
 

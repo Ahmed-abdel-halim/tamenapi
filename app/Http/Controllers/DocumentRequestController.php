@@ -124,4 +124,22 @@ class DocumentRequestController extends Controller
 
         return response()->json(['message' => 'تم حذف الطلب بنجاح']);
     }
+
+    public function pendingCount(Request $request)
+    {
+        $query = DocumentRequest::where('status', 'pending');
+
+        $userId = $request->header('X-User-Id') ?? $request->query('user_id');
+        if ($userId) {
+            $user = \App\Models\User::find($userId);
+            if ($user && !($user->is_admin ?? false)) {
+                $agent = \App\Models\BranchAgent::where('user_id', $userId)->first();
+                if ($agent) {
+                    $query->where('branch_agent_id', $agent->id);
+                }
+            }
+        }
+
+        return response()->json(['count' => $query->count()]);
+    }
 }

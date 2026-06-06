@@ -1045,6 +1045,7 @@ class InsuranceDocumentController extends Controller
             // Ensure vehicleType relation is loaded for TypeOfVehicle fallback
             $document->loadMissing('vehicleType');
 
+            $user = null;
             if ($document->branch_agent_id) {
                 $document->loadMissing('branchAgent.user');
                 $user = $document->branchAgent->user ?? null;

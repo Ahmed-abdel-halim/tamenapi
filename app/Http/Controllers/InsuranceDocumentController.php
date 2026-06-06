@@ -1014,6 +1014,23 @@ class InsuranceDocumentController extends Controller
         return trim($words);
     }
 
+    private static function cleanPhone(?string $phone): string
+    {
+        if (!$phone) {
+            return '';
+        }
+        // Remove spaces, dashes, parentheses, plus signs
+        $cleaned = preg_replace('/[\s\-\(\)\+]/', '', $phone);
+        
+        if (strpos($cleaned, '00218') === 0) {
+            $cleaned = '0' . substr($cleaned, 5);
+        } elseif (strpos($cleaned, '218') === 0) {
+            $cleaned = '0' . substr($cleaned, 3);
+        }
+        
+        return $cleaned;
+    }
+
     // ═══════════════════════════════════════════════════════════════════════════
     // EIDC Integration Methods - تكامل مع هيئة الإشراف على التأمين
     // ═══════════════════════════════════════════════════════════════════════════
@@ -1069,7 +1086,7 @@ class InsuranceDocumentController extends Controller
             $payload = [
                 'InsuredsName' => $validated['insured_name'] ?? $document->insured_name,
                 'NidPassport' => $validated['nid_passport'] ?? $document->nid_passport ?? $validated['driving_license_number'] ?? $document->driving_license_number ?? '',
-                'PhoneNo' => $validated['phone'] ?? $document->phone,
+                'PhoneNo' => self::cleanPhone($validated['phone'] ?? $document->phone),
                 'Nationality' => $validated['nationality'] ?? $document->nationality ?? 'ليبي',
                 'Email' => $validated['email'] ?? $document->email ?? null,
                 'Address' => $document->address ?: ($document->plate ? ($document->plate->city->name_ar ?? 'ليبيا') : 'ليبيا'),
@@ -1603,6 +1620,11 @@ class InsuranceDocumentController extends Controller
         try {
             $service = (new EidcApiService())->forUser($this->resolveEidcUser($request));
             $data = $request->all();
+
+            // Clean phone number format for EIDC API
+            if (isset($data['PhoneNo'])) {
+                $data['PhoneNo'] = self::cleanPhone($data['PhoneNo']);
+            }
 
             // Fix: Ensure FromNoonOf is at least tomorrow (Resolution 126/2022)
             if (isset($data['FromNoonOf'])) {

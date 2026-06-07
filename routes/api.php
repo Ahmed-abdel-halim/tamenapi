@@ -359,6 +359,9 @@ Route::get('/claims/document-info', [ClaimController::class, 'fetchDocumentInfo'
 Route::get('/claims/search-documents', [ClaimController::class, 'searchDocuments']);
 Route::apiResource('claims', ClaimController::class)->only(['index', 'store', 'show', 'update', 'destroy']);
 Route::post('/claims/{id}/transfers', [ClaimController::class, 'addTransfer']);
+Route::post('/claims/{id}/submit-compensation', [ClaimController::class, 'submitCompensation']);
+Route::post('/claims/{id}/approve-payment', [ClaimController::class, 'approvePayment']);
+Route::post('/claims/{id}/reject-payment', [ClaimController::class, 'rejectPayment']);
 
 // ─── Excel Import Routes (استيراد ملفات Excel) ──────────────────────────────
 Route::post('/excel-import/analyze', [\App\Http\Controllers\ExcelImportController::class, 'analyzeFile']);

@@ -458,4 +458,163 @@ class ClaimController extends Controller
 
         return response()->json($document);
     }
+
+    public function submitCompensation(Request $request, $id)
+    {
+        $claim = Claim::findOrFail($id);
+
+        $validated = $request->validate([
+            'compensation_value' => 'required|numeric',
+            'additional_expenses' => 'required|numeric',
+            'recipient_name' => 'required|string',
+            'payment_method' => 'required|string',
+            'document_number' => 'nullable|string',
+            'currency' => 'required|string',
+            'sub_category' => 'nullable|string',
+            'notes' => 'nullable|string',
+        ]);
+
+        $validated['total_paid'] = $validated['compensation_value'] + $validated['additional_expenses'];
+        $validated['finance_status'] = 'pending';
+
+        if ($request->hasFile('financial_value_image')) {
+            $validated['financial_value_image'] = $request->file('financial_value_image')->store('claim_financials', 'public');
+        }
+
+        $claim->update($validated);
+
+        // Also add a transfer log for traceability
+        $claim->transfers()->create([
+            'transfer_type' => 'للتسديد - الشؤون المالية',
+            'details' => [
+                'compensation_value' => $validated['compensation_value'],
+                'additional_expenses' => $validated['additional_expenses'],
+                'financial_value' => $validated['total_paid'],
+                'recipient_name' => $validated['recipient_name'],
+                'payment_method' => $validated['payment_method'],
+                'document_number' => $validated['document_number'] ?? '',
+                'book_number' => $validated['document_number'] ?? '',
+                'notes' => $validated['notes'] ?? '',
+                'financial_value_image' => $validated['financial_value_image'] ?? '',
+            ]
+        ]);
+
+        $claim->update(['status' => 'للتسديد - الشؤون المالية']);
+
+        return response()->json($claim->load(['document', 'transfers', 'reports']));
+    }
+
+    public function approvePayment(Request $request, $id)
+    {
+        $claim = Claim::findOrFail($id);
+
+        $userId = $request->header('X-User-Id') ?? $request->query('user_id');
+
+        $claim->update([
+            'finance_status' => 'approved',
+            'finance_approved_at' => now(),
+            'finance_user_id' => $userId,
+            'status' => 'مدفوع',
+        ]);
+
+        // Determine payment source
+        $paymentSource = 'treasury';
+        if ($claim->payment_method === 'حوالة مصرفية' || $claim->payment_method === 'شيك (صك)') {
+            $paymentSource = 'bank';
+        }
+
+        // Create an Expense record in the expenses table so it shows up in general ledger & treasury/banks expenses
+        $expense = \App\Models\Expense::create([
+            'name' => "تعويض حادث رقم: {$claim->claim_number}",
+            'recipient' => $claim->recipient_name,
+            'category' => 'التعويضات',
+            'sub_category' => $claim->sub_category ?: 'التعويضات',
+            'amount' => $claim->total_paid,
+            'currency' => $claim->currency ?: 'LYD',
+            'voucher_number' => $claim->document_number ?: '',
+            'receipt_image' => $claim->financial_value_image ?: '',
+            'expense_type' => 'indemnity',
+            'expense_date' => now()->toDateString(),
+            'status' => 'مدفوع',
+            'notes' => $claim->finance_notes ?: '',
+            'is_indemnity' => true,
+            'payment_source' => $paymentSource,
+        ]);
+
+        // Process financial transactions
+        if ($paymentSource === 'treasury') {
+            \App\Models\TreasuryTransaction::create([
+                'transaction_date' => now()->toDateString(),
+                'type' => 'expense',
+                'amount' => $claim->total_paid,
+                'description' => "تعويض حادث رقم: {$claim->claim_number} (مصروف رقم: {$expense->id})",
+                'source' => $claim->recipient_name,
+                'notes' => $claim->notes ?: '',
+                'payment_source' => 'treasury',
+            ]);
+        } else {
+            // Find a bank or default to the first one
+            $bank = \App\Models\Bank::first();
+            $bankName = $bank ? $bank->name : 'bank';
+            $accountNumber = $bank ? $bank->account_number : null;
+
+            \App\Models\BankTransaction::create([
+                'transaction_date' => now()->toDateString(),
+                'bank_name' => $bankName,
+                'account_number' => $accountNumber,
+                'amount' => $claim->total_paid,
+                'type' => 'withdrawal',
+                'reconciled' => true,
+                'notes' => "تعويض حادث رقم: {$claim->claim_number} (مصروف رقم: {$expense->id})",
+                'transaction_type' => 'التعويضات',
+            ]);
+        }
+
+        // Add a transfer log for the payment approval
+        $claim->transfers()->create([
+            'transfer_type' => 'تم التسديد',
+            'details' => [
+                'action' => 'موافقة وصرف مالي',
+                'approved_at' => now()->toDateTimeString(),
+                'approved_by' => $userId ? (\App\Models\User::find($userId)?->name ?? 'موظف المالية') : 'موظف المالية',
+                'compensation_value' => $claim->compensation_value,
+                'additional_expenses' => $claim->additional_expenses,
+                'total_paid' => $claim->total_paid,
+                'recipient_name' => $claim->recipient_name,
+                'payment_method' => $claim->payment_method,
+                'document_number' => $claim->document_number,
+            ]
+        ]);
+
+        return response()->json($claim->load(['document', 'transfers', 'reports']));
+    }
+
+    public function rejectPayment(Request $request, $id)
+    {
+        $claim = Claim::findOrFail($id);
+
+        $validated = $request->validate([
+            'notes' => 'required|string',
+        ]);
+
+        $userId = $request->header('X-User-Id') ?? $request->query('user_id');
+
+        $claim->update([
+            'finance_status' => 'rejected',
+            'finance_notes' => $validated['notes'],
+            'status' => 'التعويضات',
+        ]);
+
+        // Add a transfer log for the rejection
+        $claim->transfers()->create([
+            'transfer_type' => 'مرفوض من المالية',
+            'details' => [
+                'notes' => $validated['notes'],
+                'rejected_at' => now()->toDateTimeString(),
+                'rejected_by' => $userId ? (\App\Models\User::find($userId)?->name ?? 'موظف المالية') : 'موظف المالية',
+            ]
+        ]);
+
+        return response()->json($claim->load(['document', 'transfers', 'reports']));
+    }
 }

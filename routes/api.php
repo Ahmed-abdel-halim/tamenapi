@@ -111,6 +111,7 @@ Route::get('/user/{id}/refresh', function (Request $request, $id) {
                 'name'                 => $user->name,
                 'is_admin'             => $user->is_admin ?? false,
                 'authorized_documents' => $authorizedDocuments,
+                'branch_agent_id'      => $branchAgent ? $branchAgent->id : null,
                 'is_blocked'           => $user->is_blocked ?? false,
                 'lifo_username'        => $user->lifo_username ?? null,
                 'lifo_password'        => $user->lifo_password ?? null,

@@ -133,6 +133,7 @@ class User extends Authenticatable
         'experience_certificate_url',
         'work_commencement_order_url',
         'resignation_letter_url',
+        'branch_agent_id',
     ];
 
     /**
@@ -281,5 +282,10 @@ class User extends Authenticatable
     public function getResignationLetterUrlAttribute(): ?string
     {
         return $this->storagePublicUrl($this->resignation_letter_path);
+    }
+
+    public function getBranchAgentIdAttribute(): ?int
+    {
+        return $this->branchAgent?->id;
     }
 }

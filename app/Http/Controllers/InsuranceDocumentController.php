@@ -747,7 +747,7 @@ class InsuranceDocumentController extends Controller
                 'port_value' => trim($document->port ?? ''),
                 'is_customs_insurance' => ($document->insurance_type === 'تأمين سيارة جمرك'),
                 'load_capacity' => $this->formatLoadCapacity($document->load_capacity),
-                'vehicle_type' => $document->vehicleType ? ($document->vehicleType->brand . ($document->vehicleType->category ? ' / ' . $document->vehicleType->category : '')) : '-',
+                'vehicle_type' => $document->vehicleType ? ($document->insurance_type === 'تأمين إجباري سيارات' ? $document->vehicleType->brand : ($document->vehicleType->brand . ($document->vehicleType->category ? ' / ' . $document->vehicleType->category : ''))) : '-',
                 'total_in_words' => $this->numberToArabicWords($document->total),
                 'agency_name' => $agencyData['agency_name'],
                 'agency_code' => $agencyData['code'],

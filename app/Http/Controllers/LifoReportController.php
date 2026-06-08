@@ -143,7 +143,10 @@ class LifoReportController extends Controller
 
         // Fetch offices list using company credentials to resolve office name for office users
         $officesCacheKey = "lifo_offices_adminmli";
-        $officesList = Cache::get($officesCacheKey);
+        $officesList = null;
+        if (!$forceRefresh) {
+            $officesList = Cache::get($officesCacheKey);
+        }
         if (!$officesList) {
             try {
                 $response = Http::timeout(30)->withoutVerifying()->post('https://prodapi.lifo.ly/api/offices/all', [
@@ -154,7 +157,7 @@ class LifoReportController extends Controller
                     $data = $response->json();
                     if (isset($data['code']) && $data['code'] === 1 && is_array($data['data'])) {
                         $officesList = $data['data'];
-                        Cache::put($officesCacheKey, $officesList, 7200);
+                        Cache::put($officesCacheKey, $officesList, 86400); // 24 hours
                     }
                 }
             } catch (\Exception $e) {
@@ -366,7 +369,10 @@ class LifoReportController extends Controller
 
         // 1. Get offices list (cached under adminmli)
         $officesCacheKey = "lifo_offices_adminmli";
-        $officesList = Cache::get($officesCacheKey);
+        $officesList = null;
+        if (!$forceRefresh) {
+            $officesList = Cache::get($officesCacheKey);
+        }
         if (!$officesList) {
             try {
                 $response = Http::timeout(30)->withoutVerifying()->post('https://prodapi.lifo.ly/api/offices/all', [
@@ -377,7 +383,7 @@ class LifoReportController extends Controller
                     $data = $response->json();
                     if (isset($data['code']) && $data['code'] === 1 && is_array($data['data'])) {
                         $officesList = $data['data'];
-                        Cache::put($officesCacheKey, $officesList, 7200);
+                        Cache::put($officesCacheKey, $officesList, 86400); // 24 hours
                     }
                 }
             } catch (\Exception $e) {
@@ -414,7 +420,10 @@ class LifoReportController extends Controller
 
         // 2. Get cards list (cached under adminmli)
         $cardsCacheKey = "lifo_cards_adminmli_all";
-        $cardsList = Cache::get($cardsCacheKey);
+        $cardsList = null;
+        if (!$forceRefresh) {
+            $cardsList = Cache::get($cardsCacheKey);
+        }
         if (!$cardsList) {
             try {
                 $response = Http::timeout(45)->withoutVerifying()->post('https://prodapi.lifo.ly/api/cards/all', [
@@ -425,7 +434,7 @@ class LifoReportController extends Controller
                     $data = $response->json();
                     if (isset($data['code']) && $data['code'] === 1 && is_array($data['data'])) {
                         $cardsList = $data['data'];
-                        Cache::put($cardsCacheKey, $cardsList, 7200);
+                        Cache::put($cardsCacheKey, $cardsList, 86400); // 24 hours
                     }
                 }
             } catch (\Exception $e) {
@@ -456,45 +465,57 @@ class LifoReportController extends Controller
             $fetchedReports = [];
 
             if (!empty($searchOfficeId)) {
-                try {
-                    $response = Http::timeout(45)->withoutVerifying()->post('https://prodapi.lifo.ly/api/report/byoffice/' . $searchOfficeId, [
-                        'user_name' => 'adminmli',
-                        'pass_word' => '20232024',
-                    ]);
-                    if ($response->successful()) {
-                        $data = $response->json();
-                        if (isset($data['code']) && $data['code'] === 1) {
-                            $list = is_array($data['data']) ? $data['data'] : ($data['data']['data'] ?? []);
-                            $officeObj = null;
-                            foreach ($officesList as $o) {
-                                if ((string) $o['id'] === (string) $searchOfficeId) {
-                                    $officeObj = $o;
-                                    break;
+                // Single office reports cache key
+                $officeReportsCacheKey = "lifo_reports_office_{$searchOfficeId}";
+                $officeReports = null;
+                if (!$forceRefresh) {
+                    $officeReports = Cache::get($officeReportsCacheKey);
+                }
+
+                if ($officeReports === null) {
+                    try {
+                        $response = Http::timeout(45)->withoutVerifying()->post('https://prodapi.lifo.ly/api/report/byoffice/' . $searchOfficeId, [
+                            'user_name' => 'adminmli',
+                            'pass_word' => '20232024',
+                        ]);
+                        if ($response->successful()) {
+                            $data = $response->json();
+                            if (isset($data['code']) && $data['code'] === 1) {
+                                $list = is_array($data['data']) ? $data['data'] : ($data['data']['data'] ?? []);
+                                $officeObj = null;
+                                foreach ($officesList as $o) {
+                                    if ((string) $o['id'] === (string) $searchOfficeId) {
+                                        $officeObj = $o;
+                                        break;
+                                    }
                                 }
-                            }
-                            foreach ($list as $doc) {
-                                $doc['offices_id'] = $searchOfficeId;
-                                $doc['offices'] = $doc['offices'] ?? [
-                                    'id' => (int) $searchOfficeId,
-                                    'name' => $officeObj ? $officeObj['name'] : "مكتب {$searchOfficeId}"
-                                ];
-                                $fetchedReports[] = $doc;
+                                $officeReports = [];
+                                foreach ($list as $doc) {
+                                    $doc['offices_id'] = $searchOfficeId;
+                                    $doc['offices'] = $doc['offices'] ?? [
+                                        'id' => (int) $searchOfficeId,
+                                        'name' => $officeObj ? $officeObj['name'] : "مكتب {$searchOfficeId}"
+                                    ];
+                                    $officeReports[] = $doc;
+                                }
+                                Cache::put($officeReportsCacheKey, $officeReports, 86400); // 24 hours
                             }
                         }
+                    } catch (\Exception $e) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'حدث خطأ أثناء جلب تقارير المكتب: ' . $e->getMessage()
+                        ], 500);
                     }
-                } catch (\Exception $e) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'حدث خطأ أثناء جلب تقارير المكتب: ' . $e->getMessage()
-                    ], 500);
                 }
+                $fetchedReports = $officeReports ?? [];
             } else {
                 // Find active offices names from cards list
                 $activeOfficeNames = [];
                 foreach ($cardsList as $card) {
                     if (!empty($card['offices']) && ($card['cardstautesname'] === 'البطاقات المباعة' || $card['cardstautesname'] === 'البطاقات المصدرة')) {
                         $officeClean = trim($card['offices']);
-                        if ($officeClean !== 'لدي الشركة') {
+                        if ($officeClean !== 'لدي الشركة' && $officeClean !== '') {
                             $activeOfficeNames[$officeClean] = true;
                         }
                     }
@@ -508,62 +529,103 @@ class LifoReportController extends Controller
                     }
                 }
 
-                // Fetch concurrently
-                try {
-                    $responses = Http::pool(function (\Illuminate\Http\Client\Pool $pool) use ($userName, $password, $activeOffices) {
-                        $requests = [];
-                        $requests[] = $pool->as('company')->timeout(45)->withoutVerifying()->post('https://prodapi.lifo.ly/api/report/all', [
-                            'user_name' => 'adminmli',
-                            'pass_word' => '20232024',
-                        ]);
+                // Check Level 2 caches
+                $officesToFetch = [];
+                $companyCacheKey = "lifo_reports_company";
+                
+                $companyReports = null;
+                if (!$forceRefresh) {
+                    $companyReports = Cache::get($companyCacheKey);
+                }
+                if ($companyReports === null) {
+                    $officesToFetch['company'] = 'company';
+                } else {
+                    $fetchedReports = array_merge($fetchedReports, $companyReports);
+                }
 
-                        foreach ($activeOffices as $office) {
-                            $requests[] = $pool->as('office_' . $office['id'])->timeout(45)->withoutVerifying()->post('https://prodapi.lifo.ly/api/report/byoffice/' . $office['id'], [
-                                'user_name' => 'adminmli',
-                                'pass_word' => '20232024',
-                            ]);
-                        }
-                        return $requests;
-                    });
-
-                    // Parse company response
-                    if (isset($responses['company']) && $responses['company']->successful()) {
-                        $data = $responses['company']->json();
-                        if (isset($data['code']) && $data['code'] === 1) {
-                            $list = is_array($data['data']) ? $data['data'] : ($data['data']['data'] ?? []);
-                            foreach ($list as $doc) {
-                                $doc['offices_id'] = null;
-                                $doc['offices'] = null;
-                                $fetchedReports[] = $doc;
-                            }
-                        }
+                foreach ($activeOffices as $office) {
+                    $officeCacheKey = "lifo_reports_office_" . $office['id'];
+                    $officeReports = null;
+                    if (!$forceRefresh) {
+                        $officeReports = Cache::get($officeCacheKey);
                     }
+                    if ($officeReports === null) {
+                        $officesToFetch[$office['id']] = $office;
+                    } else {
+                        $fetchedReports = array_merge($fetchedReports, $officeReports);
+                    }
+                }
 
-                    // Parse offices responses
-                    foreach ($activeOffices as $office) {
-                        $key = 'office_' . $office['id'];
-                        if (isset($responses[$key]) && $responses[$key]->successful()) {
-                            $data = $responses[$key]->json();
-                            if (isset($data['code']) && $data['code'] === 1) {
-                                $list = is_array($data['data']) ? $data['data'] : ($data['data']['data'] ?? []);
-                                foreach ($list as $doc) {
-                                    $doc['offices_id'] = $office['id'];
-                                    $doc['offices'] = $doc['offices'] ?? ['id' => $office['id'], 'name' => $office['name']];
-                                    $fetchedReports[] = $doc;
+                // Fetch missing offices concurrently
+                if (!empty($officesToFetch)) {
+                    try {
+                        $responses = Http::pool(function (\Illuminate\Http\Client\Pool $pool) use ($officesToFetch) {
+                            $requests = [];
+                            if (isset($officesToFetch['company'])) {
+                                $requests[] = $pool->as('company')->timeout(45)->withoutVerifying()->post('https://prodapi.lifo.ly/api/report/all', [
+                                    'user_name' => 'adminmli',
+                                    'pass_word' => '20232024',
+                                ]);
+                            }
+                            foreach ($officesToFetch as $id => $office) {
+                                if ($id === 'company') continue;
+                                $requests[] = $pool->as('office_' . $id)->timeout(45)->withoutVerifying()->post('https://prodapi.lifo.ly/api/report/byoffice/' . $id, [
+                                    'user_name' => 'adminmli',
+                                    'pass_word' => '20232024',
+                                ]);
+                            }
+                            return $requests;
+                        });
+
+                        // Parse company response
+                        if (isset($officesToFetch['company'])) {
+                            $companyReports = [];
+                            if (isset($responses['company']) && $responses['company']->successful()) {
+                                $data = $responses['company']->json();
+                                if (isset($data['code']) && $data['code'] === 1) {
+                                    $list = is_array($data['data']) ? $data['data'] : ($data['data']['data'] ?? []);
+                                    foreach ($list as $doc) {
+                                        $doc['offices_id'] = null;
+                                        $doc['offices'] = null;
+                                        $companyReports[] = $doc;
+                                    }
                                 }
                             }
+                            Cache::put($companyCacheKey, $companyReports, 86400); // 24 hours
+                            $fetchedReports = array_merge($fetchedReports, $companyReports);
                         }
+
+                        // Parse office responses
+                        foreach ($officesToFetch as $id => $office) {
+                            if ($id === 'company') continue;
+                            $key = 'office_' . $id;
+                            $officeReports = [];
+                            if (isset($responses[$key]) && $responses[$key]->successful()) {
+                                $data = $responses[$key]->json();
+                                if (isset($data['code']) && $data['code'] === 1) {
+                                    $list = is_array($data['data']) ? $data['data'] : ($data['data']['data'] ?? []);
+                                    foreach ($list as $doc) {
+                                        $doc['offices_id'] = $id;
+                                        $doc['offices'] = $doc['offices'] ?? ['id' => $office['id'], 'name' => $office['name']];
+                                        $officeReports[] = $doc;
+                                    }
+                                }
+                            }
+                            Cache::put("lifo_reports_office_" . $id, $officeReports, 86400); // 24 hours
+                            $fetchedReports = array_merge($fetchedReports, $officeReports);
+                        }
+
+                    } catch (\Exception $e) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'تعذر الاتصال بخادم الاتحاد لجلب التقارير: ' . $e->getMessage()
+                        ], 500);
                     }
-                } catch (\Exception $e) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'تعذر الاتصال بخادم الاتحاد لجلب التقارير: ' . $e->getMessage()
-                    ], 500);
                 }
             }
 
             $reports = $fetchedReports;
-            Cache::put($reportsCacheKey, $reports, 7200); // 2 hours
+            Cache::put($reportsCacheKey, $reports, 86400); // 24 hours
         }
 
         // 4. Filter reports based on search inputs
@@ -734,7 +796,10 @@ class LifoReportController extends Controller
 
         // Fetch offices list (cached under adminmli) to resolve office name for office users
         $officesCacheKey = "lifo_offices_adminmli";
-        $officesList = Cache::get($officesCacheKey);
+        $officesList = null;
+        if (!$forceRefresh) {
+            $officesList = Cache::get($officesCacheKey);
+        }
         if (!$officesList) {
             try {
                 $response = Http::timeout(30)->withoutVerifying()->post('https://prodapi.lifo.ly/api/offices/all', [
@@ -745,7 +810,7 @@ class LifoReportController extends Controller
                     $data = $response->json();
                     if (isset($data['code']) && $data['code'] === 1 && is_array($data['data'])) {
                         $officesList = $data['data'];
-                        Cache::put($officesCacheKey, $officesList, 7200);
+                        Cache::put($officesCacheKey, $officesList, 86400); // 24 hours
                     }
                 }
             } catch (\Exception $e) {
@@ -781,14 +846,14 @@ class LifoReportController extends Controller
                     $data = $response->json();
                     if (isset($data['code']) && $data['code'] === 1 && is_array($data['data'])) {
                         $cardsList = $data['data'];
-                        Cache::put($cardsCacheKey, $cardsList, 7200);
+                        Cache::put($cardsCacheKey, $cardsList, 86400); // 24 hours
                     } else {
                         $msg = $data['message'] ?? $data['messages'] ?? 'فشل جلب البيانات من خادم الاتحاد';
 
                         // If the union returns code 0 but indicates no cards exist, treat as a successful empty response
                         if (str_contains(strtolower($msg), 'no cards') || str_contains($msg, 'لا توجد بطاقات')) {
                             $cardsList = [];
-                            Cache::put($cardsCacheKey, $cardsList, 7200);
+                            Cache::put($cardsCacheKey, $cardsList, 86400); // 24 hours
                         } else {
                             return response()->json(['success' => false, 'message' => $msg], 400);
                         }
@@ -896,7 +961,10 @@ class LifoReportController extends Controller
 
         // 1. Get offices list (cached under adminmli)
         $officesCacheKey = "lifo_offices_adminmli";
-        $officesList = Cache::get($officesCacheKey);
+        $officesList = null;
+        if (!$forceRefresh) {
+            $officesList = Cache::get($officesCacheKey);
+        }
         if (!$officesList) {
             try {
                 $response = Http::timeout(30)->withoutVerifying()->post('https://prodapi.lifo.ly/api/offices/all', [
@@ -907,7 +975,7 @@ class LifoReportController extends Controller
                     $data = $response->json();
                     if (isset($data['code']) && $data['code'] === 1 && is_array($data['data'])) {
                         $officesList = $data['data'];
-                        Cache::put($officesCacheKey, $officesList, 7200);
+                        Cache::put($officesCacheKey, $officesList, 86400); // 24 hours
                     }
                 }
             } catch (\Exception $e) {
@@ -918,7 +986,10 @@ class LifoReportController extends Controller
 
         // 2. Get cards list (cached under adminmli)
         $cardsCacheKey = "lifo_cards_adminmli_all";
-        $cardsList = Cache::get($cardsCacheKey);
+        $cardsList = null;
+        if (!$forceRefresh) {
+            $cardsList = Cache::get($cardsCacheKey);
+        }
         if (!$cardsList) {
             try {
                 $response = Http::timeout(45)->withoutVerifying()->post('https://prodapi.lifo.ly/api/cards/all', [
@@ -929,7 +1000,7 @@ class LifoReportController extends Controller
                     $data = $response->json();
                     if (isset($data['code']) && $data['code'] === 1 && is_array($data['data'])) {
                         $cardsList = $data['data'];
-                        Cache::put($cardsCacheKey, $cardsList, 7200);
+                        Cache::put($cardsCacheKey, $cardsList, 86400); // 24 hours
                     }
                 }
             } catch (\Exception $e) {
@@ -956,7 +1027,7 @@ class LifoReportController extends Controller
             foreach ($cardsList as $card) {
                 if (!empty($card['offices']) && ($card['cardstautesname'] === 'البطاقات المباعة' || $card['cardstautesname'] === 'البطاقات المصدرة')) {
                     $officeClean = trim($card['offices']);
-                    if ($officeClean !== 'لدي الشركة') {
+                    if ($officeClean !== 'لدي الشركة' && $officeClean !== '') {
                         $activeOfficeNames[$officeClean] = true;
                     }
                 }
@@ -970,61 +1041,102 @@ class LifoReportController extends Controller
                 }
             }
 
-            // Fetch concurrently using company credentials
-            try {
-                $responses = Http::pool(function (\Illuminate\Http\Client\Pool $pool) use ($userName, $password, $activeOffices) {
-                    $requests = [];
-                    $requests[] = $pool->as('company')->timeout(45)->withoutVerifying()->post('https://prodapi.lifo.ly/api/report/all', [
-                        'user_name' => 'adminmli',
-                        'pass_word' => '20232024',
-                    ]);
+            // Check Level 2 caches
+            $officesToFetch = [];
+            $companyCacheKey = "lifo_reports_company";
+            
+            $companyReports = null;
+            if (!$forceRefresh) {
+                $companyReports = Cache::get($companyCacheKey);
+            }
+            if ($companyReports === null) {
+                $officesToFetch['company'] = 'company';
+            } else {
+                $fetchedReports = array_merge($fetchedReports, $companyReports);
+            }
 
-                    foreach ($activeOffices as $office) {
-                        $requests[] = $pool->as('office_' . $office['id'])->timeout(45)->withoutVerifying()->post('https://prodapi.lifo.ly/api/report/byoffice/' . $office['id'], [
-                            'user_name' => 'adminmli',
-                            'pass_word' => '20232024',
-                        ]);
-                    }
-                    return $requests;
-                });
-
-                // Parse company response
-                if (isset($responses['company']) && $responses['company']->successful()) {
-                    $data = $responses['company']->json();
-                    if (isset($data['code']) && $data['code'] === 1) {
-                        $list = is_array($data['data']) ? $data['data'] : ($data['data']['data'] ?? []);
-                        foreach ($list as $doc) {
-                            $doc['offices_id'] = null;
-                            $doc['offices'] = null;
-                            $fetchedReports[] = $doc;
-                        }
-                    }
+            foreach ($activeOffices as $office) {
+                $officeCacheKey = "lifo_reports_office_" . $office['id'];
+                $officeReports = null;
+                if (!$forceRefresh) {
+                    $officeReports = Cache::get($officeCacheKey);
                 }
+                if ($officeReports === null) {
+                    $officesToFetch[$office['id']] = $office;
+                } else {
+                    $fetchedReports = array_merge($fetchedReports, $officeReports);
+                }
+            }
 
-                // Parse offices responses
-                foreach ($activeOffices as $office) {
-                    $key = 'office_' . $office['id'];
-                    if (isset($responses[$key]) && $responses[$key]->successful()) {
-                        $data = $responses[$key]->json();
-                        if (isset($data['code']) && $data['code'] === 1) {
-                            $list = is_array($data['data']) ? $data['data'] : ($data['data']['data'] ?? []);
-                            foreach ($list as $doc) {
-                                $doc['offices_id'] = $office['id'];
-                                $doc['offices'] = $doc['offices'] ?? ['id' => $office['id'], 'name' => $office['name']];
-                                $fetchedReports[] = $doc;
+            // Fetch missing offices concurrently
+            if (!empty($officesToFetch)) {
+                try {
+                    $responses = Http::pool(function (\Illuminate\Http\Client\Pool $pool) use ($officesToFetch) {
+                        $requests = [];
+                        if (isset($officesToFetch['company'])) {
+                            $requests[] = $pool->as('company')->timeout(45)->withoutVerifying()->post('https://prodapi.lifo.ly/api/report/all', [
+                                'user_name' => 'adminmli',
+                                'pass_word' => '20232024',
+                            ]);
+                        }
+                        foreach ($officesToFetch as $id => $office) {
+                            if ($id === 'company') continue;
+                            $requests[] = $pool->as('office_' . $id)->timeout(45)->withoutVerifying()->post('https://prodapi.lifo.ly/api/report/byoffice/' . $id, [
+                                'user_name' => 'adminmli',
+                                'pass_word' => '20232024',
+                            ]);
+                        }
+                        return $requests;
+                    });
+
+                    // Parse company response
+                    if (isset($officesToFetch['company'])) {
+                        $companyReports = [];
+                        if (isset($responses['company']) && $responses['company']->successful()) {
+                            $data = $responses['company']->json();
+                            if (isset($data['code']) && $data['code'] === 1) {
+                                $list = is_array($data['data']) ? $data['data'] : ($data['data']['data'] ?? []);
+                                foreach ($list as $doc) {
+                                    $doc['offices_id'] = null;
+                                    $doc['offices'] = null;
+                                    $companyReports[] = $doc;
+                                }
                             }
                         }
+                        Cache::put($companyCacheKey, $companyReports, 86400); // 24 hours
+                        $fetchedReports = array_merge($fetchedReports, $companyReports);
                     }
+
+                    // Parse office responses
+                    foreach ($officesToFetch as $id => $office) {
+                        if ($id === 'company') continue;
+                        $key = 'office_' . $id;
+                        $officeReports = [];
+                        if (isset($responses[$key]) && $responses[$key]->successful()) {
+                            $data = $responses[$key]->json();
+                            if (isset($data['code']) && $data['code'] === 1) {
+                                $list = is_array($data['data']) ? $data['data'] : ($data['data']['data'] ?? []);
+                                foreach ($list as $doc) {
+                                    $doc['offices_id'] = $id;
+                                    $doc['offices'] = $doc['offices'] ?? ['id' => $office['id'], 'name' => $office['name']];
+                                    $officeReports[] = $doc;
+                                }
+                            }
+                        }
+                        Cache::put("lifo_reports_office_" . $id, $officeReports, 86400); // 24 hours
+                        $fetchedReports = array_merge($fetchedReports, $officeReports);
+                    }
+
+                } catch (\Exception $e) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'تعذر الاتصال بخادم الاتحاد لجلب التقارير: ' . $e->getMessage()
+                    ], 500);
                 }
-            } catch (\Exception $e) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'تعذر الاتصال بخادم الاتحاد لجلب التقارير: ' . $e->getMessage()
-                ], 500);
             }
 
             $reports = $fetchedReports;
-            Cache::put($reportsCacheKey, $reports, 7200); // 2 hours
+            Cache::put($reportsCacheKey, $reports, 86400); // 24 hours
         }
 
         // 4. Map offices names for quick resolution
@@ -1228,7 +1340,7 @@ class LifoReportController extends Controller
                     $data = $response->json();
                     if (isset($data['code']) && $data['code'] === 1 && is_array($data['data'])) {
                         $cardsList = $data['data'];
-                        Cache::put($cardsCacheKey, $cardsList, 7200);
+                        Cache::put($cardsCacheKey, $cardsList, 86400); // 24 hours
                     }
                 }
             } catch (\Exception $e) {
@@ -1287,7 +1399,10 @@ class LifoReportController extends Controller
 
         // 1. Get offices list (cached)
         $officesCacheKey = "lifo_offices_adminmli";
-        $officesList = Cache::get($officesCacheKey);
+        $officesList = null;
+        if (!$forceRefresh) {
+            $officesList = Cache::get($officesCacheKey);
+        }
         if (!$officesList) {
             try {
                 $response = Http::timeout(30)->withoutVerifying()->post('https://prodapi.lifo.ly/api/offices/all', [
@@ -1298,7 +1413,7 @@ class LifoReportController extends Controller
                     $data = $response->json();
                     if (isset($data['code']) && $data['code'] === 1 && is_array($data['data'])) {
                         $officesList = $data['data'];
-                        Cache::put($officesCacheKey, $officesList, 7200);
+                        Cache::put($officesCacheKey, $officesList, 86400); // 24 hours
                     }
                 }
             } catch (\Exception $e) {}
@@ -1333,7 +1448,7 @@ class LifoReportController extends Controller
                     $data = $response->json();
                     if (isset($data['code']) && $data['code'] === 1 && is_array($data['data'])) {
                         $cardsList = $data['data'];
-                        Cache::put($cardsCacheKey, $cardsList, 7200);
+                        Cache::put($cardsCacheKey, $cardsList, 86400); // 24 hours
                     }
                 }
             } catch (\Exception $e) {}
@@ -1383,19 +1498,32 @@ class LifoReportController extends Controller
                 $reports = Cache::get($reportsCacheKey);
             }
             if (!$reports && $myOfficeId !== null) {
-                try {
-                    $response = Http::timeout(60)->withoutVerifying()->post('https://prodapi.lifo.ly/api/report/byoffice/' . $myOfficeId, [
-                        'user_name' => 'adminmli',
-                        'pass_word' => '20232024',
-                    ]);
-                    if ($response->successful()) {
-                        $data = $response->json();
-                        if (isset($data['code']) && $data['code'] === 1 && is_array($data['data'])) {
-                            $reports = $data['data'];
-                            Cache::put($reportsCacheKey, $reports, 7200);
+                // Check office level 2 cache first
+                $officeReportsCacheKey = "lifo_reports_office_{$myOfficeId}";
+                $reports = null;
+                if (!$forceRefresh) {
+                    $reports = Cache::get($officeReportsCacheKey);
+                }
+                
+                if (!$reports) {
+                    try {
+                        $response = Http::timeout(60)->withoutVerifying()->post('https://prodapi.lifo.ly/api/report/byoffice/' . $myOfficeId, [
+                            'user_name' => 'adminmli',
+                            'pass_word' => '20232024',
+                        ]);
+                        if ($response->successful()) {
+                            $data = $response->json();
+                            if (isset($data['code']) && $data['code'] === 1 && is_array($data['data'])) {
+                                $reports = $data['data'];
+                                Cache::put($officeReportsCacheKey, $reports, 86400); // 24 hours
+                            }
                         }
-                    }
-                } catch (\Exception $e) {}
+                    } catch (\Exception $e) {}
+                }
+                
+                if ($reports) {
+                    Cache::put($reportsCacheKey, $reports, 86400); // 24 hours
+                }
             }
             $reports = $reports ?? [];
 

@@ -86,7 +86,18 @@ class LifoReportController extends Controller
 
         try {
             $response = $client->request($request->method(), $targetUrl, $options);
-            return response($response->getBody()->getContents(), $response->getStatusCode())
+            $statusCode = $response->getStatusCode();
+            $body = $response->getBody()->getContents();
+
+            // Quirk: LIFO API sometimes returns 401 or 403 status even on successful response (code = 1)
+            if ($statusCode === 401 || $statusCode === 403) {
+                $decoded = json_decode($body, true);
+                if (json_last_error() === JSON_ERROR_NONE && isset($decoded['code']) && $decoded['code'] === 1) {
+                    $statusCode = 200;
+                }
+            }
+
+            return response($body, $statusCode)
                 ->header('Content-Type', $response->getHeaderLine('Content-Type') ?: 'application/json');
         } catch (\Exception $e) {
             return response()->json([

@@ -1196,6 +1196,81 @@ class LifoReportController extends Controller
     }
 
     /**
+     * Compile requests list dynamically from cards cache.
+     */
+    public function requestsList(Request $request)
+    {
+        $request->validate([
+            'user_name' => 'required|string',
+            'pass_word' => 'required|string',
+            'force_refresh' => 'nullable|boolean',
+        ]);
+
+        $userName = $request->user_name;
+        $password = $request->pass_word;
+        $forceRefresh = $request->boolean('force_refresh', false);
+
+        // Fetch cards list (cached under adminmli)
+        $cardsCacheKey = "lifo_cards_adminmli_all";
+        $cardsList = null;
+
+        if (!$forceRefresh) {
+            $cardsList = Cache::get($cardsCacheKey);
+        }
+
+        if (!$cardsList) {
+            try {
+                $response = Http::timeout(180)->withoutVerifying()->post('https://prodapi.lifo.ly/api/cards/all', [
+                    'user_name' => 'adminmli',
+                    'pass_word' => '20232024',
+                ]);
+                if ($response->successful()) {
+                    $data = $response->json();
+                    if (isset($data['code']) && $data['code'] === 1 && is_array($data['data'])) {
+                        $cardsList = $data['data'];
+                        Cache::put($cardsCacheKey, $cardsList, 7200);
+                    }
+                }
+            } catch (\Exception $e) {
+                // Ignore
+            }
+        }
+        $cardsList = $cardsList ?? [];
+
+        // Group cards by request_numberr
+        $requestsMap = [];
+        foreach ($cardsList as $card) {
+            $reqNum = $card['request_numberr'] ?? null;
+            if ($reqNum) {
+                $reqNumClean = trim($reqNum);
+                if (!isset($requestsMap[$reqNumClean])) {
+                    $requestsMap[$reqNumClean] = [
+                        'requestnumber' => $reqNumClean,
+                        'company' => $card['companies'] ?? 'المدار الليبي للتأمين',
+                        'username' => 'adminmli',
+                        'numberofcards' => 0,
+                        'status' => 'تم القبول',
+                        'created_at' => $card['created_at'] ?? 'N/A',
+                        'download_date' => $card['created_at'] ?? 'N/A',
+                    ];
+                }
+                $requestsMap[$reqNumClean]['numberofcards']++;
+            }
+        }
+
+        // Sort requests by requestnumber or created_at descending (newest first)
+        $requestsList = array_values($requestsMap);
+        usort($requestsList, function($a, $b) {
+            return strcmp($b['requestnumber'], $a['requestnumber']);
+        });
+
+        return response()->json([
+            'success' => true,
+            'data' => $requestsList,
+        ]);
+    }
+
+    /**
      * Resolve LIFO Office ID and Name for a given local username.
      */
     private function resolveOfficeForUser($userName, array $officesList)

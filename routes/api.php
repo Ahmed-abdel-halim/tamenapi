@@ -429,6 +429,7 @@ Route::post('/lifo-reports/cards-paginated', [LifoReportController::class, 'card
 Route::post('/lifo-reports/reports-paginated', [LifoReportController::class, 'reportsPaginated']);
 Route::post('/lifo-reports/inventory-summary', [LifoReportController::class, 'inventorySummary']);
 Route::post('/lifo-reports/offices-aggregated', [LifoReportController::class, 'officesAggregated']);
+Route::post('/lifo-reports/requests-list', [LifoReportController::class, 'requestsList']);
 Route::get('/test-lifo-connection', [LifoReportController::class, 'testLifoConnection']);
 
 

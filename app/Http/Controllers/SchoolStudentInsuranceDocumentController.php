@@ -31,7 +31,7 @@ class SchoolStudentInsuranceDocumentController extends Controller
 
             $query = SchoolStudentInsuranceDocument::with('branchAgent');
             
-            if (!$isAdmin && $branchAgentId) {
+            if (!$isAdmin) {
                 $query->where('branch_agent_id', $branchAgentId);
             }
 

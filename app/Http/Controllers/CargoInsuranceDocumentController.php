@@ -30,7 +30,7 @@ class CargoInsuranceDocumentController extends Controller
 
             $query = CargoInsuranceDocument::with('branchAgent');
             
-            if (!$isAdmin && $branchAgentId) {
+            if (!$isAdmin) {
                 $query->where('branch_agent_id', $branchAgentId);
             }
 

@@ -51,7 +51,7 @@ class InsuranceDocumentController extends Controller
             }
 
             // إذا لم يكن admin، قم بتصفية الوثائق حسب branch_agent_id
-            if (!$isAdmin && $branchAgentId) {
+            if (!$isAdmin) {
                 $query->where('branch_agent_id', $branchAgentId);
             }
 

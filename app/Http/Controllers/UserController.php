@@ -146,6 +146,7 @@ class UserController extends Controller
             'eidc_password' => 'nullable|string|max:191',
             'lifo_username' => 'nullable|string|max:191',
             'lifo_password' => 'nullable|string|max:191',
+            'lifo_office_id' => 'nullable|string|max:191',
             'apply_tax' => 'nullable|boolean',
             'apply_social_security' => 'nullable|boolean',
             'tax_file_number' => 'nullable|string|max:191',
@@ -286,6 +287,7 @@ class UserController extends Controller
             'eidc_password' => 'nullable|string|max:191',
             'lifo_username' => 'nullable|string|max:191',
             'lifo_password' => 'nullable|string|max:191',
+            'lifo_office_id' => 'nullable|string|max:191',
             'apply_tax' => 'nullable|boolean',
             'apply_social_security' => 'nullable|boolean',
             'tax_file_number' => 'nullable|string|max:191',
@@ -491,15 +493,18 @@ class UserController extends Controller
         $request->validate([
             'lifo_username' => 'required|string|max:191',
             'lifo_password' => 'required|string|max:191',
+            'lifo_office_id' => 'nullable|string|max:191',
         ]);
 
         $user->lifo_username = $request->lifo_username;
         $user->lifo_password = $request->lifo_password;
+        $user->lifo_office_id = $request->lifo_office_id;
         $user->save();
 
         return response()->json([
             'message' => 'تم تحديث بيانات الاتحاد بنجاح',
-            'lifo_username' => $user->lifo_username
+            'lifo_username' => $user->lifo_username,
+            'lifo_office_id' => $user->lifo_office_id,
         ]);
     }
 

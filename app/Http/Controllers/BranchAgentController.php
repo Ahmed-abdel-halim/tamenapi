@@ -105,6 +105,7 @@ class BranchAgentController extends Controller
                 'eidc_password' => 'nullable|string|max:191',
                 'lifo_username' => 'nullable|string|max:191',
                 'lifo_password' => 'nullable|string|max:191',
+                'lifo_office_id' => 'nullable|string|max:191',
             ]);
         } catch (\Illuminate\Validation\ValidationException $e) {
             \Illuminate\Support\Facades\Log::error('Validation failed for creating branch agent:', [
@@ -150,6 +151,7 @@ class BranchAgentController extends Controller
                 'eidc_password' => $request->eidc_password,
                 'lifo_username' => $request->lifo_username,
                 'lifo_password' => $request->lifo_password,
+                'lifo_office_id' => $request->lifo_office_id,
             ]);
 
             // توليد الكود التلقائي
@@ -643,6 +645,7 @@ class BranchAgentController extends Controller
             'eidc_password' => 'nullable|string|max:191',
             'lifo_username' => 'nullable|string|max:191',
             'lifo_password' => 'nullable|string|max:191',
+            'lifo_office_id' => 'nullable|string|max:191',
         ]);
 
         DB::beginTransaction();
@@ -671,6 +674,9 @@ class BranchAgentController extends Controller
                     }
                     if ($request->has('lifo_password')) {
                         $user->lifo_password = $request->lifo_password;
+                    }
+                    if ($request->has('lifo_office_id')) {
+                        $user->lifo_office_id = $request->lifo_office_id;
                     }
                     
                     // تحديث الصلاحيات في جدول users
@@ -1973,70 +1979,70 @@ class BranchAgentController extends Controller
 
             // Insurance Documents (Car Insurance)
             $insuranceQuery = InsuranceDocument::query();
-            if (!$isAdmin && $branchAgentId) {
+            if (!$isAdmin) {
                 $insuranceQuery->where('branch_agent_id', $branchAgentId);
             }
             $statistics['insurance_documents'] = $insuranceQuery->active()->count();
 
             // Travel Insurance Documents
             $travelQuery = TravelInsuranceDocument::query();
-            if (!$isAdmin && $branchAgentId) {
+            if (!$isAdmin) {
                 $travelQuery->where('branch_agent_id', $branchAgentId);
             }
             $statistics['travel_insurance_documents'] = $travelQuery->active()->count();
 
             // Resident Insurance Documents
             $residentQuery = ResidentInsuranceDocument::query();
-            if (!$isAdmin && $branchAgentId) {
+            if (!$isAdmin) {
                 $residentQuery->where('branch_agent_id', $branchAgentId);
             }
             $statistics['resident_insurance_documents'] = $residentQuery->active()->count();
 
             // Marine Structure Insurance Documents
             $marineQuery = MarineStructureInsuranceDocument::query();
-            if (!$isAdmin && $branchAgentId) {
+            if (!$isAdmin) {
                 $marineQuery->where('branch_agent_id', $branchAgentId);
             }
             $statistics['marine_structure_insurance_documents'] = $marineQuery->active()->count();
 
             // Professional Liability Insurance Documents
             $professionalQuery = ProfessionalLiabilityInsuranceDocument::query();
-            if (!$isAdmin && $branchAgentId) {
+            if (!$isAdmin) {
                 $professionalQuery->where('branch_agent_id', $branchAgentId);
             }
             $statistics['professional_liability_insurance_documents'] = $professionalQuery->active()->count();
 
             // Personal Accident Insurance Documents
             $personalQuery = PersonalAccidentInsuranceDocument::query();
-            if (!$isAdmin && $branchAgentId) {
+            if (!$isAdmin) {
                 $personalQuery->where('branch_agent_id', $branchAgentId);
             }
             $statistics['personal_accident_insurance_documents'] = $personalQuery->active()->count();
 
             // International Insurance Documents
             $internationalQuery = InternationalInsuranceDocument::query();
-            if (!$isAdmin && $branchAgentId) {
+            if (!$isAdmin) {
                 $internationalQuery->where('branch_agent_id', $branchAgentId);
             }
             $statistics['international_insurance_documents'] = $internationalQuery->active()->count();
 
             // School Student Insurance Documents
             $schoolQuery = SchoolStudentInsuranceDocument::query();
-            if (!$isAdmin && $branchAgentId) {
+            if (!$isAdmin) {
                 $schoolQuery->where('branch_agent_id', $branchAgentId);
             }
             $statistics['school_student_insurance_documents'] = $schoolQuery->count();
 
             // Cargo Insurance Documents
             $cargoStatQuery = CargoInsuranceDocument::query();
-            if (!$isAdmin && $branchAgentId) {
+            if (!$isAdmin) {
                 $cargoStatQuery->where('branch_agent_id', $branchAgentId);
             }
             $statistics['cargo_insurance_documents'] = $cargoStatQuery->count();
 
             // Cash In Transit Insurance Documents
             $cashStatQuery = CashInTransitInsuranceDocument::query();
-            if (!$isAdmin && $branchAgentId) {
+            if (!$isAdmin) {
                 $cashStatQuery->where('branch_agent_id', $branchAgentId);
             }
             $statistics['cash_in_transit_insurance_documents'] = $cashStatQuery->count();
@@ -2080,7 +2086,7 @@ class BranchAgentController extends Controller
 
             // Insurance Documents (Car Insurance)
             $insuranceQuery = InsuranceDocument::with('branchAgent');
-            if (!$isAdmin && $branchAgentId) {
+            if (!$isAdmin) {
                 $insuranceQuery->where('branch_agent_id', $branchAgentId);
             }
             $insuranceDocs = $insuranceQuery->orderBy('created_at', 'desc')
@@ -2105,7 +2111,7 @@ class BranchAgentController extends Controller
 
             // Travel Insurance Documents
             $travelQuery = TravelInsuranceDocument::with(['branchAgent', 'passengers']);
-            if (!$isAdmin && $branchAgentId) {
+            if (!$isAdmin) {
                 $travelQuery->where('branch_agent_id', $branchAgentId);
             }
             $travelDocs = $travelQuery->orderBy('created_at', 'desc')
@@ -2140,7 +2146,7 @@ class BranchAgentController extends Controller
 
             // Resident Insurance Documents
             $residentQuery = ResidentInsuranceDocument::with(['branchAgent', 'passengers']);
-            if (!$isAdmin && $branchAgentId) {
+            if (!$isAdmin) {
                 $residentQuery->where('branch_agent_id', $branchAgentId);
             }
             $residentDocs = $residentQuery->orderBy('created_at', 'desc')
@@ -2175,7 +2181,7 @@ class BranchAgentController extends Controller
 
             // Marine Structure Insurance Documents
             $marineQuery = MarineStructureInsuranceDocument::with('branchAgent');
-            if (!$isAdmin && $branchAgentId) {
+            if (!$isAdmin) {
                 $marineQuery->where('branch_agent_id', $branchAgentId);
             }
             $marineDocs = $marineQuery->orderBy('created_at', 'desc')
@@ -2200,7 +2206,7 @@ class BranchAgentController extends Controller
 
             // Professional Liability Insurance Documents
             $professionalQuery = ProfessionalLiabilityInsuranceDocument::with('branchAgent');
-            if (!$isAdmin && $branchAgentId) {
+            if (!$isAdmin) {
                 $professionalQuery->where('branch_agent_id', $branchAgentId);
             }
             $professionalDocs = $professionalQuery->orderBy('created_at', 'desc')
@@ -2225,7 +2231,7 @@ class BranchAgentController extends Controller
 
             // Personal Accident Insurance Documents
             $personalQuery = PersonalAccidentInsuranceDocument::with('branchAgent');
-            if (!$isAdmin && $branchAgentId) {
+            if (!$isAdmin) {
                 $personalQuery->where('branch_agent_id', $branchAgentId);
             }
             $personalDocs = $personalQuery->orderBy('created_at', 'desc')
@@ -2250,7 +2256,7 @@ class BranchAgentController extends Controller
 
             // International Insurance Documents
             $internationalQuery = InternationalInsuranceDocument::with('branchAgent');
-            if (!$isAdmin && $branchAgentId) {
+            if (!$isAdmin) {
                 $internationalQuery->where('branch_agent_id', $branchAgentId);
             }
             $internationalDocs = $internationalQuery->orderBy('created_at', 'desc')
@@ -2275,7 +2281,7 @@ class BranchAgentController extends Controller
 
             // School Student Insurance Documents
             $schoolLatestQuery = SchoolStudentInsuranceDocument::with('branchAgent');
-            if (!$isAdmin && $branchAgentId) {
+            if (!$isAdmin) {
                 $schoolLatestQuery->where('branch_agent_id', $branchAgentId);
             }
             $schoolLatestDocs = $schoolLatestQuery->orderBy('created_at', 'desc')
@@ -2300,7 +2306,7 @@ class BranchAgentController extends Controller
 
             // Cargo Insurance Documents
             $cargoLatestQuery = CargoInsuranceDocument::with('branchAgent');
-            if (!$isAdmin && $branchAgentId) {
+            if (!$isAdmin) {
                 $cargoLatestQuery->where('branch_agent_id', $branchAgentId);
             }
             $cargoLatestDocs = $cargoLatestQuery->orderBy('created_at', 'desc')
@@ -2325,7 +2331,7 @@ class BranchAgentController extends Controller
 
             // Cash In Transit Insurance Documents
             $cashLatestQuery = CashInTransitInsuranceDocument::with('branchAgent');
-            if (!$isAdmin && $branchAgentId) {
+            if (!$isAdmin) {
                 $cashLatestQuery->where('branch_agent_id', $branchAgentId);
             }
             $cashLatestDocs = $cashLatestQuery->orderBy('created_at', 'desc')

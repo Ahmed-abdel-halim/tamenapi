@@ -26,6 +26,7 @@ class User extends Authenticatable
         'eidc_password',
         'lifo_username',
         'lifo_password',
+        'lifo_office_id',
         'is_admin',
         'authorized_documents',
         'salary',

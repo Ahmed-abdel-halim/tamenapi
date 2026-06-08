@@ -30,7 +30,7 @@ class CashInTransitInsuranceDocumentController extends Controller
 
             $query = CashInTransitInsuranceDocument::with('branchAgent');
             
-            if (!$isAdmin && $branchAgentId) {
+            if (!$isAdmin) {
                 $query->where('branch_agent_id', $branchAgentId);
             }
 

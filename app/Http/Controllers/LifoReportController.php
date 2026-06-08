@@ -1271,6 +1271,185 @@ class LifoReportController extends Controller
     }
 
     /**
+     * Get dashboard summary metrics for company or office users.
+     */
+    public function dashboardSummary(Request $request)
+    {
+        $request->validate([
+            'user_name' => 'required|string',
+            'pass_word' => 'required|string',
+            'force_refresh' => 'nullable|boolean',
+        ]);
+
+        $userName = $request->user_name;
+        $password = $request->pass_word;
+        $forceRefresh = $request->boolean('force_refresh', false);
+
+        // 1. Get offices list (cached)
+        $officesCacheKey = "lifo_offices_adminmli";
+        $officesList = Cache::get($officesCacheKey);
+        if (!$officesList) {
+            try {
+                $response = Http::timeout(30)->withoutVerifying()->post('https://prodapi.lifo.ly/api/offices/all', [
+                    'user_name' => 'adminmli',
+                    'pass_word' => '20232024',
+                ]);
+                if ($response->successful()) {
+                    $data = $response->json();
+                    if (isset($data['code']) && $data['code'] === 1 && is_array($data['data'])) {
+                        $officesList = $data['data'];
+                        Cache::put($officesCacheKey, $officesList, 7200);
+                    }
+                }
+            } catch (\Exception $e) {}
+        }
+        $officesList = $officesList ?? [];
+
+        // Check if office user
+        $isOfficeUser = ($userName !== 'adminmli');
+        $myOfficeName = null;
+        $myOfficeId = null;
+        if ($isOfficeUser) {
+            $myOffice = $this->resolveOfficeForUser($userName, $officesList);
+            if ($myOffice !== null) {
+                $myOfficeName = $myOffice['name'];
+                $myOfficeId = $myOffice['id'];
+            }
+        }
+
+        // 2. Fetch all cards (cached)
+        $cardsCacheKey = "lifo_cards_adminmli_all";
+        $cardsList = null;
+        if (!$forceRefresh) {
+            $cardsList = Cache::get($cardsCacheKey);
+        }
+        if (!$cardsList) {
+            try {
+                $response = Http::timeout(180)->withoutVerifying()->post('https://prodapi.lifo.ly/api/cards/all', [
+                    'user_name' => 'adminmli',
+                    'pass_word' => '20232024',
+                ]);
+                if ($response->successful()) {
+                    $data = $response->json();
+                    if (isset($data['code']) && $data['code'] === 1 && is_array($data['data'])) {
+                        $cardsList = $data['data'];
+                        Cache::put($cardsCacheKey, $cardsList, 7200);
+                    }
+                }
+            } catch (\Exception $e) {}
+        }
+        $cardsList = $cardsList ?? [];
+
+        // 3. Filter cards list by office if office user
+        if ($isOfficeUser) {
+            if ($myOfficeName !== null) {
+                $filteredCards = [];
+                foreach ($cardsList as $card) {
+                    if (isset($card['offices']) && trim($card['offices']) === $myOfficeName) {
+                        $filteredCards[] = $card;
+                    }
+                }
+                $cardsList = $filteredCards;
+            } else {
+                $cardsList = [];
+            }
+        }
+
+        // Calculate card counts
+        $totalCards = count($cardsList);
+        $assignedCards = 0;
+        $issuedCards = 0;
+        $canceledCards = 0;
+
+        foreach ($cardsList as $card) {
+            $status = $card['cardstautesname'] ?? '';
+            if ($status === 'البطاقات المعينة' || $status === 'البطاقات النشطة') {
+                $assignedCards++;
+            } else if ($status === 'البطاقات المباعة' || $status === 'البطاقات المصدرة') {
+                $issuedCards++;
+            } else if ($status === 'البطاقات الملغية' || $status === 'الملغية') {
+                $canceledCards++;
+            }
+        }
+
+        $extraStats = null;
+
+        if ($isOfficeUser) {
+            // Fetch reports for this office
+            $userHash = md5($userName);
+            $reportsCacheKey = "lifo_reports_data_{$userHash}";
+            $reports = null;
+            if (!$forceRefresh) {
+                $reports = Cache::get($reportsCacheKey);
+            }
+            if (!$reports && $myOfficeId !== null) {
+                try {
+                    $response = Http::timeout(60)->withoutVerifying()->post('https://prodapi.lifo.ly/api/report/byoffice/' . $myOfficeId, [
+                        'user_name' => 'adminmli',
+                        'pass_word' => '20232024',
+                    ]);
+                    if ($response->successful()) {
+                        $data = $response->json();
+                        if (isset($data['code']) && $data['code'] === 1 && is_array($data['data'])) {
+                            $reports = $data['data'];
+                            Cache::put($reportsCacheKey, $reports, 7200);
+                        }
+                    }
+                } catch (\Exception $e) {}
+            }
+            $reports = $reports ?? [];
+
+            $issuedTotalCount = count($reports);
+            $issuedMonthCount = 0;
+            $issuedTodayCount = 0;
+            $issuedTotalValue = 0.0;
+            $issuedMonthValue = 0.0;
+            $issuedTodayValue = 0.0;
+
+            $todayStr = date('Y-m-d');
+            $monthStr = date('Y-m');
+
+            foreach ($reports as $doc) {
+                $totalVal = (float) ($doc['insurance_total'] ?? 0);
+                $issuedTotalValue += $totalVal;
+
+                if (!empty($doc['issuing_date'])) {
+                    $datePart = substr($doc['issuing_date'], 0, 10);
+                    if ($datePart === $todayStr) {
+                        $issuedTodayCount++;
+                        $issuedTodayValue += $totalVal;
+                    }
+                    if (substr($datePart, 0, 7) === $monthStr) {
+                        $issuedMonthCount++;
+                        $issuedMonthValue += $totalVal;
+                    }
+                }
+            }
+
+            $extraStats = [
+                'issued_total_count' => $issuedTotalCount,
+                'issued_month_count' => $issuedMonthCount,
+                'issued_today_count' => $issuedTodayCount,
+                'issued_total_value' => $issuedTotalValue,
+                'issued_month_value' => $issuedMonthValue,
+                'issued_today_value' => $issuedTodayValue,
+            ];
+        }
+
+        return response()->json([
+            'success' => true,
+            'is_admin' => !$isOfficeUser,
+            'metrics' => [
+                'total_cards' => $totalCards,
+                'assigned_cards' => $assignedCards,
+                'issued_cards' => $issuedCards,
+                'canceled_cards' => $canceledCards,
+            ],
+            'extra_stats' => $extraStats,
+        ]);
+    }
+
+    /**
      * Resolve LIFO Office ID and Name for a given local username.
      */
     private function resolveOfficeForUser($userName, array $officesList)

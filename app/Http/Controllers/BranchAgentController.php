@@ -276,6 +276,9 @@ class BranchAgentController extends Controller
                 'contract_conditions' => $request->contract_conditions,
             ]);
 
+            $user->branch_agent_id = $branchAgent->id;
+            $user->save();
+
             DB::commit();
 
             return response()->json($branchAgent->load('user'), 201);
@@ -422,6 +425,9 @@ class BranchAgentController extends Controller
                 'document_percentages' => [],
             ], $uploadedDocs));
 
+            $user->branch_agent_id = $branchAgent->id;
+            $user->save();
+
             DB::commit();
 
             // إرسال إشعار للمشرفين
@@ -482,6 +488,7 @@ class BranchAgentController extends Controller
                 if ($user) {
                     $user->is_active = true;
                     $user->authorized_documents = $branchAgent->authorized_documents;
+                    $user->branch_agent_id = $branchAgent->id;
                     $user->save();
                 }
             }

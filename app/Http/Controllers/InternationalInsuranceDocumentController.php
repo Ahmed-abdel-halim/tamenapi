@@ -29,10 +29,14 @@ class InternationalInsuranceDocumentController extends Controller
                     if ($user) {
                         $isAdmin = $user->is_admin ?? false;
                         if (!$isAdmin) {
-                            // إذا لم يكن admin، احصل على branch_agent_id من المستخدم
-                            $branchAgent = BranchAgent::where('user_id', $userId)->first();
-                            if ($branchAgent) {
-                                $branchAgentId = $branchAgent->id;
+                            // إذا لم يكن admin، احصل على branch_agent_id من المستخدم (سواء كان مستخدم مكتب فرعي أو وكيل رئيسي)
+                            if ($user->branch_agent_id) {
+                                $branchAgentId = $user->branch_agent_id;
+                            } else {
+                                $branchAgent = BranchAgent::where('user_id', $userId)->first();
+                                if ($branchAgent) {
+                                    $branchAgentId = $branchAgent->id;
+                                }
                             }
                         }
                     }
@@ -160,7 +164,7 @@ class InternationalInsuranceDocumentController extends Controller
                 $nextNumber++;
             } while (InternationalInsuranceDocument::where('document_number', $documentNumber)->exists());
 
-            // الحصول على branch_agent_id من المستخدم الحالي
+            // الحصول على branch_agent_id والتحقق من الصلاحيات للمستخدم الحالي
             $branchAgentId = null;
             $userId = $request->header('X-User-Id') ?? $request->input('user_id');
             if ($userId) {
@@ -168,10 +172,24 @@ class InternationalInsuranceDocumentController extends Controller
                 if ($userId) {
                     $user = User::find($userId);
                     if ($user && !($user->is_admin ?? false)) {
-                        // إذا لم يكن admin، احصل على branch_agent_id من المستخدم
-                        $branchAgent = BranchAgent::where('user_id', $userId)->first();
-                        if ($branchAgent) {
-                            $branchAgentId = $branchAgent->id;
+                        // إذا لم يكن admin، احصل على branch_agent_id من المستخدم (سواء كان مستخدم مكتب فرعي أو وكيل رئيسي)
+                        if ($user->branch_agent_id) {
+                            $branchAgentId = $user->branch_agent_id;
+                            // التحقق من صلاحية إصدار الوثائق لمستخدمي المكتب الفرعيين (صلاحية رقم 2)
+                            $isSubUser = !empty($user->lifo_user_id) || (!empty($user->lifo_permissions) && count($user->lifo_permissions) > 0);
+                            if ($isSubUser) {
+                                $permissions = $user->lifo_permissions ?? [];
+                                if (!in_array(2, $permissions)) {
+                                    return response()->json([
+                                        'message' => 'ليس لديك صلاحية لإصدار وثائق التأمين الدولي. يرجى مراجعة إدارة المكتب.'
+                                    ], 403);
+                                }
+                            }
+                        } else {
+                            $branchAgent = BranchAgent::where('user_id', $userId)->first();
+                            if ($branchAgent) {
+                                $branchAgentId = $branchAgent->id;
+                            }
                         }
                     }
                 }

@@ -558,5 +558,479 @@ class UserController extends Controller
             ], 500);
         }
     }
+
+    public function officeUsersIndex(Request $request)
+    {
+        $agentId = $request->user()->branch_agent_id ?? (\App\Models\BranchAgent::where('user_id', $request->user()->id)->value('id'));
+        if (!$agentId) {
+            return response()->json(['message' => 'غير مصرح للقيام بهذه العملية'], 403);
+        }
+
+        $users = User::where('branch_agent_id', $agentId)
+            ->where('id', '!=', $request->user()->id)
+            ->get(['id', 'username', 'name', 'lifo_username', 'lifo_permissions', 'lifo_user_id', 'is_active']);
+
+        return response()->json($users);
+    }
+
+    public function storeOfficeUser(Request $request)
+    {
+        $agentUser = $request->user();
+        $branchAgent = $agentUser->branchAgent ?? \App\Models\BranchAgent::where('user_id', $agentUser->id)->first();
+
+        if (!$branchAgent) {
+            return response()->json(['message' => 'هذا الحساب غير مرتبط بوكيل'], 403);
+        }
+
+        $lifoUsername = $agentUser->lifo_username;
+        $lifoPassword = $agentUser->lifo_password;
+        $lifoOfficeId = $agentUser->lifo_office_id;
+
+        if (!$lifoUsername || !$lifoPassword || !$lifoOfficeId) {
+            return response()->json(['message' => 'يرجى تهيئة بيانات اعتمادات الاتحاد (LIFO) للوكيل أولاً'], 400);
+        }
+
+        $request->validate([
+            'username' => 'required|string|unique:users,username',
+            'name' => 'required|string',
+            'password' => 'required|string|min:6|confirmed',
+            'permissions' => 'required|array',
+            'permissions.*' => 'integer|in:1,2,3',
+        ]);
+
+        try {
+            $postParams = [
+                'user_name' => $lifoUsername,
+                'pass_word' => $lifoPassword,
+                'username' => $request->username,
+                'password' => $request->password,
+                'password_confirmation' => $request->password,
+            ];
+
+            foreach ($request->permissions as $index => $permissionId) {
+                $postParams["permisson[$index]"] = $permissionId;
+            }
+
+            $response = \Illuminate\Support\Facades\Http::timeout(30)
+                ->withoutVerifying()
+                ->asForm()
+                ->post("https://prodapi.lifo.ly/api/offices/addofficeuser/{$lifoOfficeId}", $postParams);
+
+            if ($response->failed() || $response->json('code') !== 1) {
+                $errorMsg = $response->json('message') ?? $response->json('messages') ?? 'فشل إضافة المستخدم في نظام الاتحاد';
+                if (is_array($errorMsg)) {
+                    $errorMsg = implode(', ', $errorMsg);
+                }
+                return response()->json(['message' => 'خطأ من الاتحاد: ' . $errorMsg], 400);
+            }
+
+            $lifoResponseData = $response->json('data') ?? [];
+            \Illuminate\Support\Facades\Log::info('LIFO office user creation success', ['response' => $lifoResponseData]);
+
+            // Try to extract user ID from LIFO response
+            $lifoUserId = null;
+            if (is_array($lifoResponseData)) {
+                if (isset($lifoResponseData['id'])) {
+                    $lifoUserId = $lifoResponseData['id'];
+                } else {
+                    $matched = collect($lifoResponseData)->first(function($u) use ($request) {
+                        return strtolower($u['username'] ?? '') === strtolower($request->username);
+                    });
+                    if ($matched) {
+                        $lifoUserId = $matched['id'] ?? null;
+                    }
+                }
+            }
+
+            // Create local user
+            $user = User::create([
+                'username' => $request->username,
+                'name' => $request->name,
+                'password' => Hash::make($request->password),
+                'branch_agent_id' => $branchAgent->id,
+                'lifo_username' => $request->username,
+                'lifo_password' => $request->password,
+                'lifo_office_id' => $lifoOfficeId,
+                'lifo_permissions' => $request->permissions,
+                'lifo_user_id' => $lifoUserId ? (string)$lifoUserId : null,
+                'authorized_documents' => ['تأمين سيارات دولي'],
+                'is_active' => true,
+            ]);
+
+            return response()->json($user, 201);
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Office sub-user creation failed: ' . $e->getMessage());
+            return response()->json(['message' => 'حدث خطأ غير متوقع أثناء إضافة المستخدم: ' . $e->getMessage()], 500);
+        }
+    }
+
+    public function toggleOfficeUserStatus(Request $request, $id)
+    {
+        $agentUser = $request->user();
+        $branchAgent = $agentUser->branchAgent ?? \App\Models\BranchAgent::where('user_id', $agentUser->id)->first();
+
+        if (!$branchAgent) {
+            return response()->json(['message' => 'غير مصرح'], 403);
+        }
+
+        $user = User::where('branch_agent_id', $branchAgent->id)->findOrFail($id);
+        
+        $lifoUsername = $agentUser->lifo_username;
+        $lifoPassword = $agentUser->lifo_password;
+        $lifoUserId = $user->lifo_user_id;
+
+        if (!$lifoUserId) {
+            $user->is_active = !$user->is_active;
+            $user->save();
+            return response()->json([
+                'success' => true,
+                'is_active' => $user->is_active,
+                'message' => 'تم تغيير حالة المستخدم محلياً فقط لعدم وجود معرّف الاتحاد للمستخدم.'
+            ]);
+        }
+
+        $newStatus = !$user->is_active;
+        $endpoint = $newStatus 
+            ? "https://prodapi.lifo.ly/api/offices/activationAccount/{$lifoUserId}" 
+            : "https://prodapi.lifo.ly/api/offices/disableAccount/{$lifoUserId}";
+
+        try {
+            $response = \Illuminate\Support\Facades\Http::timeout(20)
+                ->withoutVerifying()
+                ->asForm()
+                ->post($endpoint, [
+                    'user_name' => $lifoUsername,
+                    'pass_word' => $lifoPassword,
+                ]);
+
+            if ($response->failed() || $response->json('code') !== 1) {
+                $errorMsg = $response->json('message') ?? $response->json('messages') ?? 'فشل تحديث الحالة في نظام الاتحاد';
+                if (is_array($errorMsg)) {
+                    $errorMsg = implode(', ', $errorMsg);
+                }
+                return response()->json(['message' => 'خطأ من الاتحاد: ' . $errorMsg], 400);
+            }
+
+            $user->is_active = $newStatus;
+            $user->save();
+
+            return response()->json([
+                'success' => true,
+                'is_active' => $user->is_active,
+                'message' => $newStatus ? 'تم تفعيل حساب المستخدم بنجاح' : 'تم تعطيل حساب المستخدم بنجاح'
+            ]);
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Office sub-user toggle status failed: ' . $e->getMessage());
+            return response()->json(['message' => 'حدث خطأ في الاتصال بسيرفر الاتحاد: ' . $e->getMessage()], 500);
+        }
+    }
+
+    public function updateOfficeUser(Request $request, $id)
+    {
+        $agentUser = $request->user();
+        $branchAgent = $agentUser->branchAgent ?? \App\Models\BranchAgent::where('user_id', $agentUser->id)->first();
+
+        if (!$branchAgent) {
+            return response()->json(['message' => 'غير مصرح للقيام بهذه العملية'], 403);
+        }
+
+        $user = User::where('branch_agent_id', $branchAgent->id)->findOrFail($id);
+
+        $request->validate([
+            'name' => 'required|string',
+            'password' => 'nullable|string|min:6|confirmed',
+            'permissions' => 'required|array',
+            'permissions.*' => 'integer|in:1,2,3',
+        ]);
+
+        $user->name = $request->name;
+        $user->lifo_permissions = $request->permissions;
+
+        if ($request->filled('password')) {
+            $user->password = Hash::make($request->password);
+            $user->lifo_password = $request->password;
+        }
+
+        $user->save();
+
+        try {
+            $this->syncOfficeUserPermissionsAndPwdToLifo(
+                $agentUser,
+                $user->username,
+                $request->permissions,
+                $request->filled('password') ? $request->password : null
+            );
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('LIFO sync failed: ' . $e->getMessage());
+            return response()->json([
+                'success' => true,
+                'user' => [
+                    'id' => $user->id,
+                    'username' => $user->username,
+                    'name' => $user->name,
+                    'lifo_username' => $user->lifo_username,
+                    'lifo_permissions' => $user->lifo_permissions,
+                    'lifo_user_id' => $user->lifo_user_id,
+                    'is_active' => $user->is_active,
+                ],
+                'message' => 'تم تحديث البيانات محلياً، ولكن فشل التزامن مع الاتحاد: ' . $e->getMessage()
+            ]);
+        }
+
+        return response()->json([
+            'success' => true,
+            'user' => [
+                'id' => $user->id,
+                'username' => $user->username,
+                'name' => $user->name,
+                'lifo_username' => $user->lifo_username,
+                'lifo_permissions' => $user->lifo_permissions,
+                'lifo_user_id' => $user->lifo_user_id,
+                'is_active' => $user->is_active,
+            ],
+            'message' => 'تم تحديث بيانات الموظف وصلاحياته ومزامنتها مع الاتحاد بنجاح.'
+        ]);
+    }
+
+    public function destroyOfficeUser(Request $request, $id)
+    {
+        $agentUser = $request->user();
+        $branchAgent = $agentUser->branchAgent ?? \App\Models\BranchAgent::where('user_id', $agentUser->id)->first();
+
+        if (!$branchAgent) {
+            return response()->json(['message' => 'غير مصرح'], 403);
+        }
+
+        $user = User::where('branch_agent_id', $branchAgent->id)->findOrFail($id);
+        
+        $lifoUsername = $agentUser->lifo_username;
+        $lifoPassword = $agentUser->lifo_password;
+        $lifoUserId = $user->lifo_user_id;
+
+        if ($lifoUserId) {
+            try {
+                \Illuminate\Support\Facades\Http::timeout(20)
+                    ->withoutVerifying()
+                    ->asForm()
+                    ->post("https://prodapi.lifo.ly/api/offices/disableAccount/{$lifoUserId}", [
+                        'user_name' => $lifoUsername,
+                        'pass_word' => $lifoPassword,
+                    ]);
+            } catch (\Exception $e) {
+                \Illuminate\Support\Facades\Log::warning('LIFO disable user failed during deletion: ' . $e->getMessage());
+            }
+        }
+
+        $user->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'تم حذف مستخدم المكتب بنجاح'
+        ]);
+    }
+
+    /**
+     * Synchronize sub-user permissions and password to LIFO web portal via Guzzle.
+     */
+    private function syncOfficeUserPermissionsAndPwdToLifo($agentUser, $subUserUsername, $targetPermissions, $newPassword = null)
+    {
+        $lifoUsername = $agentUser->lifo_username;
+        $lifoPassword = $agentUser->lifo_password;
+
+        if (!$lifoUsername || !$lifoPassword) {
+            throw new \Exception('اعتمادات الاتحاد للوكيل غير مهيأة.');
+        }
+
+        $cookieJar = new \GuzzleHttp\Cookie\CookieJar();
+        $client = new \GuzzleHttp\Client([
+            'verify'          => false,
+            'timeout'         => 25.0,
+            'connect_timeout' => 5.0,
+            'cookies'         => $cookieJar,
+            'allow_redirects' => [
+                'max'             => 5,
+                'strict'          => false,
+                'referer'         => true,
+                'track_redirects' => true
+            ]
+        ]);
+
+        // 1. GET login page to obtain CSRF token
+        $response = $client->request('GET', 'https://prod.lifo.ly/office/login');
+        $html = $response->getBody()->getContents();
+        
+        preg_match('/name="_token"\s+value="([^"]+)"/', $html, $matches);
+        $token = $matches[1] ?? null;
+        if (!$token) {
+            preg_match('/csrf-token"\s+content="([^"]+)"/', $html, $matches);
+            $token = $matches[1] ?? null;
+        }
+        
+        if (!$token) {
+            throw new \Exception('فشل الحصول على توكن التحقق (CSRF) من الاتحاد.');
+        }
+
+        // 2. POST login request
+        $client->request('POST', 'https://prod.lifo.ly/office/login', [
+            'form_params' => [
+                '_token' => $token,
+                'username' => $lifoUsername,
+                'password' => $lifoPassword,
+            ],
+            'headers' => [
+                'Referer' => 'https://prod.lifo.ly/office/login',
+                'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+                'Accept' => 'text/html,application/xhtml+xml,application/xml;q=0.9',
+            ]
+        ]);
+
+        // 3. Fetching users list via AJAX to get URLs
+        $response = $client->request('GET', 'https://prod.lifo.ly/office/offices_users/offices_users', [
+            'headers' => [
+                'Accept' => 'application/json',
+                'X-Requested-With' => 'XMLHttpRequest',
+                'Referer' => 'https://prod.lifo.ly/office/offices_users',
+            ]
+        ]);
+        
+        $body = $response->getBody()->getContents();
+        $data = json_decode($body, true);
+        
+        $matchedUser = null;
+        if (isset($data['data'])) {
+            foreach ($data['data'] as $u) {
+                if (strtolower($u['username'] ?? '') === strtolower($subUserUsername)) {
+                    $matchedUser = $u;
+                    break;
+                }
+            }
+        }
+        
+        if (!$matchedUser) {
+            throw new \Exception("المستخدم '$subUserUsername' غير موجود في حساب الاتحاد الخاص بكم.");
+        }
+
+        // 4. Permissions Syncing
+        if (isset($matchedUser['showpermission']) && preg_match('/href="([^"]+)"/', $matchedUser['showpermission'], $permMatches)) {
+            $permUrl = $permMatches[1];
+            $permResponse = $client->request('GET', $permUrl);
+            $permHtml = $permResponse->getBody()->getContents();
+            
+            // Find all permission rows in showpermission page
+            preg_match_all('/<tr>\s*<td>\s*(.*?)\s*<\/td>\s*<td>.*?<form[^>]+action="([^"]+deletePermission\/(\d+))"[^>]*>(.*?)<\/form>/is', $permHtml, $rows, PREG_SET_ORDER);
+            
+            $existingLifoPerms = [];
+            $permissionMap = [
+                'صلاحية عرض البطاقات' => 1,
+                'صلاحية اصدار وثيقة'  => 2,
+                'صلاحية ادارة التقارير' => 3
+            ];
+
+            foreach ($rows as $row) {
+                $permName = trim(strip_tags($row[1]));
+                $deleteUrl = $row[2];
+                $permUserId = $row[3];
+                $formContent = $row[4];
+                
+                $localId = $permissionMap[$permName] ?? null;
+                if ($localId) {
+                    preg_match('/name="_token"\s+value="([^"]+)"/', $formContent, $tokenMatches);
+                    $formCsrf = $tokenMatches[1] ?? null;
+                    
+                    $existingLifoPerms[$localId] = [
+                        'delete_url' => $deleteUrl,
+                        'csrf_token' => $formCsrf,
+                        'perm_user_id' => $permUserId
+                    ];
+                }
+            }
+
+            // A. Delete permissions not in target
+            foreach ($existingLifoPerms as $permId => $info) {
+                if (!in_array($permId, $targetPermissions)) {
+                    if ($info['csrf_token']) {
+                        $client->request('POST', $info['delete_url'], [
+                            'form_params' => [
+                                '_token' => $info['csrf_token'],
+                                '_method' => 'DELETE'
+                            ],
+                            'headers' => [
+                                'Referer' => $permUrl,
+                                'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+                            ]
+                        ]);
+                    }
+                }
+            }
+
+            // B. Add permissions not currently in LIFO
+            $permsToAdd = [];
+            foreach ($targetPermissions as $p) {
+                if (!isset($existingLifoPerms[$p])) {
+                    $permsToAdd[] = $p;
+                }
+            }
+
+            if (!empty($permsToAdd) && isset($matchedUser['edit']) && preg_match('/href="([^"]+)"/', $matchedUser['edit'], $editMatches)) {
+                $editUrl = $editMatches[1];
+                $editResponse = $client->request('GET', $editUrl);
+                $editHtml = $editResponse->getBody()->getContents();
+                
+                preg_match('/name="_token"\s+value="([^"]+)"/', $editHtml, $editTokenMatches);
+                $editCsrfToken = $editTokenMatches[1] ?? null;
+                if (!$editCsrfToken) {
+                    preg_match('/csrf-token"\s+content="([^"]+)"/', $editHtml, $editTokenMatches);
+                    $editCsrfToken = $editTokenMatches[1] ?? null;
+                }
+
+                if ($editCsrfToken) {
+                    $bodyStr = http_build_query([
+                        '_token' => $editCsrfToken,
+                        'username' => $subUserUsername
+                    ]);
+                    foreach ($permsToAdd as $p) {
+                        $bodyStr .= '&permisson[]=' . $p;
+                    }
+                    
+                    $client->request('POST', $editUrl, [
+                        'body' => $bodyStr,
+                        'headers' => [
+                            'Content-Type' => 'application/x-www-form-urlencoded',
+                            'Referer' => $editUrl,
+                            'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+                        ]
+                    ]);
+                }
+            }
+        }
+
+        // 5. Password Syncing
+        if ($newPassword && isset($matchedUser['changepassord']) && preg_match('/href="([^"]+)"/', $matchedUser['changepassord'], $pwdMatches)) {
+            $pwdUrl = $pwdMatches[1];
+            $pwdResponse = $client->request('GET', $pwdUrl);
+            $pwdHtml = $pwdResponse->getBody()->getContents();
+            
+            preg_match('/name="_token"\s+value="([^"]+)"/', $pwdHtml, $pwdTokenMatches);
+            $pwdCsrfToken = $pwdTokenMatches[1] ?? null;
+            if (!$pwdCsrfToken) {
+                preg_match('/csrf-token"\s+content="([^"]+)"/', $pwdHtml, $pwdTokenMatches);
+                $pwdCsrfToken = $pwdTokenMatches[1] ?? null;
+            }
+
+            if ($pwdCsrfToken) {
+                $client->request('POST', $pwdUrl, [
+                    'form_params' => [
+                        '_token' => $pwdCsrfToken,
+                        'new-password' => $newPassword,
+                        'new-password-confirm' => $newPassword,
+                    ],
+                    'headers' => [
+                        'Referer' => $pwdUrl,
+                        'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+                    ]
+                ]);
+            }
+        }
+    }
 }
 

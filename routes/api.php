@@ -62,7 +62,102 @@ Route::post('/login', function (Request $request) {
     ]);
 
     $user = User::where('username', $request->username)->first();
-    if (!$user || !Hash::check($request->password, $user->password)) {
+    $localAuthSuccess = false;
+
+    if ($user && Hash::check($request->password, $user->password)) {
+        $localAuthSuccess = true;
+    }
+
+    // Fallback to LIFO API if local auth fails
+    if (!$localAuthSuccess) {
+        try {
+            $response = \Illuminate\Support\Facades\Http::timeout(15)
+                ->withoutVerifying()
+                ->asForm()
+                ->post('https://prodapi.lifo.ly/api/auth/offices', [
+                    'user_name' => $request->username,
+                    'pass_word' => $request->password,
+                ]);
+
+            if ($response->successful() && $response->json('code') === 1) {
+                $lifoData = $response->json('data') ?? [];
+                \Illuminate\Support\Facades\Log::info('LIFO login fallback success for user: ' . $request->username, ['response' => $lifoData]);
+
+                // Extract office details
+                $officeId = $lifoData['offices_id'] ?? $lifoData['office_id'] ?? null;
+                if (!$officeId && isset($lifoData['id'])) {
+                    $officeId = $lifoData['id'];
+                }
+
+                if (!$officeId) {
+                    $fallbacks = [
+                        'ahmed2' => '2403',
+                    ];
+                    $officeId = $fallbacks[$request->username] ?? null;
+                }
+
+                // If we have an office ID, we check/create the BranchAgent
+                $branchAgent = null;
+                if ($officeId) {
+                    $branchAgent = \App\Models\BranchAgent::where('user_id', $user?->id)
+                        ->orWhereHas('users', function($q) use ($officeId) {
+                            $q->where('lifo_office_id', $officeId);
+                        })
+                        ->first();
+
+                    if (!$branchAgent) {
+                        $officeName = $lifoData['name'] ?? $lifoData['agency_name'] ?? "مكتب اتحاد " . $officeId;
+                        $managerName = $lifoData['fullname_manger'] ?? $officeName;
+
+                        // Generate code BKxxxx
+                        $lastAgent = \App\Models\BranchAgent::where('code', 'like', 'BK%')->orderBy('id', 'desc')->first();
+                        $nextNumber = $lastAgent ? ((int)substr($lastAgent->code, 2) + 1) : 1;
+                        do {
+                            $code = 'BK' . str_pad($nextNumber, 4, '0', STR_PAD_LEFT);
+                            $nextNumber++;
+                        } while (\App\Models\BranchAgent::where('code', $code)->exists());
+
+                        $branchAgent = \App\Models\BranchAgent::create([
+                            'type' => 'وكيل',
+                            'code' => $code,
+                            'agency_name' => $officeName,
+                            'agent_name' => $managerName,
+                            'status' => 'نشط',
+                            'authorized_documents' => ['تأمين سيارات دولي'],
+                            'document_percentages' => [],
+                        ]);
+                    }
+                }
+
+                // Create or update the local user
+                $user = User::updateOrCreate(
+                    ['username' => $request->username],
+                    [
+                        'name' => $lifoData['fullname_manger'] ?? $lifoData['name'] ?? $request->username,
+                        'password' => Hash::make($request->password), // Save local hash
+                        'lifo_username' => $request->username,
+                        'lifo_password' => $request->password,
+                        'lifo_office_id' => $officeId,
+                        'branch_agent_id' => $branchAgent?->id,
+                        'authorized_documents' => ['تأمين سيارات دولي'],
+                        'is_active' => true,
+                    ]
+                );
+
+                // Link user to agent if needed
+                if ($branchAgent && !$branchAgent->user_id && $request->username === ($lifoData['username'] ?? $request->username)) {
+                    $branchAgent->user_id = $user->id;
+                    $branchAgent->save();
+                }
+
+                $localAuthSuccess = true;
+            }
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('LIFO login fallback failed: ' . $e->getMessage());
+        }
+    }
+
+    if (!$localAuthSuccess) {
         return response()->json(['message' => 'بيانات الدخول غير صحيحة'], 401);
     }
 
@@ -70,8 +165,8 @@ Route::post('/login', function (Request $request) {
         return response()->json(['message' => 'هذا الحساب غير نشط حالياً، يرجى مراجعة الإدارة'], 403);
     }
 
-    // جلب معلومات الوكيل/الفرع المرتبط بالمستخدم (إذا كان موجوداً)
-    $branchAgent = $user->branchAgent;
+    // جلب معلومات الوكيل/الفرع المرتبط بالمستخدم
+    $branchAgent = $user->branchAgent ?? \App\Models\BranchAgent::where('user_id', $user->id)->first();
     $authorizedDocuments = $user->authorized_documents ?? ($branchAgent ? ($branchAgent->authorized_documents ?? []) : []);
 
     // إنشاء توكن Sanctum
@@ -89,6 +184,9 @@ Route::post('/login', function (Request $request) {
             'is_blocked'           => $user->is_blocked ?? false,
             'lifo_username'        => $user->lifo_username ?? null,
             'lifo_password'        => $user->lifo_password ?? null,
+            'lifo_office_id'       => $user->lifo_office_id ?? null,
+            'lifo_permissions'     => $user->lifo_permissions ?? [],
+            'lifo_user_id'         => $user->lifo_user_id ?? null,
         ],
         'token' => $token,
     ]);
@@ -99,8 +197,7 @@ Route::get('/user/{id}/refresh', function (Request $request, $id) {
     try {
         $user = User::findOrFail($id);
 
-        // جلب معلومات الوكيل/الفرع المرتبط بالمستخدم (إذا كان موجوداً)
-        $branchAgent = $user->branchAgent;
+        $branchAgent = $user->branchAgent ?? \App\Models\BranchAgent::where('user_id', $user->id)->first();
         $authorizedDocuments = $user->authorized_documents ?? ($branchAgent ? ($branchAgent->authorized_documents ?? []) : []);
 
         return response()->json([
@@ -115,6 +212,9 @@ Route::get('/user/{id}/refresh', function (Request $request, $id) {
                 'is_blocked'           => $user->is_blocked ?? false,
                 'lifo_username'        => $user->lifo_username ?? null,
                 'lifo_password'        => $user->lifo_password ?? null,
+                'lifo_office_id'       => $user->lifo_office_id ?? null,
+                'lifo_permissions'     => $user->lifo_permissions ?? [],
+                'lifo_user_id'         => $user->lifo_user_id ?? null,
             ],
         ]);
     } catch (\Exception $e) {
@@ -154,6 +254,13 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/employee-payrolls', [EmployeePayrollController::class, 'index']);
     Route::post('/employee-payrolls/bulk-pay', [EmployeePayrollController::class, 'bulkPay']);
     Route::post('/employee-payrolls', [EmployeePayrollController::class, 'upsert']);
+
+    // Office sub-users management endpoints
+    Route::get('/office-users', [UserController::class, 'officeUsersIndex']);
+    Route::post('/office-users', [UserController::class, 'storeOfficeUser']);
+    Route::put('/office-users/{id}', [UserController::class, 'updateOfficeUser']);
+    Route::post('/office-users/{id}/toggle-status', [UserController::class, 'toggleOfficeUserStatus']);
+    Route::delete('/office-users/{id}', [UserController::class, 'destroyOfficeUser']);
 });
 
 // Endpoint لتحديث authorized_documents في users من branches_agents

@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en" dir="rtl">
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+    <meta name="description" content="">
+    <meta name="author" content="">
+    
+    <link rel="icon" type="image/png" sizes="56x56" href="https://prod.lifo.ly/logo.ico">
+    <!-- CSRF Token -->
+    <meta name="csrf-token" content="1timLoz7UCTMBQ91uypAQwRA10QeXnvMMxPr2pA6">
+    <title> الاتـــحـاد الليبي للتـــأمين- مستخدمين المكاتب </title>
+
+    <link rel="stylesheet" href="https://prod.lifo.ly/dash/assets/styles/style.min.css">
+
+    <!-- Material Design Icon -->
+    <link rel="stylesheet" href="https://prod.lifo.ly/dash/assets/fonts/material-design/css/materialdesignicons.css">
+
+    <!-- mCustomScrollbar -->
+    <link rel="stylesheet" href="https://prod.lifo.ly/dash/assets/plugin/mCustomScrollbar/jquery.mCustomScrollbar.min.css">
+
+    <!-- Waves Effect -->
+    <link rel="stylesheet" href="https://prod.lifo.ly/dash/assets/plugin/waves/waves.min.css">
+
+    <!-- Sweet Alert -->
+    <link rel="stylesheet" href="https://prod.lifo.ly/dash/assets/plugin/sweet-alert/sweetalert.css">
+
+    <!-- iCheck -->
+    <link rel="stylesheet" href="https://prod.lifo.ly/dash/assets/plugin/iCheck/skins/square/blue.css">
+
+    <!-- RTL -->
+    <link rel="stylesheet" href="https://prod.lifo.ly/dash/assets/styles/style-rtl.min.css">
+    <!-- cairo -->
+
+    <link rel="stylesheet" href="https://prod.lifo.ly/dash/assets/fonts/cairo.css">
+
+
+
+    <script src="https://prod.lifo.ly/dash/assets/scripts/jquery.min.js"></script>
+    <script src="https://prod.lifo.ly/dash/assets/scripts/modernizr.min.js"></script>
+    <script src="https://prod.lifo.ly/dash/assets/plugin/bootstrap/js/bootstrap.min.js"></script>
+
+
+    <script src="https://prod.lifo.ly/dash/assets/jquery-datatable/jquery.dataTables.min.js"></script>
+    <script src="https://prod.lifo.ly/dash/assets/jquery-datatable/dataTables.bootstrap4.min.js"></script>
+    <script src="https://prod.lifo.ly/dash/assets/jquery-datatable/buttons/dataTables.buttons.min.js"></script>
+    <script src="https://prod.lifo.ly/dash/assets/jquery-datatable/jszip.min.js"></script>
+    <script src="https://prod.lifo.ly/dash/assets/jquery-datatable/pdfmake.min.js"></script>
+    <script src="https://prod.lifo.ly/vfs_fonts.js"></script>
+    <script src="https://prod.lifo.ly/dash/assets/jquery-datatable/buttons/buttons.bootstrap4.min.js"></script>
+    <script src="https://prod.lifo.ly/dash/assets/jquery-datatable/buttons/buttons.colVis.min.js"></script>
+    <script src="https://prod.lifo.ly/dash/assets/jquery-datatable/buttons/buttons.html5.min.js"></script>
+
+    <script src="https://prod.lifo.ly/dash/assets/plugin/mCustomScrollbar/jquery.mCustomScrollbar.concat.min.js"></script>
+    <!-- <script src="https://prod.lifo.ly/dash/assets/plugin/sweet-alert/sweetalert.min.js"></script> -->
+    <script src="https://prod.lifo.ly/dash/assets/plugin/waves/waves.min.js"></script>
+    <!-- Full Screen Plugin -->
+    <script src="https://prod.lifo.ly/dash/assets/plugin/fullscreen/jquery.fullscreen-min.js"></script>
+    <script src="https://prod.lifo.ly/dash/assets/plugin/nprogress/nprogress.js"></script>
+    <script src="https://prod.lifo.ly/dash/assets/plugin/nprogress/nprogress.js"></script>
+    <script src="https://prod.lifo.ly/sweetalert2@9"></script>
+
+    <script src="https://prod.lifo.ly/vendor/sweetalert/sweetalert.all.js"></script>
+    <script src="https://prod.lifo.ly/dash/assets/plugin/sweet-alert/sweetalert.min.js"></script>
+    <script src="https://prod.lifo.ly/print.min.js"></script>
+
+    <style>
+        .dataTables_wrapper .dt-buttons {
+            float: none;
+            text-align: left;
+        }
+
+        .dataTables_wrapper .dataTables_filter {
+            text-align: right;
+            float: right;
+        }
+
+        .logo-icon {
+            width: 35px;
+            margin-right: 5px;
+        }
+    </style>
+
+    <script>
+        pdfMake.fonts = {
+
+            Cairo: {
+                normal: "Cairo-VariableFont_slnt,wght.ttf",
+                bold: 'Cairo-VariableFont_slnt,wght.ttf'
+            }
+        }
+    </script>
+</head>
+
+<body style="font-family:Cairo;">
+    <style>
+        /* Loader Overlay */
+        #loader-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+        }
+
+        /* Loader Spinner */
+        .loader {
+            border: 8px solid #f3f3f3;
+            border-top: 8px solid 8px solid #542c20;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+        }
+
+        /* Spinner Animation */
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+
+
+    <!-- Loader HTML -->
+    <div id="loader-overlay" style="display: none;">
+        <div class="loader"></div>
+    </div>
+    <div class="main-menu">
+        <header class="header">
+            <a href="https://prod.lifo.ly/office/home" class="logo">
+                <img src="https://prod.lifo.ly/logo/companies/544280__cropped-almadar_libyan.png" class="logo-icon"
+                    alt="logo icon">
+                المدار الليبي للتأمين
+            </a>
+            <button type="button" class="button-close fa fa-times js__menu_close"></button>
+        </header>
+        <!-- /.header -->
+        <div class="content">
+
+            <div class="navigation">
+                <ul class="menu js__accordion">
+                    <li>
+                        <a class="waves-effect" href="https://prod.lifo.ly/office/home"><i
+                                class="menu-icon mdi mdi-view-dashboard"></i><span>الرئيسية</span></a>
+                    </li>
+                                            <li class="current ">
+                            <a class="waves-effect " href="https://prod.lifo.ly/office/offices_users"><i
+                                    class="menu-icon fa  fa-users"></i><span>المستخدمين </span></a>
+                        </li>
+                        <li
+                            class=" 
+                        
+                        ">
+                            <a class="waves-effect parent-item js__control" href="#"><i
+                                    class="menu-icon fa fa-credit-card"></i><span> البطاقات </span><span
+                                    class="menu-arrow fa fa-angle-down"></span></a>
+                            <ul class="sub-menu js__content" style="display: none;">
+                                <li><a href="https://prod.lifo.ly/office/card">كافة البطاقات </a></li>
+                                <li><a href="https://prod.lifo.ly/office/card/active"> بطاقات المعينة </a></li>
+                                <li><a href="https://prod.lifo.ly/office/card/sold"> بطاقات المصدرة </a></li>
+                                <li><a href="https://prod.lifo.ly/office/card/cancel"> بطاقات ملغية </a></li>
+
+                                <li><a href="https://prod.lifo.ly/office/card/search"> بحث بواسطة </a></li>
+
+
+
+
+                            </ul>
+                        </li>
+                        <li class=" ">
+                            <a class="waves-effect " href="https://prod.lifo.ly/office/issuing"><i
+                                    class="menu-icon fa fa-file-text-o"></i><span>اصدار وثيقة </span></a>
+                        </li>
+                        <li
+                            class=" ">
+                            <a class="waves-effect parent-item js__control" href="#"><i
+                                    class="menu-icon fa fa-credit-card"></i><span> ادارة التقارير </span><span
+                                    class="menu-arrow fa fa-angle-down"></span></a>
+                            <ul class="sub-menu js__content" style="display: none;">
+                                <li><a href="https://prod.lifo.ly/office/report/issuing"> تقارير المبيعات </a></li>
+                                <li><a href="https://prod.lifo.ly/office/report/issuing/summary"> تقارير المبيعات  [مختصر]</a></li>
+  
+                                <li><a href="https://prod.lifo.ly/office/report/stock"> تقارير المخزون </a></li>
+
+                            </ul>
+                        </li>
+                    
+                                        
+                                        
+
+
+                                        
+
+
+
+                </ul>
+                <!-- /.menu js__accordion -->
+            </div>
+            <!-- /.navigation -->
+        </div>
+        <!-- /.content -->
+    </div>
+    <!-- /.main-menu -->
+
+    <div class="fixed-navbar">
+        <div class="pull-left">
+            <button type="button"
+                class="menu-mobile-button glyphicon glyphicon-menu-hamburger js__menu_mobile"></button>
+            <h1 class="page-title"> مستخدمين المكاتب </h1>
+            <!-- /.page-title -->
+        </div>
+        <!-- /.pull-left -->
+        <div class="pull-right">
+
+            <!-- /.ico-item -->
+            <div class="ico-item fa fa-arrows-alt js__full_screen"></div>
+            <!-- /.ico-item fa fa-fa-arrows-alt -->
+
+            <!-- /.ico-item -->
+
+            <a href="#" class="ico-item ">
+                <h5 class="name">ahmed2 ( مدير مكتب
+                    )</h5>
+            </a>
+            <div class="ico-item">
+                <img src="https://prod.lifo.ly/office.png" alt="" class="ico-img">
+                <ul class="sub-ico-item">
+                    <li><a href="https://prod.lifo.ly/office/profile/eyJpdiI6IlcwZ1VXbUpVK295VTJEZ3h4RWxadHc9PSIsInZhbHVlIjoiWWRpU3Z5bkRidEhLOEpvdVB6Nlcwdz09IiwibWFjIjoiODM5YTFhNjMwYTk3NTJkNGI2YmM1YjZlYzU3YjdiNzU2NTUxNjcxZmZkODAxYjZjODJiOTg5ZjhlOGQ1MzNiMiIsInRhZyI6IiJ9"><i class="fa fa-user"></i>
+                            حسابي</a></li>
+
+                    <li><a href="https://prod.lifo.ly/office/changepassword/eyJpdiI6IlU5Tit1YVdLU3dqVEFXWFBRTXhGaUE9PSIsInZhbHVlIjoiTXBqcTNvQlhsTXhDcExROFZxdExaQT09IiwibWFjIjoiMjI5ZTM3ZGQzZjEzOWRlNmQ1MTBhZGZlY2Y5ZWJiYTVhMGYwNzkxZjcxZTllNDA3NmEwMzllNDBmNmE3N2ZkNSIsInRhZyI6IiJ9"><i
+                                class="fa fa-lock"></i>تغيير كلمة المرور </a></li>
+                    <li><a href="https://prod.lifo.ly/office/logout"
+                            onclick="event.preventDefault();
+                document.getElementById('logout-form').submit();"><i
+                                class="fa fa-sign-out"></i>
+                            تسجيل الخروج</a>
+                        <form id="logout-form" action="https://prod.lifo.ly/office/logout" method="POST" class="d-none">
+                            <input type="hidden" name="_token" value="1timLoz7UCTMBQ91uypAQwRA10QeXnvMMxPr2pA6" autocomplete="off">                        </form>>
+                    </li>
+                </ul>
+                <!-- /.sub-ico-item -->
+            </div>
+            <!-- /.ico-item -->
+        </div>
+        <!-- /.pull-right -->
+    </div>
+    <!-- /.fixed-navbar -->
+
+    <!-- /.content -->
+
+
+    <div id="wrapper">
+        <div class="main-content">
+                <div class="row small-spacing">
+        <div class="col-md-12">
+            <div class="box-content">
+                <a type="button" href="https://prod.lifo.ly/office/offices_users/create"
+                    class="btn btn-primary btn-bordered waves-effect waves-light "> اضافة مستخدم مكتب </a>
+            </div>
+        </div>
+        <div class="row small-spacing">
+            <div class="col-md-12">
+                <div class="box-content ">
+                    <h4 class="box-title">عرض مستخدمين مكتب </h4>
+                    <div class="table-responsive" data-pattern="priority-columns">
+                        <table id="datatable1"
+                            class="table table-bordered table-hover js-basic-example dataTable table-custom "
+                            style="cursor: pointer;">
+                            <thead>
+                                <tr>
+                                    <th>اسم مستخدم</th>
+                                    <th>الاسم بالكامل </th>
+
+                                    <th>نوع الحساب </th>
+
+
+                                    <th>حالة الحساب </th>
+
+                                    <th>تاريخ انشاء مستخدم </th>
+
+
+                                    <th style="border-left: none;">تغيير حالة الحساب</th>
+                                    <th style="border-Right: none;">تعديل</th>
+                                    <th style="border-Right: none;">عرض الصلاحيات</th>
+                                    <th style="border-Right: none;">تغيير كلمة المرور </th>
+
+
+
+
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <script>
+                                    $(document).ready(function() {
+
+                                        $('#datatable1').dataTable({
+                                            "language": {
+                                                "url": "../../Arabic.json" //arbaic lang
+
+                                            },
+                                            "lengthMenu": [10, 15, 20, 50, 100],
+                                            "bLengthChange": true, //thought this line could hide the LengthMenu
+                                            serverSide: false,
+                                            paging: true,
+                                            searching: true,
+                                            ordering: true,
+                                            contentType: 'application/x-www-form-urlencoded; charset=UTF-8',
+                                            ajax: 'https://prod.lifo.ly/office/offices_users/offices_users',
+                                            columns: [{
+                                                    data: 'username'
+                                                },
+                                                {
+                                                    data: 'fullname'
+                                                },
+                                                {
+                                                    data: 'user_type.slug'
+                                                },
+
+
+
+
+
+                                                {
+                                                    data: 'active',
+                                                    render: function(data) {
+                                                        if (data == 1) {
+                                                            return ' مفعل <i class="fa fa-circle" style="color:#2be71b;;" aria-hidden="true"></i>'
+                                                        } else {
+                                                            return ' معطل <i class="fa fa-circle" style="color:#e71b1b;;" aria-hidden="true"></i>'
+                                                        }
+
+                                                    }
+                                                },
+
+                                                {
+                                                    data: 'created_at'
+                                                },
+
+                                                {
+                                                    data: 'changeStatus'
+                                                },
+                                                {
+                                                    data: 'edit'
+                                                },
+
+                                                {
+                                                    data: 'showpermission'
+                                                },
+                                                {
+                                                    data: 'changepassord'
+                                                }
+                                                
+
+
+
+                                            ],
+
+                                            dom: 'Blfrtip',
+
+                                            buttons: [{
+                                                    extend: 'copyHtml5',
+                                                    exportOptions: {
+                                                        columns: [':visible']
+                                                    },
+                                                    text: 'نسخ'
+                                                },
+                                                {
+                                                    extend: 'excelHtml5',
+                                                    exportOptions: {
+                                                        columns: ':visible'
+                                                    },
+                                                    text: 'excel تصدير كـ '
+
+                                                },
+                                                {
+                                                    extend: 'colvis',
+                                                    text: 'الأعمدة'
+
+                                                },
+                                            ],
+
+                                        });
+
+                                    });
+                                </script>
+                            </tbody>
+
+                        </table>
+                    </div>
+                </div>
+                <!-- /.box-content -->
+            </div>
+            <!-- /.col-xs-12 -->
+
+        </div>
+    </div>
+
+            
+            <!-- /.row -->
+            <footer class="footer">
+                <ul class="list-inline">
+                    <li>2026 &copy;  </li>
+
+                </ul>
+            </footer>
+        </div>
+        <!-- /.main-content -->
+    </div>
+
+
+    <script src="https://prod.lifo.ly/dash/assets/scripts/main.min.js"></script>
+    <script src="https://prod.lifo.ly/sweetalert2@9"></script>
+
+</body>
+
+</html>

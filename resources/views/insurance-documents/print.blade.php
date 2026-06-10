@@ -34,12 +34,9 @@
         
         .document-container {
             width: 100%;
-            min-height: 100vh;
             margin: 0 auto;
             background: #fff;
             padding: 4px 8px;
-            display: flex;
-            flex-direction: column;
         }
         
         /* ─── Header ─── */
@@ -47,8 +44,8 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 10px;
-            padding-bottom: 7px;
+            margin-bottom: 12px;
+            padding-bottom: 8px;
             border-bottom: 2.5px solid #888;
         }
         
@@ -118,7 +115,7 @@
         }
         
         .data-table td {
-            padding: 5px 7px;
+            padding: 6px 8px;
             border: 1px solid #999;
             text-align: right;
             vertical-align: middle;
@@ -132,17 +129,13 @@
             text-align: center;
             font-size: 9.5px;
             color: #1a1a1a;
-            white-space: nowrap;
+            white-space: normal;
         }
         
         .data-table .value {
             font-weight: 600;
             text-align: center;
             font-size: 10px;
-            max-width: 0;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
         }
         
         .data-table .section-header-cell {
@@ -162,21 +155,15 @@
             font-size: 10.5px !important;
         }
         
-        /* ─── Terms - fills remaining space ─── */
-        .terms-wrapper {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-        }
-
+        /* ─── Terms - natural size ─── */
         .terms-box {
             border: 1px solid #999;
-            padding: 8px 10px;
+            padding: 10px 12px;
             font-size: 8.5px;
             line-height: 1.6;
             color: #000;
             text-align: justify;
-            flex: 1;
+            margin-bottom: 4px;
         }
         
         .terms-box .terms-title {
@@ -208,7 +195,6 @@
             }
             
             .document-container {
-                min-height: 100%;
                 padding: 0;
             }
             
@@ -217,7 +203,7 @@
             }
             
             @page {
-                margin: 7mm 9mm;
+                margin: 8mm 10mm;
             }
         }
     </style>
@@ -394,10 +380,9 @@
             </tr>
         </table>
 
-        <!-- ═══════════ 5. الشروط العامة (تملأ باقي الصفحة) ═══════════ -->
-        <div class="terms-wrapper">
-            <div class="terms-box">
-                <div class="terms-title">الشروط العامة</div>
+        <!-- ═══════════ 5. الشروط العامة ═══════════ -->
+        <div class="terms-box">
+            <div class="terms-title">الشروط العامة</div>
 1- يلتزم المؤمن بموجب هذه الوثيقة بتغطية المسؤولية المدنية الناشئة عن الوفاة أو أية إصابة بدنية تلحق بأي شخص من حوادث المركبات الآلية التي في ليبيا المثبتة بياناتها في هذه الوثيقة وذلك عن مدة سريانها.
 ويسري هذا الالتزام لصالح الغير دون الركاب من حوادث المركبات الآلية والدراجات النارية أيا كان نوعها ولصالح الركاب أيضا دون أعمالها من حوادث المركبات الآلية التالية:
 • سيارات الركوبة العامة (سيارات الأجرة). • حافلات النقل العام للركاب والمركبات المقطورة الملحقة بها. • حافلات النقل الخاص أو حافلات نقل الركاب رحلات سياحية والمركبات الملحقة بها. • سيارات الإسعاف والمستشفيات.
@@ -412,7 +397,6 @@
 9- لا يترتب على حق الرجوع المقرر للمؤمن طبقا لأحكام القانون والشروط الواردة بهذه الوثيقة أي مساس بحق المضرور قبله.
 10- لا يتحمل المؤمن أية مسؤولية تقع بطريقة مباشرة أو غير مباشرة عن الإشعاعات الذرية أو الانفجارات.
 <strong>الاختصاص القضائي:</strong> من المتفق عليه أن كل ما ينشأ من منازعات بصدد هذا العقد أو بخصوص تنفيذه يكون من اختصاص المحاكم الوطنية التي يتبع لها المركز الرئيسي للشركة. وفي جميع الأحوال فإن النص العربي لهذه الوثيقة وملاحقها هو الواجب التطبيق.
-            </div>
         </div>
 
         <!-- ═══════════ Footer ═══════════ -->

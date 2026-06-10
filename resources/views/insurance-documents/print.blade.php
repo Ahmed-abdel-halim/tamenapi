@@ -47,8 +47,8 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 14px;
-            padding-bottom: 10px;
+            margin-bottom: 12px;
+            padding-bottom: 8px;
             border-bottom: 2.5px solid #888;
         }
         
@@ -113,7 +113,7 @@
         .data-table {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 10px;
+            margin-bottom: 8px;
             font-size: 10px;
         }
         
@@ -190,8 +190,8 @@
             text-align: center;
             font-size: 8.5px;
             color: #555;
-            padding-top: 6px;
-            margin-top: 6px;
+            padding-top: 4px;
+            margin-top: 4px;
             border-top: 1.5px solid #888;
         }
         

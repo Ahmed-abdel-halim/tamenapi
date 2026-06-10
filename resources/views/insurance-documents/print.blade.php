@@ -44,8 +44,8 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 14px;
-            padding-bottom: 8px;
+            margin-bottom: 16px;
+            padding-bottom: 10px;
             border-bottom: 2.5px solid #888;
         }
         
@@ -110,12 +110,12 @@
         .data-table {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 8px;
+            margin-bottom: 10px;
             font-size: 10px;
         }
         
         .data-table td {
-            padding: 5px 7px;
+            padding: 6px 7px;
             border: 1px solid #999;
             text-align: right;
             vertical-align: middle;
@@ -143,7 +143,7 @@
             background: #808080;
             color: #fff;
             text-align: center;
-            padding: 5px 0;
+            padding: 6px 0;
             font-size: 12px;
             font-weight: 700;
             letter-spacing: 0.5px;
@@ -159,9 +159,9 @@
         /* ─── Terms - natural size ─── */
         .terms-box {
             border: 1px solid #999;
-            padding: 8px 10px;
+            padding: 10px 12px;
             font-size: 8px;
-            line-height: 1.55;
+            line-height: 1.6;
             color: #000;
             text-align: justify;
             margin-bottom: 4px;
@@ -182,8 +182,8 @@
             text-align: center;
             font-size: 8.5px;
             color: #555;
-            padding-top: 5px;
-            margin-top: 5px;
+            padding-top: 6px;
+            margin-top: 6px;
             border-top: 1.5px solid #888;
         }
         

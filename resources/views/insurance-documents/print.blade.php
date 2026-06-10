@@ -330,38 +330,32 @@
                 <td colspan="4" class="section-header-cell" style="width:50%">الشركة الصادرة - معد الوثيقة</td>
             </tr>
             <tr>
-                <td class="label" style="width:14%">تفاصيل الرسوم</td>
-                <td class="label" style="width:11%">القيمة</td>
-                <td class="label" style="width:14%">&nbsp;</td>
-                <td class="label" style="width:11%">&nbsp;</td>
+                <td class="label" style="width:14%">قيمة القسط المقرر</td>
+                <td class="value" style="width:11%">{{ number_format($document->premium, 3) }}</td>
+                <td class="label" style="width:14%">الضريبة</td>
+                <td class="value" style="width:11%">{{ number_format($document->tax, 3) }}</td>
                 <td class="label" style="width:11%">اسم الوكيل</td>
                 <td class="value" style="width:14%">{{ $printData['agency_name'] ?? 'المدار الليبي للتأمين' }}</td>
                 <td class="label" style="width:11%">رقم الوكالة</td>
                 <td class="value" style="width:14%">{{ $printData['agency_code'] ?? 'ML0001' }}</td>
             </tr>
             <tr>
-                <td class="label">قيمة القسط المقرر</td>
-                <td class="value">{{ number_format($document->premium, 3) }}</td>
-                <td class="label">الضريبة</td>
-                <td class="value">{{ number_format($document->tax, 3) }}</td>
+                <td class="label">الدمغة</td>
+                <td class="value">{{ number_format($document->stamp, 3) }}</td>
+                <td class="label">مصاريف الإصدار</td>
+                <td class="value">{{ number_format($document->issue_fees, 3) }}</td>
                 <td class="label">اسم الموظف</td>
                 <td class="value">{{ $printData['agent_name'] ?? 'الإدارة' }}</td>
                 <td class="label">وقت الاعداد</td>
                 <td class="value">{{ \Carbon\Carbon::parse($document->issue_date)->format('d/m/y H:i:s') }}</td>
             </tr>
             <tr>
-                <td class="label">الدمغة</td>
-                <td class="value">{{ number_format($document->stamp, 3) }}</td>
-                <td class="label">مصاريف الإصدار</td>
-                <td class="value">{{ number_format($document->issue_fees, 3) }}</td>
-                <td class="label" colspan="2" rowspan="2" style="text-align:center; font-size: 10px;">التوقيع والختم:</td>
-                <td class="value" colspan="2" rowspan="2">&nbsp;</td>
-            </tr>
-            <tr>
                 <td class="label">رسوم الإشراف</td>
                 <td class="value">{{ number_format($document->supervision_fees, 3) }}</td>
                 <td class="label">&nbsp;</td>
                 <td class="value">&nbsp;</td>
+                <td class="label" colspan="2" rowspan="1" style="text-align:center; font-size: 10px;">التوقيع والختم:</td>
+                <td class="value" colspan="2" rowspan="1">&nbsp;</td>
             </tr>
             <tr class="total-row">
                 <td class="label">الاجمالي (رقم)</td>

@@ -47,8 +47,8 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 12px;
-            padding-bottom: 8px;
+            margin-bottom: 10px;
+            padding-bottom: 7px;
             border-bottom: 2.5px solid #888;
         }
         
@@ -118,7 +118,7 @@
         }
         
         .data-table td {
-            padding: 6px 8px;
+            padding: 5px 7px;
             border: 1px solid #999;
             text-align: right;
             vertical-align: middle;
@@ -139,6 +139,10 @@
             font-weight: 600;
             text-align: center;
             font-size: 10px;
+            max-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
         
         .data-table .section-header-cell {
@@ -167,7 +171,7 @@
 
         .terms-box {
             border: 1px solid #999;
-            padding: 10px 12px;
+            padding: 8px 10px;
             font-size: 8.5px;
             line-height: 1.6;
             color: #000;

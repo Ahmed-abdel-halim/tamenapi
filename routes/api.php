@@ -239,6 +239,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/profile-update-requests/current', [\App\Http\Controllers\ProfileUpdateRequestController::class, 'currentStatus']);
     Route::post('/profile-update-requests/{id}/approve', [\App\Http\Controllers\ProfileUpdateRequestController::class, 'approve']);
     Route::post('/profile-update-requests/{id}/reject', [\App\Http\Controllers\ProfileUpdateRequestController::class, 'reject']);
+    Route::get('/general-manager', [UserController::class, 'getGeneralManager']);
     Route::apiResource('users', UserController::class);
     Route::put('/users/{user}/eidc-credentials', [UserController::class, 'updateEidcCredentials']);
     Route::put('/users/{user}/lifo-credentials', [UserController::class, 'updateLifoCredentials']);

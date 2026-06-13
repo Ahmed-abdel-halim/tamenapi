@@ -802,6 +802,10 @@ class InsuranceDocumentController extends Controller
             // استخراج رقم الميناء من اسم الميناء (مثل "ميناء مصراته" -> "3")
             $portNumber = $this->getPortNumber($document->port);
 
+            if ($plateNumber && $portNumber && str_ends_with($plateNumber, '-' . $portNumber)) {
+                $plateNumber = substr($plateNumber, 0, -strlen('-' . $portNumber));
+            }
+
             // إذا كان هناك رقم لوحة ورقم ميناء، نعرضهما معاً
             if ($plateNumber && $portNumber) {
                 return $portNumber . '-' . $plateNumber;
@@ -815,6 +819,10 @@ class InsuranceDocumentController extends Controller
                 // إذا كان هناك اسم الميناء فقط
                 return trim($document->port);
             }
+        }
+
+        if ($plateNumber && $cityOrder && str_ends_with($plateNumber, '-' . $cityOrder)) {
+            $plateNumber = substr($plateNumber, 0, -strlen('-' . $cityOrder));
         }
 
         // في الحالات الأخرى

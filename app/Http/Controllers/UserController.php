@@ -508,6 +508,42 @@ class UserController extends Controller
         ]);
     }
 
+    public function getGeneralManager()
+    {
+        try {
+            $gm = User::where('job_title', 'like', '%المدير العام%')
+                ->orWhere('job_title', 'like', '%مدير عام%')
+                ->first();
+
+            if (!$gm) {
+                // fallback to the first admin
+                $gm = User::where('is_admin', true)->first();
+            }
+
+            if (!$gm) {
+                return response()->json([
+                    'name' => null,
+                    'job_title' => null,
+                    'approved_signature_url' => null,
+                    'certified_stamp_url' => null,
+                ]);
+            }
+
+            return response()->json([
+                'id' => $gm->id,
+                'name' => $gm->name,
+                'job_title' => $gm->job_title,
+                'approved_signature_url' => $gm->approved_signature_url,
+                'certified_stamp_url' => $gm->certified_stamp_url,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'حدث خطأ أثناء جلب بيانات المدير العام',
+                'error' => config('app.debug') ? $e->getMessage() : 'خطأ غير معروف'
+            ], 500);
+        }
+    }
+
     public function publicEmployees()
     {
         try {

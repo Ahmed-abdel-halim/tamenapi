@@ -551,6 +551,7 @@ class UserController extends Controller
                 ->where('is_admin', false)
                 ->where('is_active', true)
                 ->where('show_on_landing', true)
+                ->whereNull('department_id')
                 ->orderByRaw('CASE WHEN start_date IS NULL THEN 1 ELSE 0 END')
                 ->orderBy('start_date', 'asc')
                 ->get()
@@ -565,6 +566,23 @@ class UserController extends Controller
                         'personal_phone' => $user->personal_phone,
                     ];
                 });
+
+            return response()->json($employees);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'حدث خطأ أثناء جلب الموظفين',
+                'error' => config('app.debug') ? $e->getMessage() : 'خطأ غير معروف'
+            ], 500);
+        }
+    }
+
+    public function allEmployees()
+    {
+        try {
+            $employees = User::whereDoesntHave('branchAgent')
+                ->where('is_active', true)
+                ->orderBy('name', 'asc')
+                ->get(['id', 'name', 'job_title', 'department_id']);
 
             return response()->json($employees);
         } catch (\Exception $e) {

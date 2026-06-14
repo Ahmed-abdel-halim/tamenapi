@@ -94,6 +94,7 @@ class User extends Authenticatable
         'tax_percentage',
         'social_security_percentage',
         'end_date',
+        'department_id',
     ];
 
     /**
@@ -177,6 +178,14 @@ class User extends Authenticatable
     public function branchAgent()
     {
         return $this->belongsTo(BranchAgent::class, 'branch_agent_id');
+    }
+
+    /**
+     * Get the department associated with the user.
+     */
+    public function department()
+    {
+        return $this->belongsTo(Department::class, 'department_id');
     }
 
     public function employeeRequests()

@@ -35,6 +35,7 @@ use App\Http\Controllers\RentalVoucherController;
 use App\Http\Controllers\ExpenseCategoryController;
 use App\Http\Controllers\ExpenseSubCategoryController;
 use App\Http\Controllers\LifoReportController;
+use App\Http\Controllers\DepartmentController;
 
 
 
@@ -240,6 +241,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/profile-update-requests/{id}/approve', [\App\Http\Controllers\ProfileUpdateRequestController::class, 'approve']);
     Route::post('/profile-update-requests/{id}/reject', [\App\Http\Controllers\ProfileUpdateRequestController::class, 'reject']);
     Route::get('/general-manager', [UserController::class, 'getGeneralManager']);
+    Route::get('/employees/all', [UserController::class, 'allEmployees']);
+    Route::apiResource('departments', DepartmentController::class);
     Route::apiResource('users', UserController::class);
     Route::put('/users/{user}/eidc-credentials', [UserController::class, 'updateEidcCredentials']);
     Route::put('/users/{user}/lifo-credentials', [UserController::class, 'updateLifoCredentials']);
@@ -293,6 +296,7 @@ Route::post('/sync-user-permissions', function (Request $request) {
     }
 });
 Route::get('/public/employees', [UserController::class, 'publicEmployees']);
+Route::get('/public/departments', [DepartmentController::class, 'publicDepartments']);
 Route::put('/users/{user}/email', [UserController::class, 'updateEmail']);
 Route::put('/users/{user}/password', [UserController::class, 'updatePassword']);
 Route::get('/branches-agents/monthly-account-closure', [BranchAgentController::class, 'getMonthlyAccountClosure']);

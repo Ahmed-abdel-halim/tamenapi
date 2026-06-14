@@ -36,6 +36,7 @@ use App\Http\Controllers\ExpenseCategoryController;
 use App\Http\Controllers\ExpenseSubCategoryController;
 use App\Http\Controllers\LifoReportController;
 use App\Http\Controllers\DepartmentController;
+use App\Http\Controllers\OldDocumentController;
 
 
 
@@ -265,6 +266,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/office-users/{id}', [UserController::class, 'updateOfficeUser']);
     Route::post('/office-users/{id}/toggle-status', [UserController::class, 'toggleOfficeUserStatus']);
     Route::delete('/office-users/{id}', [UserController::class, 'destroyOfficeUser']);
+    
+    // إدارة الوثائق القديمة
+    Route::post('/old-documents', [OldDocumentController::class, 'store']);
 });
 
 // Endpoint لتحديث authorized_documents في users من branches_agents

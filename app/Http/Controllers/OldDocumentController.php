@@ -59,17 +59,17 @@ class OldDocumentController extends Controller
                 ],
                 'marine' => [
                     'model' => MarineStructureInsuranceDocument::class,
-                    'number_field' => 'document_number',
+                    'number_field' => 'insurance_number',
                     'default_prefix' => 'BKMAR',
                 ],
                 'medical' => [
                     'model' => ProfessionalLiabilityInsuranceDocument::class,
-                    'number_field' => 'document_number',
+                    'number_field' => 'insurance_number',
                     'default_prefix' => 'BKMED',
                 ],
                 'personal_accident' => [
                     'model' => PersonalAccidentInsuranceDocument::class,
-                    'number_field' => 'document_number',
+                    'number_field' => 'insurance_number',
                     'default_prefix' => 'BKPAC',
                 ],
                 'school_student' => [
@@ -123,8 +123,9 @@ class OldDocumentController extends Controller
                 } while ($modelClass::where($numberField, $documentNumber)->exists());
             }
 
-            // 3. إنشاء كائن الموديل وتعبئة الحقول
-            $document = new $modelClass();
+            // 3. إنشاء أو استرجاع كائن الموديل وتعبئة الحقول
+            $document = $modelClass::firstOrNew([$numberField => $documentNumber]);
+            $isUpdate = $document->exists;
             $document->timestamps = false; // إلغاء التحديث التلقائي للتواريخ
 
             // تعيين الحقول العامة للتواريخ
@@ -149,7 +150,30 @@ class OldDocumentController extends Controller
 
             // تعبئة باقي الحقول الممررة في الطلب والتي تتطابق مع أعمدة الجدول
             foreach ($request->all() as $key => $value) {
+                if ($key === 'work_place' && in_array('workplace', $columns)) {
+                    $document->workplace = $value;
+                    continue;
+                }
+                if ($key === 'job' && in_array('profession', $columns)) {
+                    $document->profession = $value;
+                    continue;
+                }
+                if ($key === 'insured_name' && in_array('name', $columns)) {
+                    $document->name = $value;
+                    continue;
+                }
+                if ($key === 'nid_passport' && in_array('id_proof', $columns)) {
+                    $document->id_proof = $value;
+                    continue;
+                }
                 if (in_array($key, $columns) && !in_array($key, ['id', 'created_at', 'updated_at', 'issue_date', $numberField, 'branch_agent_id'])) {
+                    if ($key === 'gender') {
+                        if ($value === 'ذكر' || $value === 'ذكر Male') {
+                            $value = 'ذكر Male';
+                        } elseif ($value === 'أنثى' || $value === 'انثى' || $value === 'انثى Female' || $value === 'أنثى Female') {
+                            $value = 'انثى Female';
+                        }
+                    }
                     $document->$key = $value;
                 }
             }
@@ -164,43 +188,51 @@ class OldDocumentController extends Controller
 
             // 4. معالجة وحفظ بيانات المسافرين لتأمين السفر والوافدين
             if ($documentType === 'travel') {
-                TravelInsurancePassenger::create([
-                    'travel_insurance_document_id' => $document->id,
-                    'is_main_passenger' => true,
-                    'name_ar' => $request->input('insured_name') ?? $request->input('name_ar') ?? '-',
-                    'name_en' => $request->input('name_en') ?? '-',
-                    'phone' => $request->input('phone'),
-                    'whatsapp_number' => $request->input('whatsapp_number'),
-                    'passport_number' => $request->input('passport_number') ?? $request->input('nid_passport'),
-                    'address' => $request->input('address'),
-                    'birth_date' => $request->input('birth_date'),
-                    'age' => $request->input('age'),
-                    'gender' => $request->input('gender', 'ذكر'),
-                    'nationality' => $request->input('nationality', 'ليبي'),
-                ]);
+                TravelInsurancePassenger::updateOrCreate(
+                    [
+                        'travel_insurance_document_id' => $document->id,
+                        'is_main_passenger' => true,
+                    ],
+                    [
+                        'name_ar' => $request->input('insured_name') ?? $request->input('name_ar') ?? '-',
+                        'name_en' => $request->input('name_en') ?? '-',
+                        'phone' => $request->input('phone'),
+                        'whatsapp_number' => $request->input('whatsapp_number'),
+                        'passport_number' => $request->input('passport_number') ?? $request->input('nid_passport'),
+                        'address' => $request->input('address'),
+                        'birth_date' => $request->input('birth_date'),
+                        'age' => $request->input('age'),
+                        'gender' => $request->input('gender', 'ذكر'),
+                        'nationality' => $request->input('nationality', 'ليبي'),
+                    ]
+                );
             } elseif ($documentType === 'resident') {
-                ResidentInsurancePassenger::create([
-                    'resident_insurance_document_id' => $document->id,
-                    'is_main_passenger' => true,
-                    'name_ar' => $request->input('insured_name') ?? $request->input('name_ar') ?? '-',
-                    'name_en' => $request->input('name_en') ?? '-',
-                    'phone' => $request->input('phone'),
-                    'whatsapp_number' => $request->input('whatsapp_number'),
-                    'passport_number' => $request->input('passport_number') ?? $request->input('nid_passport'),
-                    'address' => $request->input('address'),
-                    'birth_date' => $request->input('birth_date'),
-                    'age' => $request->input('age'),
-                    'gender' => $request->input('gender', 'ذكر'),
-                    'nationality' => $request->input('nationality', 'ليبي'),
-                    'occupation' => $request->input('occupation') ?? $request->input('profession'),
-                ]);
+                ResidentInsurancePassenger::updateOrCreate(
+                    [
+                        'resident_insurance_document_id' => $document->id,
+                        'is_main_passenger' => true,
+                    ],
+                    [
+                        'name_ar' => $request->input('insured_name') ?? $request->input('name_ar') ?? '-',
+                        'name_en' => $request->input('name_en') ?? '-',
+                        'phone' => $request->input('phone'),
+                        'whatsapp_number' => $request->input('whatsapp_number'),
+                        'passport_number' => $request->input('passport_number') ?? $request->input('nid_passport'),
+                        'address' => $request->input('address'),
+                        'birth_date' => $request->input('birth_date'),
+                        'age' => $request->input('age'),
+                        'gender' => $request->input('gender', 'ذكر'),
+                        'nationality' => $request->input('nationality', 'ليبي'),
+                        'occupation' => $request->input('occupation') ?? $request->input('profession'),
+                    ]
+                );
             }
 
             return response()->json([
                 'success' => true,
-                'message' => 'تم حفظ الوثيقة القديمة بنجاح بالتاريخ المحدد',
+                'message' => $isUpdate ? 'تم تحديث الوثيقة القديمة بنجاح بالتاريخ المحدد' : 'تم حفظ الوثيقة القديمة بنجاح بالتاريخ المحدد',
                 'document' => $document
-            ], 201);
+            ], $isUpdate ? 200 : 201);
 
         } catch (\Exception $e) {
             Log::error('Error storing old document: ' . $e->getMessage());

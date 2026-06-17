@@ -37,9 +37,10 @@ class BankTransactionController extends Controller
 
         if ($request->filled('branch_agent_id')) {
             $agent = \App\Models\BranchAgent::find($request->branch_agent_id);
-            if ($agent) {
-                $data['agent_name'] = $agent->agency_name;
-            }
+            $data['agent_name'] = $agent ? $agent->agency_name : null;
+        } else {
+            $data['agent_name'] = null;
+            $data['branch_agent_id'] = null;
         }
 
         if ($request->hasFile('voucher_image')) {
@@ -77,9 +78,10 @@ class BankTransactionController extends Controller
 
         if ($request->filled('branch_agent_id')) {
             $agent = \App\Models\BranchAgent::find($request->branch_agent_id);
-            if ($agent) {
-                $data['agent_name'] = $agent->agency_name;
-            }
+            $data['agent_name'] = $agent ? $agent->agency_name : null;
+        } else {
+            $data['agent_name'] = null;
+            $data['branch_agent_id'] = null;
         }
 
         if ($request->hasFile('voucher_image')) {

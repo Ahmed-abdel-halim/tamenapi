@@ -45,9 +45,16 @@ class InternationalInsuranceDocumentController extends Controller
 
             // بناء الاستعلام
             $query = InternationalInsuranceDocument::with(['vehicleType', 'branchAgent']);
+            
+            $hasFilterOrSearch = $request->filled('search') || 
+                                 $request->filled('year') || 
+                                 $request->filled('month') || 
+                                 $request->filled('day') ||
+                                 ($isAdmin && $request->filled('branch_agent_id'));
+
             if ($request->boolean('archived')) {
                 $query->archived();
-            } else {
+            } elseif (!$hasFilterOrSearch) {
                 $query->active();
             }
 

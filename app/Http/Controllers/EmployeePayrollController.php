@@ -145,7 +145,7 @@ class EmployeePayrollController extends Controller
 
     public function employees(Request $request)
     {
-        $query = User::with('branchAgent:id,user_id')
+        $query = User::whereNull('branch_agent_id')
             ->where('is_active', true);
 
         if ($request->filled('year') && $request->filled('month')) {
@@ -167,13 +167,9 @@ class EmployeePayrollController extends Controller
                 'id', 'name', 'username', 'email', 'salary', 'is_admin', 
                 'tax_percentage', 'social_security_percentage', 'apply_tax', 'apply_social_security',
                 'housing_allowance', 'transportation_allowance', 'communication_allowance', 'fixed_bonuses', 'fixed_fines',
-                'start_date', 'end_date'
+                'start_date', 'end_date', 'branch_agent_id'
             )
-            ->get()
-            ->filter(function ($u) {
-                return !$u->branchAgent;
-            })
-            ->values();
+            ->get();
 
         return response()->json($employees);
     }
@@ -195,7 +191,7 @@ class EmployeePayrollController extends Controller
         $monthStart = sprintf('%04d-%02d-01', $year, $month);
         $monthEnd = date('Y-m-t', strtotime($monthStart));
 
-        $employees = User::with('branchAgent:id,user_id')
+        $employees = User::whereNull('branch_agent_id')
             ->where('is_active', true)
             ->where(function ($q) use ($monthEnd) {
                 $q->whereNull('start_date')
@@ -209,13 +205,9 @@ class EmployeePayrollController extends Controller
                 'id', 'name', 'username', 'email', 'salary', 'is_admin', 
                 'tax_percentage', 'social_security_percentage', 'apply_tax', 'apply_social_security',
                 'housing_allowance', 'transportation_allowance', 'communication_allowance', 'fixed_bonuses', 'fixed_fines',
-                'start_date', 'end_date'
+                'start_date', 'end_date', 'branch_agent_id'
             )
-            ->get()
-            ->filter(function ($u) {
-                return !$u->branchAgent;
-            })
-            ->values();
+            ->get();
 
         $count = 0;
 

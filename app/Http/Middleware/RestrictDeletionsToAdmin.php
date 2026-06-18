@@ -18,6 +18,14 @@ class RestrictDeletionsToAdmin
     {
         // Check if the request is a DELETE request
         if ($request->isMethod('delete')) {
+            // Bypass restriction for settings sections (cities, plates, colors, vehicle-types)
+            if ($request->is('api/cities*') || 
+                $request->is('api/plates*') || 
+                $request->is('api/colors*') || 
+                $request->is('api/vehicle-types*')) {
+                return $next($request);
+            }
+
             // Attempt standard auth, fallback to sanctum guard for non-middleware routes, or custom X-User-Id header
             $user = auth()->user() ?? auth('sanctum')->user();
 

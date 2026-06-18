@@ -103,6 +103,9 @@ class BranchAgentController extends Controller
                 'document_percentages' => 'nullable|string',
                 'contract_conditions' => 'nullable|string',
                 'eidc_username' => 'nullable|string|max:191',
+                'office_facade_photo' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf|max:10240',
+                'office_phone' => 'nullable|string|max:191',
+                'office_location' => 'nullable|string',
                 'eidc_password' => 'nullable|string|max:191',
                 'lifo_username' => 'nullable|string|max:191',
                 'lifo_password' => 'nullable|string|max:191',
@@ -186,6 +189,10 @@ class BranchAgentController extends Controller
             }
             if ($request->hasFile('contract_photo')) {
                 $contractPhoto = $request->file('contract_photo')->store('branches_agents/contract_photos', 'public');
+            }
+            $officeFacadePhoto = null;
+            if ($request->hasFile('office_facade_photo')) {
+                $officeFacadePhoto = $request->file('office_facade_photo')->store('branches_agents/office_facade_photos', 'public');
             }
 
             $passportPhoto = null;
@@ -275,6 +282,9 @@ class BranchAgentController extends Controller
                 'authorized_documents' => $authorizedDocuments,
                 'document_percentages' => $documentPercentages,
                 'contract_conditions' => $request->contract_conditions,
+                'office_facade_photo' => $officeFacadePhoto,
+                'office_phone' => $request->office_phone,
+                'office_location' => $request->office_location,
             ]);
 
             $user->branch_agent_id = $branchAgent->id;
@@ -327,6 +337,9 @@ class BranchAgentController extends Controller
                 'password' => 'required|string|min:6',
                 'notes' => 'nullable|string',
                 'requested_documents' => 'nullable|string',
+                'office_facade_photo' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf|max:10240',
+                'office_phone' => 'nullable|string|max:191',
+                'office_location' => 'nullable|string',
             ]);
         } catch (\Illuminate\Validation\ValidationException $e) {
             \Illuminate\Support\Facades\Log::error('Validation failed for public agent registration:', [
@@ -390,6 +403,7 @@ class BranchAgentController extends Controller
                 'tb_health_certificate' => 'branches_agents/tb_health_certificates',
                 'academic_qualification' => 'branches_agents/academic_qualifications',
                 'activity_license' => 'branches_agents/activity_licenses',
+                'office_facade_photo' => 'branches_agents/office_facade_photos',
             ];
 
             foreach ($docFields as $field => $path) {
@@ -424,6 +438,8 @@ class BranchAgentController extends Controller
                 'requested_documents' => $requestedDocuments,
                 'authorized_documents' => [],
                 'document_percentages' => [],
+                'office_phone' => $request->office_phone,
+                'office_location' => $request->office_location,
             ], $uploadedDocs));
 
             $user->branch_agent_id = $branchAgent->id;
@@ -650,6 +666,9 @@ class BranchAgentController extends Controller
             'document_percentages' => 'nullable|string',
             'contract_conditions' => 'nullable|string',
             'eidc_username' => 'nullable|string|max:191',
+            'office_facade_photo' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf|max:10240',
+            'office_phone' => 'nullable|string|max:191',
+            'office_location' => 'nullable|string',
             'eidc_password' => 'nullable|string|max:191',
             'lifo_username' => 'nullable|string|max:191',
             'lifo_password' => 'nullable|string|max:191',
@@ -745,6 +764,7 @@ class BranchAgentController extends Controller
                 'tb_health_certificate' => 'branches_agents/tb_health_certificates',
                 'academic_qualification' => 'branches_agents/academic_qualifications',
                 'activity_license' => 'branches_agents/activity_licenses',
+                'office_facade_photo' => 'branches_agents/office_facade_photos',
             ];
             foreach ($newDocFields as $field => $dir) {
                 if ($request->hasFile($field)) {
@@ -760,7 +780,8 @@ class BranchAgentController extends Controller
                 'type', 'agency_name', 'agent_name', 'activity', 'agency_number',
                 'stamp_number', 'contract_date', 'contract_end_date', 'contract_duration',
                 'city', 'address', 'phone', 'nationality', 'national_id',
-                'identity_number', 'notes', 'status', 'contract_conditions'
+                'identity_number', 'notes', 'status', 'contract_conditions',
+                'office_phone', 'office_location'
             ]);
 
             if ($request->has('consumed_custodies') && $request->consumed_custodies) {

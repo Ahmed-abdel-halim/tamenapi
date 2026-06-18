@@ -54,6 +54,9 @@ class BranchAgent extends Model
         'referral_code',
         'referred_by_id',
         'show_on_landing',
+        'office_facade_photo',
+        'office_phone',
+        'office_location',
     ];
 
     protected $casts = [

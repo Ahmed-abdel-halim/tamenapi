@@ -7,6 +7,11 @@ use Illuminate\Http\Request;
 
 class ExternalEntityController extends Controller
 {
+    public function __construct()
+    {
+        $this->middleware('auth:sanctum')->only(['destroy']);
+    }
+
     public function index()
     {
         return response()->json(ExternalEntity::all());
@@ -67,6 +72,17 @@ class ExternalEntityController extends Controller
 
     public function destroy(ExternalEntity $externalEntity)
     {
+        $user = auth()->user();
+        if (!$user) {
+            return response()->json(['message' => 'Unauthorized'], 401);
+        }
+
+        $hasPermission = $user->is_admin || (is_array($user->authorized_documents) && in_array('دليل الجهات الخارجية', $user->authorized_documents));
+
+        if (!$hasPermission) {
+            return response()->json(['message' => 'Forbidden - You do not have permission to delete external entities'], 403);
+        }
+
         $externalEntity->delete();
         return response()->json(['message' => 'Entity deleted successfully']);
     }

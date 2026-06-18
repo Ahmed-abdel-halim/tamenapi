@@ -353,6 +353,8 @@ Route::apiResource('cash-in-transit-insurance', 'App\Http\Controllers\CashInTran
 Route::get('/cash-in-transit-insurance/{id}/print', ['App\Http\Controllers\CashInTransitInsuranceDocumentController', 'print']);
 Route::apiResource('cargo-insurance', 'App\Http\Controllers\CargoInsuranceDocumentController');
 Route::get('/cargo-insurance/{id}/print', ['App\Http\Controllers\CargoInsuranceDocumentController', 'print']);
+Route::get('/branches-agents/{id}/financial-stats', [BranchAgentController::class, 'getAgentFinancialStats']);
+Route::get('/global-financial-stats', [BranchAgentController::class, 'getGlobalFinancialStats']);
 Route::get('/branches-agents/{id}/print', [BranchAgentController::class, 'print']);
 Route::get('/branches-agents/{id}/account-report', [BranchAgentController::class, 'accountReport']);
 Route::get('/branches-agents/{id}/revenue-report', [BranchAgentController::class, 'revenueReport']);

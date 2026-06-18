@@ -16,6 +16,7 @@ use App\Models\CargoInsuranceDocument;
 use App\Models\CashInTransitInsuranceDocument;
 use App\Models\MonthlyAccountClosure;
 use App\Models\PaymentVoucher;
+use App\Models\AgentTransfer;
 use App\Services\InsuranceTypeService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -3126,6 +3127,274 @@ class BranchAgentController extends Controller
         } catch (\Exception $e) {
             return response('<html><body><h1>حدث خطأ أثناء إنشاء التقرير</h1><p>' . (config('app.debug') ? htmlspecialchars($e->getMessage()) : '') . '</p></body></html>', 500)
                 ->header('Content-Type', 'text/html; charset=utf-8');
+        }
+    }
+
+    /**
+     * الإحصائيات المالية الشاملة لوكيل محدد
+     */
+    public function getAgentFinancialStats(Request $request, $id)
+    {
+        try {
+            $branchAgent = BranchAgent::findOrFail($id);
+            $documentPercentages = $branchAgent->document_percentages ?? [];
+
+            $totalDocuments  = 0;
+            $totalRevenue    = 0;
+            $totalAgentShare = 0;
+            $activeCount     = 0;
+            $expiredCount    = 0;
+            $byType          = [];
+
+            // ─────────────────────────────────────────
+            // 1. insurance_documents (تأمين السيارات بكل أنواعه)
+            // ─────────────────────────────────────────
+            if (DB::getSchemaBuilder()->hasTable('insurance_documents')) {
+                $rows = DB::table('insurance_documents')
+                    ->where('branch_agent_id', $id)
+                    ->select('total', 'premium', 'insurance_type', 'end_date')
+                    ->get();
+
+                $agentShare = 0;
+                $typeMap = [
+                    'تأمين إجباري سيارات'    => 'تأمين سيارات',
+                    'تأمين سيارة جمرك'        => 'تأمين سيارة جمرك',
+                    'تأمين سيارات أجنبية'     => 'تأمين سيارات أجنبية',
+                    'تأمين طرف ثالث سيارات'   => 'تأمين طرف ثالث سيارات',
+                ];
+                $today = now()->toDateString();
+                foreach ($rows as $row) {
+                    $pctKey = $typeMap[$row->insurance_type ?? ''] ?? 'تأمين سيارات';
+                    $pct    = $documentPercentages[$pctKey] ?? 0;
+                    $agentShare += ($row->premium ?? 0) * ($pct / 100);
+                    if ($row->end_date && $row->end_date < $today) $expiredCount++; else $activeCount++;
+                }
+                $count = $rows->count();
+                $rev   = $rows->sum('total');
+                $totalDocuments  += $count;
+                $totalRevenue    += $rev;
+                $totalAgentShare += $agentShare;
+                $byType['insurance_documents'] = ['count' => $count, 'revenue' => round($rev, 2), 'agent_share' => round($agentShare, 2)];
+            }
+
+            // ─────────────────────────────────────────
+            // دالة مساعدة للجداول الأخرى
+            // ─────────────────────────────────────────
+            $today = now()->toDateString();
+            $processTable = function (string $tableName, string $pctKey) use (
+                $id, $documentPercentages, $today,
+                &$totalDocuments, &$totalRevenue, &$totalAgentShare,
+                &$activeCount, &$expiredCount, &$byType
+            ) {
+                if (!DB::getSchemaBuilder()->hasTable($tableName)) return;
+
+                $schema = DB::getSchemaBuilder();
+                $hasTotal        = $schema->hasColumn($tableName, 'total');
+                $hasPremium      = $schema->hasColumn($tableName, 'premium');
+                $hasPremiumAmount = $schema->hasColumn($tableName, 'premium_amount');
+                $hasSumInsured   = $schema->hasColumn($tableName, 'sum_insured');
+                $hasEndDate      = $schema->hasColumn($tableName, 'end_date');
+
+                // اختر عمود المبلغ الإجمالي والقسط
+                $totalCol   = $hasTotal ? 'total' : ($hasSumInsured ? 'sum_insured' : null);
+                $premiumCol = $hasPremium ? 'premium' : ($hasPremiumAmount ? 'premium_amount' : null);
+
+                $selectCols = ['id'];
+                if ($totalCol)   $selectCols[] = $totalCol;
+                if ($premiumCol) $selectCols[] = $premiumCol;
+                if ($hasEndDate) $selectCols[] = 'end_date';
+
+                $rows = DB::table($tableName)
+                    ->where('branch_agent_id', $id)
+                    ->select($selectCols)
+                    ->get();
+
+                $pct        = $documentPercentages[$pctKey] ?? 0;
+                $agentShare = 0;
+                $revenue    = 0;
+                foreach ($rows as $row) {
+                    $premiumVal = $premiumCol ? ($row->$premiumCol ?? 0) : 0;
+                    $totalVal   = $totalCol   ? ($row->$totalCol   ?? 0) : $premiumVal;
+                    $agentShare += $premiumVal * ($pct / 100);
+                    $revenue    += $totalVal;
+                    $isExpired = $hasEndDate && isset($row->end_date) && $row->end_date < $today;
+                    if ($isExpired) $expiredCount++; else $activeCount++;
+                }
+                $count = $rows->count();
+                $totalDocuments  += $count;
+                $totalRevenue    += $revenue;
+                $totalAgentShare += $agentShare;
+                $byType[$tableName] = ['count' => $count, 'revenue' => round($revenue, 2), 'agent_share' => round($agentShare, 2)];
+            };
+
+            $processTable('international_insurance_documents',          'تأمين سيارات دولي');
+            $processTable('travel_insurance_documents',                 'تأمين المسافرين');
+            $processTable('resident_insurance_documents',               'تأمين الوافدين');
+            $processTable('marine_structure_insurance_documents',       'تأمين الهياكل البحرية');
+            $processTable('professional_liability_insurance_documents', 'تأمين المسؤولية المهنية (الطبية)');
+            $processTable('personal_accident_insurance_documents',      'تأمين الحوادث الشخصية');
+            $processTable('school_student_insurance_documents',         'تأمين طلبة المدارس');
+            $processTable('cargo_insurance_documents',                  'تأمين البضائع');
+            $processTable('cash_in_transit_insurance_documents',        'تأمين نقل النقدية');
+
+            $totalCompanyShare = $totalRevenue - $totalAgentShare;
+
+            // المدفوع للشركة = مجموع الحوالات المعتمدة
+            $paidToCompany = AgentTransfer::where('branch_agent_id', $id)
+                ->where('status', 'approved')
+                ->sum('amount');
+
+            // المتبقي = حصة الشركة - المدفوع
+            $remainingForCompany = max(0, $totalCompanyShare - $paidToCompany);
+
+            return response()->json([
+                'success'               => true,
+                'total_documents'       => $totalDocuments,
+                'active_documents'      => $activeCount,
+                'expired_documents'     => $expiredCount,
+                'total_revenue'         => round($totalRevenue, 2),
+                'company_share'         => round($totalCompanyShare, 2),
+                'agent_share'           => round($totalAgentShare, 2),
+                'paid_to_company'       => round($paidToCompany, 2),
+                'remaining_for_company' => round($remainingForCompany, 2),
+                'by_type'               => $byType,
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'حدث خطأ أثناء جلب الإحصائيات المالية',
+                'error'   => config('app.debug') ? $e->getMessage() : 'خطأ غير معروف',
+            ], 500);
+        }
+    }
+
+    /**
+     * الإحصائيات المالية الشاملة لجميع الوكلاء (على مستوى الشركة) - نسخة محسنة لمنع النفاذ الزمني
+     */
+    public function getGlobalFinancialStats(Request $request)
+    {
+        try {
+            // جلب الوكلاء مرة واحدة وتخزين نسبهم في الذاكرة لتجنب استعلامات N+1
+            $agents = BranchAgent::select('id', 'document_percentages')->get()->keyBy('id');
+
+            $totalDocuments  = 0;
+            $totalRevenue    = 0;
+            $totalAgentShare = 0;
+            $activeCount     = 0;
+            $expiredCount    = 0;
+
+            $today = now()->toDateString();
+
+            // 1. insurance_documents (تأمين السيارات بكل أنواعه)
+            if (DB::getSchemaBuilder()->hasTable('insurance_documents')) {
+                $rows = DB::table('insurance_documents')
+                    ->select('branch_agent_id', 'total', 'premium', 'insurance_type', 'end_date')
+                    ->get();
+
+                $typeMap = [
+                    'تأمين إجباري سيارات'    => 'تأمين سيارات',
+                    'تأمين سيارة جمرك'        => 'تأمين سيارة جمرك',
+                    'تأمين سيارات أجنبية'     => 'تأمين سيارات أجنبية',
+                    'تأمين طرف ثالث سيارات'   => 'تأمين طرف ثالث سيارات',
+                ];
+
+                foreach ($rows as $row) {
+                    $agentId = $row->branch_agent_id;
+                    $agent   = $agents->get($agentId);
+                    $documentPercentages = $agent ? ($agent->document_percentages ?? []) : [];
+
+                    $pctKey = $typeMap[$row->insurance_type ?? ''] ?? 'تأمين سيارات';
+                    $pct    = $documentPercentages[$pctKey] ?? 0;
+
+                    $totalAgentShare += ($row->premium ?? 0) * ($pct / 100);
+                    if ($row->end_date && $row->end_date < $today) $expiredCount++; else $activeCount++;
+                }
+
+                $totalDocuments += $rows->count();
+                $totalRevenue   += $rows->sum('total');
+            }
+
+            // 2. الجداول الأخرى للوثائق
+            $tables = [
+                'international_insurance_documents' => 'تأمين سيارات دولي',
+                'travel_insurance_documents' => 'تأمين المسافرين',
+                'resident_insurance_documents' => 'تأمين الوافدين',
+                'marine_structure_insurance_documents' => 'تأمين الهياكل البحرية',
+                'professional_liability_insurance_documents' => 'تأمين المسؤولية المهنية (الطبية)',
+                'personal_accident_insurance_documents' => 'تأمين الحوادث الشخصية',
+                'school_student_insurance_documents' => 'تأمين طلبة المدارس',
+                'cargo_insurance_documents' => 'تأمين البضائع',
+                'cash_in_transit_insurance_documents' => 'تأمين نقل النقدية',
+            ];
+
+            foreach ($tables as $tableName => $pctKey) {
+                if (!DB::getSchemaBuilder()->hasTable($tableName)) continue;
+
+                $schema = DB::getSchemaBuilder();
+                $hasTotal        = $schema->hasColumn($tableName, 'total');
+                $hasPremium      = $schema->hasColumn($tableName, 'premium');
+                $hasPremiumAmount = $schema->hasColumn($tableName, 'premium_amount');
+                $hasSumInsured   = $schema->hasColumn($tableName, 'sum_insured');
+                $hasEndDate      = $schema->hasColumn($tableName, 'end_date');
+
+                $totalCol   = $hasTotal ? 'total' : ($hasSumInsured ? 'sum_insured' : null);
+                $premiumCol = $hasPremium ? 'premium' : ($hasPremiumAmount ? 'premium_amount' : null);
+
+                $selectCols = ['branch_agent_id'];
+                if ($totalCol)   $selectCols[] = $totalCol;
+                if ($premiumCol) $selectCols[] = $premiumCol;
+                if ($hasEndDate) $selectCols[] = 'end_date';
+
+                $rows = DB::table($tableName)
+                    ->select($selectCols)
+                    ->get();
+
+                foreach ($rows as $row) {
+                    $agentId = $row->branch_agent_id;
+                    $agent   = $agents->get($agentId);
+                    $documentPercentages = $agent ? ($agent->document_percentages ?? []) : [];
+
+                    $premiumVal = $premiumCol ? ($row->$premiumCol ?? 0) : 0;
+                    $totalVal   = $totalCol   ? ($row->$totalCol   ?? 0) : $premiumVal;
+                    $pct        = $documentPercentages[$pctKey] ?? 0;
+
+                    $totalAgentShare += $premiumVal * ($pct / 100);
+                    $totalRevenue   += $totalVal;
+                    $isExpired = $hasEndDate && isset($row->end_date) && $row->end_date < $today;
+                    if ($isExpired) $expiredCount++; else $activeCount++;
+                }
+
+                $totalDocuments += $rows->count();
+            }
+
+            $totalCompanyShare = $totalRevenue - $totalAgentShare;
+
+            // المدفوع للشركة = مجموع كل الحوالات المعتمدة لكل الوكلاء
+            $paidToCompany = AgentTransfer::where('status', 'approved')
+                ->sum('amount');
+
+            // المتبقي = حصة الشركة - المدفوع
+            $remainingForCompany = max(0, $totalCompanyShare - $paidToCompany);
+
+            return response()->json([
+                'success'               => true,
+                'total_documents'       => $totalDocuments,
+                'active_documents'      => $activeCount,
+                'expired_documents'     => $expiredCount,
+                'total_revenue'         => round($totalRevenue, 2),
+                'company_share'         => round($totalCompanyShare, 2),
+                'agent_share'           => round($totalAgentShare, 2),
+                'paid_to_company'       => round($paidToCompany, 2),
+                'remaining_for_company' => round($remainingForCompany, 2),
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'حدث خطأ أثناء جلب الإحصائيات المالية العالمية للشركة',
+                'error'   => config('app.debug') ? $e->getMessage() : 'خطأ غير معروف',
+            ], 500);
         }
     }
 

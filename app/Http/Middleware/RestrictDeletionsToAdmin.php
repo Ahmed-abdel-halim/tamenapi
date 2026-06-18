@@ -18,11 +18,12 @@ class RestrictDeletionsToAdmin
     {
         // Check if the request is a DELETE request
         if ($request->isMethod('delete')) {
-            // Bypass restriction for settings sections (cities, plates, colors, vehicle-types)
+            // Bypass restriction for settings sections and agent-transfers (which handles its own permissions check)
             if ($request->is('api/cities*') || 
                 $request->is('api/plates*') || 
                 $request->is('api/colors*') || 
-                $request->is('api/vehicle-types*')) {
+                $request->is('api/vehicle-types*') ||
+                $request->is('api/agent-transfers*')) {
                 return $next($request);
             }
 

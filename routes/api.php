@@ -551,4 +551,36 @@ Route::post('/lifo-reports/requests-list', [LifoReportController::class, 'reques
 Route::post('/lifo-reports/dashboard-summary', [LifoReportController::class, 'dashboardSummary']);
 Route::get('/test-lifo-connection', [LifoReportController::class, 'testLifoConnection']);
 
+// ─── Website Settings & Management Routes ─────────────────────────────────────
+Route::get('/public/website-settings', [\App\Http\Controllers\WebsiteSettingsController::class, 'getPublicSettings']);
+Route::post('/public/insurance-requests', [\App\Http\Controllers\PublicInsuranceRequestController::class, 'store']);
 
+Route::middleware('auth:sanctum')->group(function () {
+    // إعدادات الموقع
+    Route::get('/website-settings', [\App\Http\Controllers\WebsiteSettingsController::class, 'getSettings']);
+    Route::post('/website-settings', [\App\Http\Controllers\WebsiteSettingsController::class, 'saveSettings']);
+
+    // بنرات الصفحة الرئيسية
+    Route::get('/website-settings/sliders', [\App\Http\Controllers\WebsiteSettingsController::class, 'slidersIndex']);
+    Route::post('/website-settings/sliders', [\App\Http\Controllers\WebsiteSettingsController::class, 'slidersStore']);
+    Route::post('/website-settings/sliders/{id}', [\App\Http\Controllers\WebsiteSettingsController::class, 'slidersUpdate']);
+    Route::delete('/website-settings/sliders/{id}', [\App\Http\Controllers\WebsiteSettingsController::class, 'slidersDestroy']);
+
+    // خدمات الصفحة الرئيسية
+    Route::get('/website-settings/services', [\App\Http\Controllers\WebsiteSettingsController::class, 'servicesIndex']);
+    Route::post('/website-settings/services', [\App\Http\Controllers\WebsiteSettingsController::class, 'servicesStore']);
+    Route::post('/website-settings/services/{id}', [\App\Http\Controllers\WebsiteSettingsController::class, 'servicesUpdate']);
+    Route::delete('/website-settings/services/{id}', [\App\Http\Controllers\WebsiteSettingsController::class, 'servicesDestroy']);
+
+    // أنواع التأمين (صفحة التأمينات)
+    Route::get('/website-settings/insurance-types', [\App\Http\Controllers\WebsiteSettingsController::class, 'insuranceTypesIndex']);
+    Route::post('/website-settings/insurance-types', [\App\Http\Controllers\WebsiteSettingsController::class, 'insuranceTypesStore']);
+    Route::post('/website-settings/insurance-types/{id}', [\App\Http\Controllers\WebsiteSettingsController::class, 'insuranceTypesUpdate']);
+    Route::delete('/website-settings/insurance-types/{id}', [\App\Http\Controllers\WebsiteSettingsController::class, 'insuranceTypesDestroy']);
+
+    // طلبات التأمين العامة
+    Route::get('/public-insurance-requests', [\App\Http\Controllers\PublicInsuranceRequestController::class, 'index']);
+    Route::get('/public-insurance-requests/{id}', [\App\Http\Controllers\PublicInsuranceRequestController::class, 'show']);
+    Route::put('/public-insurance-requests/{id}', [\App\Http\Controllers\PublicInsuranceRequestController::class, 'update']);
+    Route::delete('/public-insurance-requests/{id}', [\App\Http\Controllers\PublicInsuranceRequestController::class, 'destroy']);
+});

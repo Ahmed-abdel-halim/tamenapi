@@ -553,12 +553,19 @@ Route::get('/test-lifo-connection', [LifoReportController::class, 'testLifoConne
 
 // ─── Website Settings & Management Routes ─────────────────────────────────────
 Route::get('/public/website-settings', [\App\Http\Controllers\WebsiteSettingsController::class, 'getPublicSettings']);
+Route::get('/public/media-posts', [\App\Http\Controllers\WebsiteSettingsController::class, 'getPublicMediaPosts']);
 Route::post('/public/insurance-requests', [\App\Http\Controllers\PublicInsuranceRequestController::class, 'store']);
 
 Route::middleware('auth:sanctum')->group(function () {
     // إعدادات الموقع
     Route::get('/website-settings', [\App\Http\Controllers\WebsiteSettingsController::class, 'getSettings']);
     Route::post('/website-settings', [\App\Http\Controllers\WebsiteSettingsController::class, 'saveSettings']);
+
+    // المركز الإعلامي
+    Route::get('/website-settings/media-posts', [\App\Http\Controllers\WebsiteSettingsController::class, 'mediaPostsIndex']);
+    Route::post('/website-settings/media-posts', [\App\Http\Controllers\WebsiteSettingsController::class, 'mediaPostsStore']);
+    Route::post('/website-settings/media-posts/{id}', [\App\Http\Controllers\WebsiteSettingsController::class, 'mediaPostsUpdate']);
+    Route::delete('/website-settings/media-posts/{id}', [\App\Http\Controllers\WebsiteSettingsController::class, 'mediaPostsDestroy']);
 
     // بنرات الصفحة الرئيسية
     Route::get('/website-settings/sliders', [\App\Http\Controllers\WebsiteSettingsController::class, 'slidersIndex']);

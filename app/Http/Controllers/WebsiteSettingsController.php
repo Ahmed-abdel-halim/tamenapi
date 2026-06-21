@@ -6,6 +6,7 @@ use App\Models\SiteSetting;
 use App\Models\HomepageSlider;
 use App\Models\HomepageService;
 use App\Models\InsuranceType;
+use App\Models\MediaPost;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
@@ -48,12 +49,28 @@ class WebsiteSettingsController extends Controller
             'phone', 'email', 'whatsapp',
             'facebook_url', 'twitter_url', 'linkedin_url', 'youtube_url', 'instagram_url',
             'address_ar', 'address_en',
+            'investments_title_ar', 'investments_title_en',
+            'investments_content_ar', 'investments_content_en',
         ];
 
         foreach ($fields as $field) {
             if ($request->has($field)) {
                 SiteSetting::setValue($field, $request->input($field));
             }
+        }
+
+        if ($request->hasFile('investments_banner')) {
+            // Delete old banner if it exists
+            $oldBanner = SiteSetting::getValue('investments_banner');
+            if ($oldBanner) {
+                $oldPath = str_replace('/storage/', '', $oldBanner);
+                if ($oldPath && Storage::disk('public')->exists($oldPath)) {
+                    Storage::disk('public')->delete($oldPath);
+                }
+            }
+
+            $path = $request->file('investments_banner')->store('website', 'public');
+            SiteSetting::setValue('investments_banner', '/storage/' . $path);
         }
 
         return response()->json(['message' => 'تم حفظ الإعدادات بنجاح']);
@@ -301,5 +318,119 @@ class WebsiteSettingsController extends Controller
         }
         $type->delete();
         return response()->json(['message' => 'تم حذف نوع التأمين بنجاح']);
+    }
+
+    // ─── المركز الإعلامي ────────────────────────────────────────────────────────
+
+    public function mediaPostsIndex()
+    {
+        return response()->json(MediaPost::orderBy('sort_order')->orderBy('published_date', 'desc')->get());
+    }
+
+    public function mediaPostsStore(Request $request)
+    {
+        $validated = $request->validate([
+            'type' => 'required|string|in:news,photo,video,audio,info',
+            'title_ar' => 'required|string|max:255',
+            'title_en' => 'nullable|string|max:255',
+            'content_ar' => 'nullable|string',
+            'content_en' => 'nullable|string',
+            'location_ar' => 'nullable|string|max:255',
+            'location_en' => 'nullable|string|max:255',
+            'sort_order' => 'nullable|integer',
+            'is_active' => 'nullable|boolean',
+            'published_date' => 'nullable|date',
+            'media_url' => 'nullable|string',
+            'file' => 'nullable|file|max:51200',
+        ]);
+
+        if ($request->hasFile('file')) {
+            $path = $request->file('file')->store('media_center', 'public');
+            $validated['media_url'] = '/storage/' . $path;
+        }
+        unset($validated['file']);
+
+        if (empty($validated['published_date'])) {
+            $validated['published_date'] = now();
+        }
+
+        $post = MediaPost::create($validated);
+        return response()->json($post, 201);
+    }
+
+    public function mediaPostsUpdate(Request $request, $id)
+    {
+        $post = MediaPost::findOrFail($id);
+
+        $validated = $request->validate([
+            'type' => 'nullable|string|in:news,photo,video,audio,info',
+            'title_ar' => 'nullable|string|max:255',
+            'title_en' => 'nullable|string|max:255',
+            'content_ar' => 'nullable|string',
+            'content_en' => 'nullable|string',
+            'location_ar' => 'nullable|string|max:255',
+            'location_en' => 'nullable|string|max:255',
+            'sort_order' => 'nullable|integer',
+            'is_active' => 'nullable',
+            'published_date' => 'nullable|date',
+            'media_url' => 'nullable|string',
+            'file' => 'nullable|file|max:51200',
+        ]);
+
+        if ($request->hasFile('file')) {
+            if ($post->media_url && str_starts_with($post->media_url, '/storage/')) {
+                $oldPath = str_replace('/storage/', '', $post->media_url);
+                if (Storage::disk('public')->exists($oldPath)) {
+                    Storage::disk('public')->delete($oldPath);
+                }
+            }
+            $path = $request->file('file')->store('media_center', 'public');
+            $validated['media_url'] = '/storage/' . $path;
+        }
+        unset($validated['file']);
+
+        if (isset($validated['is_active'])) {
+            $validated['is_active'] = filter_var($validated['is_active'], FILTER_VALIDATE_BOOLEAN);
+        }
+
+        $post->update($validated);
+        return response()->json($post);
+    }
+
+    public function mediaPostsDestroy($id)
+    {
+        $post = MediaPost::findOrFail($id);
+        if ($post->media_url && str_starts_with($post->media_url, '/storage/')) {
+            $oldPath = str_replace('/storage/', '', $post->media_url);
+            if (Storage::disk('public')->exists($oldPath)) {
+                Storage::disk('public')->delete($oldPath);
+            }
+        }
+        $post->delete();
+        return response()->json(['message' => 'تم حذف المنشور بنجاح']);
+    }
+
+    public function getPublicMediaPosts(Request $request)
+    {
+        $type = $request->query('type');
+        $id = $request->query('id');
+
+        if ($id) {
+            $post = MediaPost::where('is_active', true)->findOrFail($id);
+            $post->increment('views');
+            return response()->json($post);
+        }
+
+        $query = MediaPost::where('is_active', true);
+
+        if ($type) {
+            $query->where('type', $type);
+        }
+
+        $posts = $query->orderBy('sort_order')
+                      ->orderBy('published_date', 'desc')
+                      ->get();
+
+        return response()->json($posts);
     }
 }

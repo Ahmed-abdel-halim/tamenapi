@@ -2,21 +2,38 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>بطاقة تأمين دولي - {{ $document->document_number }}</title>
     <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;600;700;800;900&display=swap" rel="stylesheet">
     <style>
-        @page { size: A4 portrait; margin: 6mm 8mm; }
+        @page { size: A4 portrait; margin: 4mm 5mm; }
         * { margin:0; padding:0; box-sizing:border-box; }
-        body { font-family:'Tajawal','Arial',sans-serif; font-size:9.5px; color:#000; background:#fff; direction:rtl; }
-        .card { width:100%; border:2px solid #000; }
+        body { font-family:'Tajawal','Arial',sans-serif; font-size:12.5px; color:#000; background:#fff; direction:rtl; line-height:1.5; }
+        .card { width:100%; max-width:800px; margin:0 auto; border:2px solid #000; }
         table { border-collapse:collapse; width:100%; }
-        td,th { border:1px solid #000; padding:2.5px 5px; vertical-align:middle; font-size:9px; }
+        td,th { border:1px solid #000; padding:8px 9px; vertical-align:middle; font-size:11.5px; }
         b { font-weight:800; }
-        .hdr-blk { background:#000; color:#fff; text-align:center; font-weight:800; font-size:9.5px; padding:3px 5px; }
-        .lbl { font-weight:800; background:#f0f0f0; white-space:nowrap; width:115px; }
+        .hdr-blk { background:#808080; color:#fff; text-align:center; font-weight:800; font-size:12.5px; padding:5px 7px; }
+        .lbl { font-weight:800; background:#f0f0f0; white-space:nowrap; width:135px; }
         .val { font-weight:600; }
-        .chk { display:inline-block; width:11px; height:11px; border:1px solid #555; vertical-align:middle; text-align:center; font-size:9px; font-weight:900; line-height:11px; margin-left:2px; }
+        .chk { display:inline-block; width:13px; height:13px; border:1px solid #555; vertical-align:middle; text-align:center; font-size:11px; font-weight:900; line-height:13px; margin-left:2px; }
         .chk-on { background:#000; color:#fff; }
+
+        @media print {
+            body {
+                width: 100%;
+                margin: 0;
+                padding: 0;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+            .card {
+                width: 100% !important;
+                max-width: none !important;
+                margin: 0 !important;
+                border: 2px solid #000 !important;
+            }
+        }
     </style>
 </head>
 <body>
@@ -50,8 +67,8 @@
 <table>
 <tr>
     {{-- بيانات الشركة المصدرة (المدار) --}}
-    <td style="width:37%; border:1px solid #000; padding:4px 6px; vertical-align:top; font-size:8.5px;">
-        <div style="font-weight:900;font-size:9.5px;text-align:center;border-bottom:1px solid #ccc;padding-bottom:2px;margin-bottom:3px;">الشركة المصدرة للبطاقة</div>
+    <td style="width:37%; border:1px solid #000; padding:4px 6px; vertical-align:top; font-size:11px;">
+        <div style="font-weight:900;font-size:12px;text-align:center;border-bottom:1px solid #ccc;padding-bottom:2px;margin-bottom:3px;">الشركة المصدرة للبطاقة</div>
         <div style="line-height:1.75;">
             <div><b>الشركة: </b>المدار الليبي للتأمين</div>
             <div><b>العنوان: </b>طرابلس</div>
@@ -65,17 +82,17 @@
     {{-- QR + رقم الوثيقة --}}
     <td style="width:26%; border:1px solid #000; text-align:center; vertical-align:middle; padding:4px;">
         <div id="qrcode" style="width:72px;height:72px;margin:0 auto 3px;"></div>
-        <div style="font-size:16px;font-weight:900;color:#cc0000;line-height:1.1;">{{ $document->document_number }}</div>
-        <div style="font-size:7.5px;"><b>تاريخ الإصدار: </b>{{ \Carbon\Carbon::parse($document->issue_date)->format('d/m/Y') }}</div>
-        <div style="font-size:7.5px;"><b>الوقت: </b>{{ \Carbon\Carbon::parse($document->issue_date)->format('H:i:s') }}</div>
+        <div style="font-size:20px;font-weight:900;color:#cc0000;line-height:1.1;">{{ $document->document_number }}</div>
+        <div style="font-size:10px;"><b>تاريخ الإصدار: </b>{{ \Carbon\Carbon::parse($document->issue_date)->format('d/m/Y') }}</div>
+        <div style="font-size:10px;"><b>الوقت: </b>{{ \Carbon\Carbon::parse($document->issue_date)->format('H:i:s') }}</div>
         @if($document->external_policy_number)
-        <div style="font-size:7.5px;color:#cc0000;font-weight:800;"><b>LIFO: </b>{{ $document->external_policy_number }}</div>
+        <div style="font-size:10px;color:#cc0000;font-weight:800;"><b>LIFO: </b>{{ $document->external_policy_number }}</div>
         @endif
     </td>
 
     {{-- بيانات المكتب المحلي / الوكيل --}}
-    <td style="border:1px solid #000; padding:4px 6px; vertical-align:top; font-size:8.5px;">
-        <div style="font-weight:900;font-size:9.5px;text-align:center;border-bottom:1px solid #ccc;padding-bottom:2px;margin-bottom:3px;">المكتب الموحد المحلي</div>
+    <td style="border:1px solid #000; padding:4px 6px; vertical-align:top; font-size:11px;">
+        <div style="font-weight:900;font-size:12px;text-align:center;border-bottom:1px solid #ccc;padding-bottom:2px;margin-bottom:3px;">المكتب الموحد المحلي</div>
         <div style="line-height:1.75;">
             <div><b>اسم المكتب: </b>{{ $printData['agency_name'] ?? 'الإدارة العامة' }}</div>
             <div><b>كود الوكيل: </b>{{ $printData['agency_code'] ?? 'ML0001' }}</div>
@@ -91,7 +108,7 @@
 <table>
 <tr>
     <td class="lbl" style="width:110px;">اسم المؤمن له</td>
-    <td class="val" style="font-weight:800;font-size:11px;">{{ $document->insured_name ?? '-' }}</td>
+    <td class="val" style="font-weight:800;font-size:13px;">{{ $document->insured_name ?? '-' }}</td>
     <td class="lbl" style="width:70px;">الهاتف</td>
     <td class="val" style="width:120px;">{{ $document->phone ?? '-' }}</td>
 </tr>
@@ -120,7 +137,7 @@
 </tr>
 <tr>
     <td class="lbl">رقم اللوحة (الموتور)</td>
-    <td class="val" style="font-weight:900;font-size:12px;color:#cc0000;">{{ $document->plate_number ?? '-' }}</td>
+    <td class="val" style="font-weight:900;font-size:15px;color:#cc0000;">{{ $document->plate_number ?? '-' }}</td>
     <td class="lbl">رقم المحرك (الموتور)</td>
     <td class="val">{{ $document->plate_number ?? '-' }}</td>
 </tr>
@@ -148,10 +165,10 @@
 <table>
 <tr>
     <td class="lbl" style="width:110px;">سريان التأمينيـن</td>
-    <td style="font-size:9px; width:50%;">
+    <td style="font-size:11px; width:50%;">
         <b>من الساعة: </b>12:00 ظهراً &nbsp;|&nbsp; <b>يوم: </b>{{ $startDay }} &nbsp;|&nbsp; <b>الموافق: </b>{{ $startDateAr }}
     </td>
-    <td style="font-size:9px;">
+    <td style="font-size:11px;">
         <b>إلى الساعة: </b>12:00 ظهراً &nbsp;|&nbsp; <b>يوم: </b>{{ $endDay }} &nbsp;|&nbsp; <b>الموافق: </b>{{ $endDateAr }}
     </td>
 </tr>
@@ -174,7 +191,7 @@ $visitedLow = mb_strtolower($visitedRaw);
         $on = (mb_strpos($visitedLow, $cLow) !== false)
            || (mb_strpos($visitedLow, $cStripped) !== false);
     @endphp
-    <td style="text-align:center;padding:3px 1px;font-size:8.5px;white-space:nowrap;">
+    <td style="text-align:center;padding:3px 1px;font-size:10.5px;white-space:nowrap;">
         <span class="chk {{ $on ? 'chk-on' : '' }}">{!! $on ? '&#10003;' : '&nbsp;' !!}</span>&nbsp;{{ $c }}
     </td>
     @endforeach
@@ -187,7 +204,7 @@ $visitedLow = mb_strtolower($visitedRaw);
         $on = (mb_strpos($visitedLow, $cLow) !== false)
            || (mb_strpos($visitedLow, $cStripped) !== false);
     @endphp
-    <td style="text-align:center;padding:3px 1px;font-size:8.5px;white-space:nowrap;">
+    <td style="text-align:center;padding:3px 1px;font-size:10.5px;white-space:nowrap;">
         <span class="chk {{ $on ? 'chk-on' : '' }}">{!! $on ? '&#10003;' : '&nbsp;' !!}</span>&nbsp;{{ $c }}
     </td>
     @endforeach
@@ -229,15 +246,15 @@ foreach ($allBureaus as $country => $info) {
 </tr>
 @forelse($shownBureaus as $country => $info)
 <tr>
-    <td style="text-align:center;font-weight:800;font-size:9px;">{{ $country }}</td>
-    <td style="font-size:8px;line-height:1.65;padding:3px 6px;">
+    <td style="text-align:center;font-weight:800;font-size:11px;">{{ $country }}</td>
+    <td style="font-size:10px;line-height:1.65;padding:3px 6px;">
         {{ $info['address'] }} &nbsp; {{ $info['tel'] }} &nbsp;| {{ $info['email'] }} &nbsp; {{ $info['fax'] }}<br>
         <b>{{ $info['coverage'] }}</b>
     </td>
 </tr>
 @empty
 <tr>
-    <td colspan="2" style="text-align:center;font-size:8.5px;padding:4px;">يرجى الرجوع إلى مكتب الاتحاد العربي للتأمين في البلد المزار</td>
+    <td colspan="2" style="text-align:center;font-size:11px;padding:4px;">يرجى الرجوع إلى مكتب الاتحاد العربي للتأمين في البلد المزار</td>
 </tr>
 @endforelse
 </table>
@@ -246,7 +263,7 @@ foreach ($allBureaus as $country => $info) {
 <table>
 <tr><td class="hdr-blk">إرشادات وشروط عامة</td></tr>
 <tr>
-    <td style="font-size:8.5px;line-height:1.65;padding:4px 7px;">
+    <td style="font-size:11px;line-height:1.65;padding:4px 7px;">
         1. يجب على قائد (سائق) المركبة أن يكون لديه رخصة قيادة وفق قوانين البلد المراد.
         وتعتبر هذه البطاقة الوثيقة الرسمية لأغراض قانون التأمين الإلزامي.<br>
         2. تطبق هذه البطاقة أحكام القانون الثالث (الليبي) الناشئة عن الحوادث المثبتة في هذه الوثيقة ولا تضمن الأضرار التي تلحق بها إذا كانت أيا كان سببها.<br>
@@ -262,13 +279,13 @@ foreach ($allBureaus as $country => $info) {
 {{-- ============ FINANCIAL TOTAL ============ --}}
 <table>
 <tr>
-    <td style="font-size:11px;font-weight:900;padding:4px 7px;">
+    <td style="font-size:14px;font-weight:900;padding:4px 7px;">
         إجمالي القسط والرسوم ( شامل الضرائب الحكومية ) : &nbsp;
-        <span style="color:#cc0000;font-size:13px;">{{ number_format($document->total ?? 0, 3) }}</span> د.ل
+        <span style="color:#cc0000;font-size:17px;">{{ number_format($document->total ?? 0, 3) }}</span> د.ل
     </td>
 </tr>
 <tr>
-    <td style="font-size:8.5px;padding:2px 7px;">
+    <td style="font-size:10.5px;padding:2px 7px;">
         تقوم الشركة المصدرة للبطاقة بمحاسبة مصلحة الضرائب على الرسوم المستحقة.
         &nbsp;&nbsp; <b>الإجمالي بالحروف: </b>{{ $printData['total_in_words'] ?? '' }}
     </td>
@@ -283,7 +300,7 @@ foreach ($allBureaus as $country => $info) {
 @endphp
 <table>
 <tr>
-    <td style="font-size:9px;padding:4px 7px;">
+    <td style="font-size:11.5px;padding:4px 7px;">
         <b>تحريراً في يوم:</b> {{ $issueCarbon->format('d') }}
         &nbsp;&nbsp;
         <b>الموافق:</b> {{ $issueDay }}
@@ -298,7 +315,7 @@ foreach ($allBureaus as $country => $info) {
 {{-- ============ NOTE ============ --}}
 <table>
 <tr>
-    <td style="padding:4px 7px;font-size:9.5px;font-weight:900;color:#cc0000;text-align:center;">
+    <td style="padding:4px 7px;font-size:12px;font-weight:900;color:#cc0000;text-align:center;">
         هـام : أي كشط أو شطب أو تعديل في هذه الصفحة يبطل البطاقة وتعد لاغية.
     </td>
 </tr>

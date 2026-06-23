@@ -140,8 +140,8 @@
         }
         
         .data-table .section-header-cell {
-            background: #808080;
-            color: #fff;
+            background: #f5f5f5;
+            color: #000;
             text-align: center;
             padding: 6px 0;
             font-size: 12px;

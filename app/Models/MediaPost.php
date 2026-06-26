@@ -13,6 +13,7 @@ class MediaPost extends Model
         'content_ar',
         'content_en',
         'media_url',
+        'images',
         'location_ar',
         'location_en',
         'views',
@@ -26,5 +27,6 @@ class MediaPost extends Model
         'views' => 'integer',
         'sort_order' => 'integer',
         'published_date' => 'datetime',
+        'images' => 'array',
     ];
 }

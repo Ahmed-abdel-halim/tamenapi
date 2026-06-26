@@ -342,6 +342,8 @@ class WebsiteSettingsController extends Controller
             'published_date' => 'nullable|date',
             'media_url' => 'nullable|string',
             'file' => 'nullable|file|max:51200',
+            'images' => 'nullable|array',
+            'images.*' => 'file|image|max:51200',
         ]);
 
         if ($request->hasFile('file')) {
@@ -349,6 +351,22 @@ class WebsiteSettingsController extends Controller
             $validated['media_url'] = '/storage/' . $path;
         }
         unset($validated['file']);
+
+        // Handle additional images upload
+        $images = [];
+        if ($request->hasFile('images')) {
+            foreach ($request->file('images') as $imgFile) {
+                $path = $imgFile->store('media_center', 'public');
+                $images[] = '/storage/' . $path;
+            }
+        }
+        if (!empty($images)) {
+            $validated['images'] = $images;
+            // Fallback: If no main file/cover is uploaded, set it to the first additional image
+            if (empty($validated['media_url'])) {
+                $validated['media_url'] = $images[0];
+            }
+        }
 
         if (empty($validated['published_date'])) {
             $validated['published_date'] = now();
@@ -375,13 +393,20 @@ class WebsiteSettingsController extends Controller
             'published_date' => 'nullable|date',
             'media_url' => 'nullable|string',
             'file' => 'nullable|file|max:51200',
+            'images' => 'nullable|array',
+            'images.*' => 'file|image|max:51200',
+            'existing_images' => 'nullable',
         ]);
 
         if ($request->hasFile('file')) {
             if ($post->media_url && str_starts_with($post->media_url, '/storage/')) {
-                $oldPath = str_replace('/storage/', '', $post->media_url);
-                if (Storage::disk('public')->exists($oldPath)) {
-                    Storage::disk('public')->delete($oldPath);
+                // Only delete if it's not part of the other images array
+                $otherImages = $post->images ?? [];
+                if (!in_array($post->media_url, $otherImages)) {
+                    $oldPath = str_replace('/storage/', '', $post->media_url);
+                    if (Storage::disk('public')->exists($oldPath)) {
+                        Storage::disk('public')->delete($oldPath);
+                    }
                 }
             }
             $path = $request->file('file')->store('media_center', 'public');
@@ -389,9 +414,55 @@ class WebsiteSettingsController extends Controller
         }
         unset($validated['file']);
 
+        // Handle existing images and deleted ones
+        $existingImages = $request->input('existing_images', []);
+        if (is_string($existingImages)) {
+            $existingImages = json_decode($existingImages, true) ?? [];
+        }
+
+        // Physical deletion of removed images
+        $currentImages = $post->images ?? [];
+        $targetMediaUrl = $validated['media_url'] ?? $post->media_url;
+        foreach ($currentImages as $img) {
+            if (!in_array($img, $existingImages)) {
+                if ($img !== $targetMediaUrl && str_starts_with($img, '/storage/')) {
+                    $oldPath = str_replace('/storage/', '', $img);
+                    if (Storage::disk('public')->exists($oldPath)) {
+                        Storage::disk('public')->delete($oldPath);
+                    }
+                }
+            }
+        }
+
+        // Handle new uploaded images
+        $newImages = [];
+        if ($request->hasFile('images')) {
+            foreach ($request->file('images') as $imgFile) {
+                $path = $imgFile->store('media_center', 'public');
+                $newImages[] = '/storage/' . $path;
+            }
+        }
+
+        // Merge existing kept images with newly uploaded ones
+        $finalImages = array_merge($existingImages, $newImages);
+        $validated['images'] = $finalImages;
+
+        // Auto update media_url if empty or if it was pointing to a deleted image
+        if (!$request->hasFile('file')) {
+            if (empty($validated['media_url']) || !in_array($validated['media_url'], $finalImages)) {
+                if (!empty($finalImages)) {
+                    $validated['media_url'] = $finalImages[0];
+                } else {
+                    $validated['media_url'] = null;
+                }
+            }
+        }
+
         if (isset($validated['is_active'])) {
             $validated['is_active'] = filter_var($validated['is_active'], FILTER_VALIDATE_BOOLEAN);
         }
+
+        unset($validated['existing_images']);
 
         $post->update($validated);
         return response()->json($post);
@@ -406,6 +477,18 @@ class WebsiteSettingsController extends Controller
                 Storage::disk('public')->delete($oldPath);
             }
         }
+
+        // Also delete additional images
+        $images = $post->images ?? [];
+        foreach ($images as $img) {
+            if ($img !== $post->media_url && str_starts_with($img, '/storage/')) {
+                $oldPath = str_replace('/storage/', '', $img);
+                if (Storage::disk('public')->exists($oldPath)) {
+                    Storage::disk('public')->delete($oldPath);
+                }
+            }
+        }
+
         $post->delete();
         return response()->json(['message' => 'تم حذف المنشور بنجاح']);
     }

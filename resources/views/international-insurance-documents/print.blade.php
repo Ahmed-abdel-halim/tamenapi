@@ -124,7 +124,7 @@
     {{-- العمود الأيسر --}}
     <td class="lbl" style="width:110px;">نوع المركبة</td>
     <td class="val" style="width:140px;">
-        @if($document->vehicleType){{ $document->vehicleType->brand }}@else -- @endif
+        {{ $document->vehicle_brand }}
     </td>
     <td class="lbl" style="width:110px;">جنسية المركبة</td>
     <td class="val">{{ $document->vehicle_nationality ?? 'ليبية' }}</td>

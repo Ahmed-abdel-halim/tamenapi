@@ -19,6 +19,8 @@ class InternationalInsuranceDocument extends Model
         'issue_date', 'branch_agent_id',
     ];
 
+    protected $appends = ['vehicle_brand'];
+
     protected $casts = [
         'start_date' => 'date',
         'end_date' => 'date',
@@ -31,6 +33,45 @@ class InternationalInsuranceDocument extends Model
         'total' => 'decimal:3',
         'daily_premium' => 'decimal:3',
     ];
+
+    public function getVehicleBrandAttribute()
+    {
+        if ($this->vehicleType) {
+            return $this->vehicleType->brand . ($this->vehicleType->category ? ' / ' . $this->vehicleType->category : '');
+        }
+
+        if ($this->external_car_id) {
+            $cars = \Illuminate\Support\Facades\Cache::remember('lifo_cars_list', 86400, function() {
+                try {
+                    $response = \Illuminate\Support\Facades\Http::timeout(10)
+                        ->withoutVerifying()
+                        ->post('https://prodapi.lifo.ly/api/cars/all', [
+                            'user_name' => 'adminmli',
+                            'pass_word' => '20232024',
+                        ]);
+                    if ($response->successful()) {
+                        $data = $response->json();
+                        if (isset($data['code']) && $data['code'] === 1 && is_array($data['data'])) {
+                            return $data['data'];
+                        }
+                    }
+                } catch (\Exception $e) {
+                    \Illuminate\Support\Facades\Log::error('Error fetching LIFO cars for model: ' . $e->getMessage());
+                }
+                return [];
+            });
+
+            if (is_array($cars)) {
+                foreach ($cars as $car) {
+                    if (isset($car['id']) && (int)$car['id'] === (int)$this->external_car_id) {
+                        return $car['name'] ?? '--';
+                    }
+                }
+            }
+        }
+
+        return '--';
+    }
 
     public function vehicleType()
     {

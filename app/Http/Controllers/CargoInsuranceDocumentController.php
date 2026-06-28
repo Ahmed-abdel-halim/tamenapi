@@ -22,8 +22,11 @@ class CargoInsuranceDocumentController extends Controller
                 if ($user) {
                     $isAdmin = $user->is_admin ?? false;
                     if (!$isAdmin) {
-                        $branchAgent = BranchAgent::where('user_id', $userId)->first();
-                        $branchAgentId = $branchAgent->id ?? null;
+                        $branchAgentId = $user->branch_agent_id ?? null;
+                        if (!$branchAgentId) {
+                            $branchAgent = BranchAgent::where('user_id', $userId)->first();
+                            $branchAgentId = $branchAgent->id ?? null;
+                        }
                     }
                 }
             }
@@ -31,7 +34,11 @@ class CargoInsuranceDocumentController extends Controller
             $query = CargoInsuranceDocument::with('branchAgent');
             
             if (!$isAdmin) {
-                $query->where('branch_agent_id', $branchAgentId);
+                if ($branchAgentId) {
+                    $query->where('branch_agent_id', $branchAgentId);
+                } else {
+                    $query->where('user_id', $userId);
+                }
             }
 
             // إضافة ميزة البحث
@@ -98,8 +105,12 @@ class CargoInsuranceDocumentController extends Controller
             $userId = $request->header('X-User-Id') ?? $request->input('user_id');
             $branchAgentId = null;
             if ($userId) {
-                $branchAgent = BranchAgent::where('user_id', $userId)->first();
-                $branchAgentId = $branchAgent->id ?? null;
+                $user = User::find($userId);
+                $branchAgentId = $user->branch_agent_id ?? null;
+                if (!$branchAgentId) {
+                    $branchAgent = BranchAgent::where('user_id', $userId)->first();
+                    $branchAgentId = $branchAgent->id ?? null;
+                }
             }
 
             // Generate Policy Number
@@ -110,6 +121,7 @@ class CargoInsuranceDocumentController extends Controller
             $document = CargoInsuranceDocument::create(array_merge($validated, [
                 'policy_number' => $policyNumber,
                 'branch_agent_id' => $branchAgentId,
+                'user_id' => $userId,
                 'status' => 'active'
             ]));
 

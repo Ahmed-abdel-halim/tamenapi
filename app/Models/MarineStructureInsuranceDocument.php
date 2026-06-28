@@ -46,6 +46,8 @@ class MarineStructureInsuranceDocument extends Model
         'total',
         'whatsapp_number',
         'branch_agent_id',
+    
+        'user_id',
     ];
 
     protected $casts = [

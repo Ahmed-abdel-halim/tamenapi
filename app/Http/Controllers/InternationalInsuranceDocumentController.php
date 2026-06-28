@@ -60,7 +60,11 @@ class InternationalInsuranceDocumentController extends Controller
 
             // إذا لم يكن admin، قم بتصفية الوثائق حسب branch_agent_id
             if (!$isAdmin) {
-                $query->where('branch_agent_id', $branchAgentId);
+                if ($branchAgentId) {
+                    $query->where('branch_agent_id', $branchAgentId);
+                } else {
+                    $query->where('user_id', $userId);
+                }
             }
 
             // إضافة ميزة البحث
@@ -232,6 +236,7 @@ class InternationalInsuranceDocumentController extends Controller
                 'total' => $validated['total'] ?? 0,
                 'issue_date' => now(),
                 'branch_agent_id' => $branchAgentId,
+                'user_id' => $userId,
             ]);
 
             return response()->json($document->load('vehicleType'), 201);

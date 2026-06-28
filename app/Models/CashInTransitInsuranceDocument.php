@@ -22,6 +22,8 @@ class CashInTransitInsuranceDocument extends Model
         'premium_amount',
         'whatsapp_number',
         'status'
+    ,
+        'user_id',
     ];
 
     public function branchAgent()

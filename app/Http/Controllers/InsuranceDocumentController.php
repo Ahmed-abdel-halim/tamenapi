@@ -32,10 +32,13 @@ class InsuranceDocumentController extends Controller
                     if ($user) {
                         $isAdmin = $user->is_admin ?? false;
                         if (!$isAdmin) {
-                            // إذا لم يكن admin، احصل على branch_agent_id من المستخدم
-                            $branchAgent = BranchAgent::where('user_id', $userId)->first();
-                            if ($branchAgent) {
-                                $branchAgentId = $branchAgent->id;
+                            // إذا لم يكن admin، احصل على branch_agent_id من المستخدم أو الموظف التابع له
+                            $branchAgentId = $user->branch_agent_id;
+                            if (!$branchAgentId) {
+                                $branchAgent = BranchAgent::where('user_id', $userId)->first();
+                                if ($branchAgent) {
+                                    $branchAgentId = $branchAgent->id;
+                                }
                             }
                         }
                     }
@@ -59,7 +62,11 @@ class InsuranceDocumentController extends Controller
 
             // إذا لم يكن admin، قم بتصفية الوثائق حسب branch_agent_id
             if (!$isAdmin) {
-                $query->where('branch_agent_id', $branchAgentId);
+                if ($branchAgentId) {
+                    $query->where('branch_agent_id', $branchAgentId);
+                } else {
+                    $query->where('user_id', $userId);
+                }
             }
 
             // إضافة ميزة البحث
@@ -282,9 +289,12 @@ class InsuranceDocumentController extends Controller
                             $branchAgentId = $request->input('branch_agent_id');
                         } else {
                             // If not admin, force their own branch_agent_id
-                            $branchAgent = BranchAgent::where('user_id', $userId)->first();
-                            if ($branchAgent) {
-                                $branchAgentId = $branchAgent->id;
+                            $branchAgentId = $user->branch_agent_id;
+                            if (!$branchAgentId) {
+                                $branchAgent = BranchAgent::where('user_id', $userId)->first();
+                                if ($branchAgent) {
+                                    $branchAgentId = $branchAgent->id;
+                                }
                             }
                         }
                     }
@@ -341,6 +351,7 @@ class InsuranceDocumentController extends Controller
                 'total' => $total,
                 'print_type' => $validated['print_type'] ?? 'A4',
                 'branch_agent_id' => $branchAgentId,
+                'user_id' => $userId,
                 // EIDC vehicle classification fields
                 'eidc_vehicle_type_id' => $validated['eidc_vehicle_type_id'] ?? null,
                 'eidc_vehicle_spec_id' => $validated['eidc_vehicle_spec_id'] ?? null,
@@ -526,6 +537,7 @@ class InsuranceDocumentController extends Controller
                 'foreign_car_purpose' => $validated['foreign_car_purpose'] ?? null,
                 'chassis_number' => $validated['chassis_number'] ?? null,
                 'branch_agent_id' => $branchAgentId,
+                'user_id' => $userId,
                 'plate_number_manual' => $validated['plate_number_manual'] ?? null,
                 'vehicle_type_id' => $validated['vehicle_type_id'] ?? null,
                 'color' => $validated['color'] ?? null,

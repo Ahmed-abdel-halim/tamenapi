@@ -21,6 +21,8 @@ class SchoolStudentInsuranceDocument extends Model
         'premium_amount',
         'whatsapp_number',
         'status'
+    ,
+        'user_id',
     ];
 
     public function branchAgent()

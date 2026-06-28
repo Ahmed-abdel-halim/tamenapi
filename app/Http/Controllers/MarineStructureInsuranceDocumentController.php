@@ -30,10 +30,13 @@ class MarineStructureInsuranceDocumentController extends Controller
                     if ($user) {
                         $isAdmin = $user->is_admin ?? false;
                         if (!$isAdmin) {
-                            // إذا لم يكن admin، احصل على branch_agent_id من المستخدم
-                            $branchAgent = BranchAgent::where('user_id', $userId)->first();
-                            if ($branchAgent) {
-                                $branchAgentId = $branchAgent->id;
+                            // إذا لم يكن admin، احصل على branch_agent_id من المستخدم أو الموظف التابع له
+                            $branchAgentId = $user->branch_agent_id;
+                            if (!$branchAgentId) {
+                                $branchAgent = BranchAgent::where('user_id', $userId)->first();
+                                if ($branchAgent) {
+                                    $branchAgentId = $branchAgent->id;
+                                }
                             }
                         }
                     }
@@ -57,7 +60,11 @@ class MarineStructureInsuranceDocumentController extends Controller
 
             // إذا لم يكن admin، قم بتصفية الوثائق حسب branch_agent_id
             if (!$isAdmin) {
-                $query->where('branch_agent_id', $branchAgentId);
+                if ($branchAgentId) {
+                    $query->where('branch_agent_id', $branchAgentId);
+                } else {
+                    $query->where('user_id', $userId);
+                }
             }
 
             // إضافة ميزة البحث
@@ -248,10 +255,13 @@ class MarineStructureInsuranceDocumentController extends Controller
                         $isAdmin = $user->is_admin ?? false;
                         
                         if (!$isAdmin) {
-                            // إذا لم يكن admin، احصل على branch_agent_id من المستخدم
-                            $branchAgent = BranchAgent::where('user_id', $userId)->first();
-                            if ($branchAgent) {
-                                $branchAgentId = $branchAgent->id;
+                            // إذا لم يكن admin، احصل على branch_agent_id من المستخدم أو الموظف التابع له
+                            $branchAgentId = $user->branch_agent_id;
+                            if (!$branchAgentId) {
+                                $branchAgent = BranchAgent::where('user_id', $userId)->first();
+                                if ($branchAgent) {
+                                    $branchAgentId = $branchAgent->id;
+                                }
                             }
                         }
                     }
@@ -295,6 +305,7 @@ class MarineStructureInsuranceDocumentController extends Controller
                 'total' => $total,
                 'whatsapp_number' => $validated['whatsapp_number'],
                 'branch_agent_id' => $branchAgentId,
+                'user_id' => $userId,
             ]);
 
             // إنشاء المحركات

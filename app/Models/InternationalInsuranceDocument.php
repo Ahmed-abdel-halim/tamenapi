@@ -17,6 +17,8 @@ class InternationalInsuranceDocument extends Model
         'item_type', 'number_of_countries', 'daily_premium',
         'premium', 'tax', 'supervision_fees', 'issue_fees', 'stamp', 'total',
         'issue_date', 'branch_agent_id',
+    
+        'user_id',
     ];
 
     protected $appends = ['vehicle_brand'];

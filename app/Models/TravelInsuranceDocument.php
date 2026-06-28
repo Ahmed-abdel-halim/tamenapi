@@ -26,6 +26,8 @@ class TravelInsuranceDocument extends Model
         'supervision_fees',
         'total',
         'branch_agent_id',
+    
+        'user_id',
     ];
 
     protected $casts = [

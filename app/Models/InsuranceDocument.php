@@ -62,6 +62,8 @@ class InsuranceDocument extends Model
         'eidc_sync_status',
         'eidc_error',
         'eidc_synced_at',
+    
+        'user_id',
     ];
 
     protected $casts = [

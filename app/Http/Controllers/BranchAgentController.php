@@ -858,6 +858,12 @@ class BranchAgentController extends Controller
      */
     public function destroy($id)
     {
+        // التحقق من أن المستخدم أدمن
+        $user = auth()->user() ?? auth('sanctum')->user();
+        if (!$user || !$user->is_admin) {
+            return response()->json(['message' => 'غير مصرح لك بإجراء هذا الحذف. الأدمن فقط من يمكنه الحذف.'], 403);
+        }
+
         DB::beginTransaction();
         try {
             $branchAgent = BranchAgent::findOrFail($id);

@@ -419,5 +419,14 @@
             </table>
         </div>
     </div>
+    
+    <script>
+        // التفعيل التلقائي للطباعة عند التحميل
+        window.onload = function() {
+            setTimeout(function() {
+                window.print();
+            }, 500);
+        };
+    </script>
 </body>
 </html>

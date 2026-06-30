@@ -1914,6 +1914,11 @@ class BranchAgentController extends Controller
                     ->where('year', $year)
                     ->where('month', $month)
                     ->first();
+            } elseif ($type === 'range' && $fromDate && $toDate) {
+                $existingClosure = MonthlyAccountClosure::where('branch_agent_id', $branchAgentId)
+                    ->whereDate('from_date', $fromDate)
+                    ->whereDate('to_date', $toDate)
+                    ->first();
             }
 
             // جلب إيصالات القبض (Payment Vouchers) الصادرة في هذا الشهر
@@ -1954,6 +1959,8 @@ class BranchAgentController extends Controller
                 'closure' => $existingClosure ? [
                     'paid_amount' => $existingClosure->paid_amount,
                     'remaining_amount' => $existingClosure->remaining_amount,
+                    'from_date' => $existingClosure->from_date ? $existingClosure->from_date->format('Y-m-d') : null,
+                    'to_date' => $existingClosure->to_date ? $existingClosure->to_date->format('Y-m-d') : null,
                     'created_at' => $existingClosure->created_at,
                     'updated_at' => $existingClosure->updated_at,
                 ] : null,
@@ -2427,8 +2434,10 @@ class BranchAgentController extends Controller
         try {
             $request->validate([
                 'branch_agent_id' => 'required|exists:branches_agents,id',
-                'year' => 'required|integer|min:2020|max:2100',
-                'month' => 'required|integer|min:1|max:12',
+                'year' => 'nullable|integer|min:2020|max:2100',
+                'month' => 'nullable|integer|min:1|max:12',
+                'from_date' => 'nullable|date',
+                'to_date' => 'nullable|date',
                 'due_amount' => 'required|numeric|min:0',
                 'paid_amount' => 'required|numeric|min:0',
                 'remaining_amount' => 'required|numeric|min:0',
@@ -2436,20 +2445,41 @@ class BranchAgentController extends Controller
                 'notes' => 'nullable|string',
             ]);
 
-            $closure = MonthlyAccountClosure::updateOrCreate(
-                [
-                    'branch_agent_id' => $request->branch_agent_id,
-                    'year' => $request->year,
-                    'month' => $request->month,
-                ],
-                [
-                    'due_amount' => $request->due_amount,
-                    'paid_amount' => $request->paid_amount,
-                    'remaining_amount' => $request->remaining_amount,
-                    'documents_data' => $request->documents_data ?? [],
-                    'notes' => $request->notes,
-                ]
-            );
+            if ($request->from_date && $request->to_date) {
+                $closure = MonthlyAccountClosure::updateOrCreate(
+                    [
+                        'branch_agent_id' => $request->branch_agent_id,
+                        'from_date' => $request->from_date,
+                        'to_date' => $request->to_date,
+                    ],
+                    [
+                        'year' => null,
+                        'month' => null,
+                        'due_amount' => $request->due_amount,
+                        'paid_amount' => $request->paid_amount,
+                        'remaining_amount' => $request->remaining_amount,
+                        'documents_data' => $request->documents_data ?? [],
+                        'notes' => $request->notes,
+                    ]
+                );
+            } else {
+                $closure = MonthlyAccountClosure::updateOrCreate(
+                    [
+                        'branch_agent_id' => $request->branch_agent_id,
+                        'year' => $request->year,
+                        'month' => $request->month,
+                    ],
+                    [
+                        'from_date' => null,
+                        'to_date' => null,
+                        'due_amount' => $request->due_amount,
+                        'paid_amount' => $request->paid_amount,
+                        'remaining_amount' => $request->remaining_amount,
+                        'documents_data' => $request->documents_data ?? [],
+                        'notes' => $request->notes,
+                    ]
+                );
+            }
 
             return response()->json([
                 'success' => true,
@@ -2477,12 +2507,18 @@ class BranchAgentController extends Controller
     public function printMonthlyAccountClosure(Request $request, $id)
     {
         try {
+            $type = $request->get('type', 'monthly');
             $year = $request->get('year');
             $month = $request->get('month');
+            $fromDate = $request->get('from_date');
+            $toDate = $request->get('to_date');
             $insuranceTypeFilter = $request->get('insurance_type'); // نوع التأمين المحدد للفلترة
 
-            if (!$year || !$month) {
+            if ($type === 'monthly' && (!$year || !$month)) {
                 abort(400, 'يجب تحديد السنة والشهر');
+            }
+            if ($type === 'range' && (!$fromDate || !$toDate)) {
+                abort(400, 'يجب تحديد تاريخ البداية والنهاية');
             }
 
             $branchAgent = BranchAgent::with('user')->findOrFail($id);
@@ -2497,12 +2533,22 @@ class BranchAgentController extends Controller
                 return InsuranceTypeService::matchesFilter($docInsuranceTypeLabel, $insuranceTypeFilter ?? 'all');
             };
 
+            $applyDateFilter = function ($query, $column = 'issue_date') use ($type, $year, $month, $fromDate, $toDate) {
+                if ($type === 'range' && $fromDate && $toDate) {
+                    return $query->whereDate($column, '>=', $fromDate)
+                        ->whereDate($column, '<=', $toDate);
+                }
+                return $query->whereYear($column, $year)
+                    ->whereMonth($column, $month);
+            };
+
             // جلب جميع وثائق التأمين للشهر المحدد (نفس منطق getMonthlyAccountClosure)
             $insuranceDocuments = DB::table('insurance_documents')
                 ->select('id', 'insurance_type', 'insurance_number', 'premium', 'total', 'phone', 'insured_name', 'created_at', 'issue_date')
                 ->where('branch_agent_id', $id)
-                ->whereYear('created_at', $year)
-                ->whereMonth('created_at', $month)
+                ->where(function($q) use ($applyDateFilter) {
+                    return $applyDateFilter($q, 'issue_date');
+                })
                 ->get();
 
             foreach ($insuranceDocuments as $doc) {
@@ -2565,8 +2611,9 @@ class BranchAgentController extends Controller
             // International Insurance
             $internationalDocs = DB::table('international_insurance_documents')
                 ->where('branch_agent_id', $id)
-                ->whereYear('created_at', $year)
-                ->whereMonth('created_at', $month)
+                ->where(function($q) use ($applyDateFilter) {
+                    return $applyDateFilter($q, 'issue_date');
+                })
                 ->get();
 
             foreach ($internationalDocs as $doc) {
@@ -2605,8 +2652,9 @@ class BranchAgentController extends Controller
             // Travel Insurance
             $travelDocs = DB::table('travel_insurance_documents')
                 ->where('branch_agent_id', $id)
-                ->whereYear('created_at', $year)
-                ->whereMonth('created_at', $month)
+                ->where(function($q) use ($applyDateFilter) {
+                    return $applyDateFilter($q, 'issue_date');
+                })
                 ->get();
 
             foreach ($travelDocs as $doc) {
@@ -2651,8 +2699,9 @@ class BranchAgentController extends Controller
             // Resident Insurance
             $residentDocs = DB::table('resident_insurance_documents')
                 ->where('branch_agent_id', $id)
-                ->whereYear('created_at', $year)
-                ->whereMonth('created_at', $month)
+                ->where(function($q) use ($applyDateFilter) {
+                    return $applyDateFilter($q, 'issue_date');
+                })
                 ->get();
 
             foreach ($residentDocs as $doc) {
@@ -2696,8 +2745,9 @@ class BranchAgentController extends Controller
             // Marine Structure Insurance
             $marineDocs = DB::table('marine_structure_insurance_documents')
                 ->where('branch_agent_id', $id)
-                ->whereYear('created_at', $year)
-                ->whereMonth('created_at', $month)
+                ->where(function($q) use ($applyDateFilter) {
+                    return $applyDateFilter($q, 'issue_date');
+                })
                 ->get();
 
             foreach ($marineDocs as $doc) {
@@ -2736,8 +2786,9 @@ class BranchAgentController extends Controller
             // Professional Liability Insurance
             $professionalDocs = DB::table('professional_liability_insurance_documents')
                 ->where('branch_agent_id', $id)
-                ->whereYear('created_at', $year)
-                ->whereMonth('created_at', $month)
+                ->where(function($q) use ($applyDateFilter) {
+                    return $applyDateFilter($q, 'issue_date');
+                })
                 ->get();
 
             foreach ($professionalDocs as $doc) {
@@ -2776,8 +2827,9 @@ class BranchAgentController extends Controller
             // Personal Accident Insurance
             $personalAccidentDocs = DB::table('personal_accident_insurance_documents')
                 ->where('branch_agent_id', $id)
-                ->whereYear('created_at', $year)
-                ->whereMonth('created_at', $month)
+                ->where(function($q) use ($applyDateFilter) {
+                    return $applyDateFilter($q, 'issue_date');
+                })
                 ->get();
 
             foreach ($personalAccidentDocs as $doc) {
@@ -2832,20 +2884,33 @@ class BranchAgentController extends Controller
             $dueAmount = $totalCompanyAmount;
             
             // جلب إيصالات القبض (Payment Vouchers) لخصمها من الرصيد
-            $paymentVouchersTotal = DB::table('payment_vouchers')
-                ->where('branch_agent_id', $id)
-                ->whereYear('payment_date', $year)
-                ->whereMonth('payment_date', $month)
-                ->sum('amount');
-
+            $paymentVouchersTotalQuery = DB::table('payment_vouchers')
+                ->where('branch_agent_id', $id);
+            
+            if ($type === 'range' && $fromDate && $toDate) {
+                $paymentVouchersTotalQuery
+                    ->whereDate('payment_date', '>=', $fromDate)
+                    ->whereDate('payment_date', '<=', $toDate);
+            } else {
+                $paymentVouchersTotalQuery
+                    ->whereYear('payment_date', $year)
+                    ->whereMonth('payment_date', $month);
+            }
+            
+            $paymentVouchersTotal = $paymentVouchersTotalQuery->sum('amount');
             $paidAmount = $paymentVouchersTotal;
             $remainingAmount = max(0, $dueAmount - $paidAmount);
             
             // التحقق من وجود إغلاق محفوظ
-            $closure = MonthlyAccountClosure::where('branch_agent_id', $id)
-                ->where('year', $year)
-                ->where('month', $month)
-                ->first();
+            $closureQuery = MonthlyAccountClosure::where('branch_agent_id', $id);
+            if ($type === 'range' && $fromDate && $toDate) {
+                $closureQuery->whereDate('from_date', $fromDate)
+                    ->whereDate('to_date', $toDate);
+            } else {
+                $closureQuery->where('year', $year)
+                    ->where('month', $month);
+            }
+            $closure = $closureQuery->first();
             
             if ($closure) {
                 // نجمع المبالغ المدفوعة في الإغلاق مع الإيصالات
@@ -2857,6 +2922,9 @@ class BranchAgentController extends Controller
                 'branchAgent' => $branchAgent,
                 'year' => $year,
                 'month' => $month,
+                'fromDate' => $fromDate,
+                'toDate' => $toDate,
+                'type' => $type,
                 'documentsByCategory' => $documentsByCategory,
                 'totalAmount' => $totalAmount,
                 'totalCompanyAmount' => $totalCompanyAmount,

@@ -13,6 +13,8 @@ class MonthlyAccountClosure extends Model
         'branch_agent_id',
         'year',
         'month',
+        'from_date',
+        'to_date',
         'due_amount',
         'paid_amount',
         'remaining_amount',
@@ -23,6 +25,8 @@ class MonthlyAccountClosure extends Model
     protected $casts = [
         'year' => 'integer',
         'month' => 'integer',
+        'from_date' => 'date',
+        'to_date' => 'date',
         'due_amount' => 'decimal:2',
         'paid_amount' => 'decimal:2',
         'remaining_amount' => 'decimal:2',

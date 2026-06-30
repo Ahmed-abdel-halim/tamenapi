@@ -227,4 +227,174 @@ class FinancialStatisticsController extends Controller
             'agents' => $allAgents
         ]);
     }
+
+    /**
+     * Live Agents Production Report
+     * Returns real-time production stats for all agents within a date range.
+     */
+    public function getLiveAgentsProduction(Request $request)
+    {
+        try {
+            $fromDate = $request->get('from_date');
+            $toDate = $request->get('to_date');
+
+            // Get all active agents with their percentages
+            $agents = DB::table('branches_agents')
+                ->select('id', 'code', 'agency_name', 'agent_name', 'document_percentages', 'status')
+                ->where('status', 'مقبول')
+                ->get();
+
+            // Define document tables with their date columns and percentage keys
+            $documentTables = [
+                [
+                    'table' => 'insurance_documents',
+                    'date_col' => 'issue_date',
+                    'fallback_date' => 'created_at',
+                    'percentage_resolver' => function ($doc, $percentages) {
+                        $insuranceType = $doc->insurance_type ?? '';
+                        $keyMap = [
+                            'تأمين إجباري سيارات' => 'تأمين سيارات',
+                            'تأمين سيارة جمرك' => 'تأمين سيارة جمرك',
+                            'تأمين سيارات أجنبية' => 'تأمين سيارات أجنبية',
+                            'تأمين طرف ثالث سيارات' => 'تأمين طرف ثالث سيارات',
+                        ];
+                        $key = $keyMap[$insuranceType] ?? null;
+                        if ($key && isset($percentages[$key])) return $percentages[$key];
+                        if (isset($percentages[$insuranceType])) return $percentages[$insuranceType];
+                        return $percentages['تأمين سيارات إجباري'] ?? $percentages['تأمين سيارات'] ?? 0;
+                    }
+                ],
+                ['table' => 'international_insurance_documents', 'date_col' => 'issue_date', 'fallback_date' => 'created_at', 'key' => 'تأمين سيارات دولي'],
+                ['table' => 'travel_insurance_documents', 'date_col' => 'issue_date', 'fallback_date' => 'created_at', 'key' => 'تأمين المسافرين'],
+                ['table' => 'resident_insurance_documents', 'date_col' => 'issue_date', 'fallback_date' => 'created_at', 'key' => 'تأمين الوافدين'],
+                ['table' => 'marine_structure_insurance_documents', 'date_col' => 'issue_date', 'fallback_date' => 'created_at', 'key' => 'تأمين الهياكل البحرية'],
+                ['table' => 'professional_liability_insurance_documents', 'date_col' => 'issue_date', 'fallback_date' => 'created_at', 'key' => 'تأمين المسؤولية المهنية (الطبية)'],
+                ['table' => 'personal_accident_insurance_documents', 'date_col' => 'issue_date', 'fallback_date' => 'created_at', 'key' => 'تأمين الحوادث الشخصية'],
+                ['table' => 'school_student_insurance_documents', 'date_col' => 'start_date', 'fallback_date' => 'created_at', 'key' => 'تأمين طلبة المدارس'],
+                ['table' => 'cargo_insurance_documents', 'date_col' => 'created_at', 'fallback_date' => 'created_at', 'key' => 'تأمين البضائع'],
+                ['table' => 'cash_in_transit_insurance_documents', 'date_col' => 'start_date', 'fallback_date' => 'created_at', 'key' => 'تأمين نقل النقدية'],
+            ];
+
+            $agentResults = [];
+            $grandTotalSales = 0;
+            $grandTotalDocs = 0;
+            $grandTotalAgentShare = 0;
+            $grandTotalCompanyShare = 0;
+
+            foreach ($agents as $agent) {
+                $percentages = is_string($agent->document_percentages)
+                    ? json_decode($agent->document_percentages, true) ?? []
+                    : (is_array($agent->document_percentages) ? $agent->document_percentages : []);
+
+                $agentTotalDocs = 0;
+                $agentTotalSales = 0;
+                $agentTotalCommission = 0;
+                $agentTotalCompany = 0;
+
+                foreach ($documentTables as $dt) {
+                    $tableName = $dt['table'];
+                    $dateCol = $dt['date_col'];
+
+                    // Check if table exists and has needed columns
+                    if (!DB::getSchemaBuilder()->hasTable($tableName)) continue;
+                    if (!DB::getSchemaBuilder()->hasColumn($tableName, 'branch_agent_id')) continue;
+
+                    $query = DB::table($tableName)
+                        ->where('branch_agent_id', $agent->id);
+
+                    // Apply date filter
+                    if ($fromDate && $toDate) {
+                        if (DB::getSchemaBuilder()->hasColumn($tableName, $dateCol)) {
+                            $query->where(function ($q) use ($dateCol, $fromDate, $toDate, $dt) {
+                                $q->where(function ($q2) use ($dateCol, $fromDate, $toDate) {
+                                    $q2->whereNotNull($dateCol)
+                                        ->whereDate($dateCol, '>=', $fromDate)
+                                        ->whereDate($dateCol, '<=', $toDate);
+                                });
+                                if ($dateCol !== 'created_at' && isset($dt['fallback_date'])) {
+                                    $q->orWhere(function ($q3) use ($dateCol, $fromDate, $toDate) {
+                                        $q3->whereNull($dateCol)
+                                            ->whereDate('created_at', '>=', $fromDate)
+                                            ->whereDate('created_at', '<=', $toDate);
+                                    });
+                                }
+                            });
+                        } else {
+                            $query->whereDate('created_at', '>=', $fromDate)
+                                ->whereDate('created_at', '<=', $toDate);
+                        }
+                    }
+
+                    $docs = $query->get();
+                    $docCount = $docs->count();
+
+                    if ($docCount === 0) continue;
+
+                    foreach ($docs as $doc) {
+                        $premium = (float)($doc->premium ?? 0);
+                        $total = (float)($doc->total ?? 0);
+
+                        // Resolve percentage
+                        if (isset($dt['percentage_resolver'])) {
+                            $percentage = $dt['percentage_resolver']($doc, $percentages);
+                        } else {
+                            $key = $dt['key'] ?? '';
+                            $percentage = $percentages[$key] ?? 0;
+                        }
+
+                        $agentAmount = $premium * ((float)$percentage / 100);
+                        $companyAmount = $total - $agentAmount;
+
+                        $agentTotalSales += $total;
+                        $agentTotalCommission += $agentAmount;
+                        $agentTotalCompany += $companyAmount;
+                    }
+
+                    $agentTotalDocs += $docCount;
+                }
+
+                // Only include agents with production
+                if ($agentTotalDocs > 0) {
+                    $agentResults[] = [
+                        'id' => $agent->id,
+                        'code' => $agent->code,
+                        'agency_name' => $agent->agency_name,
+                        'agent_name' => $agent->agent_name,
+                        'document_count' => $agentTotalDocs,
+                        'total_sales' => round($agentTotalSales, 2),
+                        'agent_share' => round($agentTotalCommission, 2),
+                        'company_share' => round($agentTotalCompany, 2),
+                    ];
+
+                    $grandTotalSales += $agentTotalSales;
+                    $grandTotalDocs += $agentTotalDocs;
+                    $grandTotalAgentShare += $agentTotalCommission;
+                    $grandTotalCompanyShare += $agentTotalCompany;
+                }
+            }
+
+            // Sort by total_sales descending
+            usort($agentResults, function ($a, $b) {
+                return $b['total_sales'] <=> $a['total_sales'];
+            });
+
+            return response()->json([
+                'success' => true,
+                'summary' => [
+                    'total_sales' => round($grandTotalSales, 2),
+                    'total_documents' => $grandTotalDocs,
+                    'total_agent_share' => round($grandTotalAgentShare, 2),
+                    'total_company_share' => round($grandTotalCompanyShare, 2),
+                    'agents_count' => count($agentResults),
+                ],
+                'agents' => $agentResults,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'حدث خطأ أثناء جلب تقرير الإنتاجية',
+                'error' => config('app.debug') ? $e->getMessage() : 'خطأ غير معروف'
+            ], 500);
+        }
+    }
 }

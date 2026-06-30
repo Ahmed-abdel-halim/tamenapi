@@ -390,6 +390,7 @@ Route::put('/union-balances/{id}', [App\Http\Controllers\UnionBalancePurchaseCon
 Route::delete('/union-balances/{id}', [App\Http\Controllers\UnionBalancePurchaseController::class, 'destroy']);
 Route::get('/financial-statistics', [FinancialStatisticsController::class, 'getStatistics']);
 Route::get('/financial-statistics/all-agents-revenue', [FinancialStatisticsController::class, 'getAllAgentsRevenue']);
+Route::get('/financial-statistics/live-agents-production', [FinancialStatisticsController::class, 'getLiveAgentsProduction']);
 Route::apiResource('cities', CityController::class);
 Route::apiResource('plates', PlateController::class);
 Route::apiResource('vehicle-types', VehicleTypeController::class);

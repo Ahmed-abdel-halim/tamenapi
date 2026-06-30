@@ -241,7 +241,7 @@ class FinancialStatisticsController extends Controller
             // Get all active agents with their percentages
             $agents = DB::table('branches_agents')
                 ->select('id', 'code', 'agency_name', 'agent_name', 'document_percentages', 'status')
-                ->where('status', 'مقبول')
+                ->where('status', 'نشط')
                 ->get();
 
             // Define document tables with their date columns and percentage keys

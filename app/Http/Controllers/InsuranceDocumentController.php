@@ -1718,7 +1718,33 @@ class InsuranceDocumentController extends Controller
                 return response()->json(['message' => 'فشل جلب الوثيقة من نظام الهيئة. قد يكون الخادم لديهم متوقف حالياً.'], 502);
             }
 
-            return response($response->body())
+            // Slice PDF using FPDI to get page 1 only
+            $pdfContent = $response->body();
+            $tempOriginal = tempnam(sys_get_temp_dir(), 'pdf_orig');
+            $tempSliced = tempnam(sys_get_temp_dir(), 'pdf_sliced');
+
+            if ($tempOriginal && $tempSliced) {
+                try {
+                    file_put_contents($tempOriginal, $response->body());
+                    $pdf = new \setasign\Fpdi\Fpdi();
+                    $pageCount = $pdf->setSourceFile($tempOriginal);
+                    if ($pageCount > 0) {
+                        $templateId = $pdf->importPage(1);
+                        $size = $pdf->getTemplateSize($templateId);
+                        $pdf->AddPage($size['orientation'] ?? 'P', [$size['width'] ?? 210, $size['height'] ?? 297]);
+                        $pdf->useTemplate($templateId);
+                        $pdf->Output('F', $tempSliced);
+                        $pdfContent = file_get_contents($tempSliced);
+                    }
+                } catch (\Exception $ex) {
+                    Log::error("EIDC: FPDI slicing failed, returning original PDF", ['error' => $ex->getMessage()]);
+                } finally {
+                    @unlink($tempOriginal);
+                    @unlink($tempSliced);
+                }
+            }
+
+            return response($pdfContent)
                 ->header('Content-Type', 'application/pdf')
                 ->header('Content-Disposition', 'inline; filename="eidc-policy-' . $document->insurance_number . '.pdf"')
                 ->header('Cache-Control', 'no-cache, no-store, must-revalidate')

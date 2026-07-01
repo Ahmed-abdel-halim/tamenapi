@@ -681,13 +681,13 @@ class BranchAgentController extends Controller
             if ($branchAgent->user_id) {
                 $user = User::find($branchAgent->user_id);
                 if ($user) {
-                    if ($request->has('username')) {
+                    if ($request->filled('username')) {
                         $user->username = $request->username;
                     }
-                    if ($request->has('agent_name')) {
+                    if ($request->filled('agent_name')) {
                         $user->name = $request->agent_name;
                     }
-                    if ($request->has('password')) {
+                    if ($request->filled('password')) {
                         $user->password = Hash::make($request->password);
                     }
                     if ($request->has('eidc_username')) {

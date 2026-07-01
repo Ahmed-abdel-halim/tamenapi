@@ -677,56 +677,66 @@ class BranchAgentController extends Controller
 
         DB::beginTransaction();
         try {
-            // تحديث بيانات المستخدم
+            // تحديث بيانات المستخدم أو إنشاؤه مجدداً إذا حُذف بالخطأ
+            $user = null;
             if ($branchAgent->user_id) {
                 $user = User::find($branchAgent->user_id);
-                if ($user) {
-                    if ($request->filled('username')) {
-                        $user->username = $request->username;
-                    }
-                    if ($request->filled('agent_name')) {
-                        $user->name = $request->agent_name;
-                    }
-                    if ($request->filled('password')) {
-                        $user->password = Hash::make($request->password);
-                    }
-                    if ($request->has('eidc_username')) {
-                        $user->eidc_username = $request->eidc_username;
-                    }
-                    if ($request->has('eidc_password')) {
-                        $user->eidc_password = $request->eidc_password;
-                    }
-                    if ($request->has('lifo_username')) {
-                        $user->lifo_username = $request->lifo_username;
-                    }
-                    if ($request->has('lifo_password')) {
-                        $user->lifo_password = $request->lifo_password;
-                    }
-                    if ($request->has('lifo_office_id')) {
-                        $user->lifo_office_id = $request->lifo_office_id;
-                    }
-                    
-                    // تحديث الصلاحيات في جدول users
-                    if ($request->has('authorized_documents')) {
-                        $rawValue = $request->authorized_documents;
-                        
-                        if ($rawValue !== null && $rawValue !== '') {
-                            $decoded = is_string($rawValue) 
-                                ? json_decode($rawValue, true) 
-                                : $rawValue;
-                            
-                            if (is_array($decoded)) {
-                                $user->authorized_documents = $decoded;
-                            } else {
-                                $user->authorized_documents = [];
-                            }
-                        } else {
-                            $user->authorized_documents = [];
-                        }
-                    }
-                    
-                    $user->save();
+            }
+            
+            if (!$user) {
+                $user = User::create([
+                    'username' => $request->username ?? ('agent_' . $branchAgent->code),
+                    'name' => $request->agent_name ?? $branchAgent->agent_name,
+                    'password' => Hash::make($request->password ?? '123456'),
+                    'is_admin' => false,
+                    'authorized_documents' => $branchAgent->authorized_documents ?? [],
+                    'branch_agent_id' => $branchAgent->id,
+                    'is_active' => true,
+                    'eidc_username' => $request->eidc_username,
+                    'eidc_password' => $request->eidc_password,
+                    'lifo_username' => $request->lifo_username,
+                    'lifo_password' => $request->lifo_password,
+                    'lifo_office_id' => $request->lifo_office_id,
+                ]);
+                $branchAgent->user_id = $user->id;
+                $branchAgent->save();
+            } else {
+                if ($request->filled('username')) {
+                    $user->username = $request->username;
                 }
+                if ($request->filled('agent_name')) {
+                    $user->name = $request->agent_name;
+                }
+                if ($request->filled('password')) {
+                    $user->password = Hash::make($request->password);
+                }
+                if ($request->has('eidc_username')) {
+                    $user->eidc_username = $request->eidc_username;
+                }
+                if ($request->has('eidc_password')) {
+                    $user->eidc_password = $request->eidc_password;
+                }
+                if ($request->has('lifo_username')) {
+                    $user->lifo_username = $request->lifo_username;
+                }
+                if ($request->has('lifo_password')) {
+                    $user->lifo_password = $request->lifo_password;
+                }
+                if ($request->has('lifo_office_id')) {
+                    $user->lifo_office_id = $request->lifo_office_id;
+                }
+                
+                // تحديث الصلاحيات في جدول users
+                if ($request->has('authorized_documents')) {
+                    $rawValue = $request->authorized_documents;
+                    if ($rawValue !== null && $rawValue !== '') {
+                        $decoded = is_string($rawValue) ? json_decode($rawValue, true) : $rawValue;
+                        $user->authorized_documents = is_array($decoded) ? $decoded : [];
+                    } else {
+                        $user->authorized_documents = [];
+                    }
+                }
+                $user->save();
             }
 
             // تحديث الصور

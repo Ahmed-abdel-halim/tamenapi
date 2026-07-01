@@ -244,6 +244,28 @@ class FinancialStatisticsController extends Controller
                 ->where('status', 'نشط')
                 ->get();
 
+            $agentIds = $agents->pluck('id')->toArray();
+            
+            // Index agents by ID and initialize production stats
+            $agentStats = [];
+            foreach ($agents as $agent) {
+                $percentages = is_string($agent->document_percentages)
+                    ? json_decode($agent->document_percentages, true) ?? []
+                    : (is_array($agent->document_percentages) ? $agent->document_percentages : []);
+
+                $agentStats[$agent->id] = [
+                    'id' => $agent->id,
+                    'code' => $agent->code,
+                    'agency_name' => $agent->agency_name,
+                    'agent_name' => $agent->agent_name,
+                    'percentages' => $percentages,
+                    'document_count' => 0,
+                    'total_sales' => 0.0,
+                    'agent_share' => 0.0,
+                    'company_share' => 0.0,
+                ];
+            }
+
             // Define document tables with their date columns and percentage keys
             $documentTables = [
                 [
@@ -275,101 +297,94 @@ class FinancialStatisticsController extends Controller
                 ['table' => 'cash_in_transit_insurance_documents', 'date_col' => 'start_date', 'fallback_date' => 'created_at', 'key' => 'تأمين نقل النقدية'],
             ];
 
-            $agentResults = [];
             $grandTotalSales = 0;
             $grandTotalDocs = 0;
             $grandTotalAgentShare = 0;
             $grandTotalCompanyShare = 0;
 
-            foreach ($agents as $agent) {
-                $percentages = is_string($agent->document_percentages)
-                    ? json_decode($agent->document_percentages, true) ?? []
-                    : (is_array($agent->document_percentages) ? $agent->document_percentages : []);
+            $schema = DB::getSchemaBuilder();
 
-                $agentTotalDocs = 0;
-                $agentTotalSales = 0;
-                $agentTotalCommission = 0;
-                $agentTotalCompany = 0;
+            foreach ($documentTables as $dt) {
+                $tableName = $dt['table'];
+                $dateCol = $dt['date_col'];
 
-                foreach ($documentTables as $dt) {
-                    $tableName = $dt['table'];
-                    $dateCol = $dt['date_col'];
+                // Check if table exists and has needed columns
+                if (!$schema->hasTable($tableName)) continue;
+                if (!$schema->hasColumn($tableName, 'branch_agent_id')) continue;
 
-                    // Check if table exists and has needed columns
-                    if (!DB::getSchemaBuilder()->hasTable($tableName)) continue;
-                    if (!DB::getSchemaBuilder()->hasColumn($tableName, 'branch_agent_id')) continue;
+                $query = DB::table($tableName)
+                    ->whereIn('branch_agent_id', $agentIds);
 
-                    $query = DB::table($tableName)
-                        ->where('branch_agent_id', $agent->id);
-
-                    // Apply date filter
-                    if ($fromDate && $toDate) {
-                        if (DB::getSchemaBuilder()->hasColumn($tableName, $dateCol)) {
-                            $query->where(function ($q) use ($dateCol, $fromDate, $toDate, $dt) {
-                                $q->where(function ($q2) use ($dateCol, $fromDate, $toDate) {
-                                    $q2->whereNotNull($dateCol)
-                                        ->whereDate($dateCol, '>=', $fromDate)
-                                        ->whereDate($dateCol, '<=', $toDate);
-                                });
-                                if ($dateCol !== 'created_at' && isset($dt['fallback_date'])) {
-                                    $q->orWhere(function ($q3) use ($dateCol, $fromDate, $toDate) {
-                                        $q3->whereNull($dateCol)
-                                            ->whereDate('created_at', '>=', $fromDate)
-                                            ->whereDate('created_at', '<=', $toDate);
-                                    });
-                                }
+                // Apply date filter
+                if ($fromDate && $toDate) {
+                    if ($schema->hasColumn($tableName, $dateCol)) {
+                        $query->where(function ($q) use ($dateCol, $fromDate, $toDate, $dt) {
+                            $q->where(function ($q2) use ($dateCol, $fromDate, $toDate) {
+                                $q2->whereNotNull($dateCol)
+                                    ->whereDate($dateCol, '>=', $fromDate)
+                                    ->whereDate($dateCol, '<=', $toDate);
                             });
-                        } else {
-                            $query->whereDate('created_at', '>=', $fromDate)
-                                ->whereDate('created_at', '<=', $toDate);
-                        }
+                            if ($dateCol !== 'created_at' && isset($dt['fallback_date'])) {
+                                $q->orWhere(function ($q3) use ($dateCol, $fromDate, $toDate) {
+                                    $q3->whereNull($dateCol)
+                                        ->whereDate('created_at', '>=', $fromDate)
+                                        ->whereDate('created_at', '<=', $toDate);
+                                });
+                            }
+                        });
+                    } else {
+                        $query->whereDate('created_at', '>=', $fromDate)
+                            ->whereDate('created_at', '<=', $toDate);
                     }
-
-                    $docs = $query->get();
-                    $docCount = $docs->count();
-
-                    if ($docCount === 0) continue;
-
-                    foreach ($docs as $doc) {
-                        $premium = (float)($doc->premium ?? 0);
-                        $total = (float)($doc->total ?? 0);
-
-                        // Resolve percentage
-                        if (isset($dt['percentage_resolver'])) {
-                            $percentage = $dt['percentage_resolver']($doc, $percentages);
-                        } else {
-                            $key = $dt['key'] ?? '';
-                            $percentage = $percentages[$key] ?? 0;
-                        }
-
-                        $agentAmount = $premium * ((float)$percentage / 100);
-                        $companyAmount = $total - $agentAmount;
-
-                        $agentTotalSales += $total;
-                        $agentTotalCommission += $agentAmount;
-                        $agentTotalCompany += $companyAmount;
-                    }
-
-                    $agentTotalDocs += $docCount;
                 }
 
-                // Only include agents with production
-                if ($agentTotalDocs > 0) {
-                    $agentResults[] = [
-                        'id' => $agent->id,
-                        'code' => $agent->code,
-                        'agency_name' => $agent->agency_name,
-                        'agent_name' => $agent->agent_name,
-                        'document_count' => $agentTotalDocs,
-                        'total_sales' => round($agentTotalSales, 2),
-                        'agent_share' => round($agentTotalCommission, 2),
-                        'company_share' => round($agentTotalCompany, 2),
-                    ];
+                $docs = $query->get();
 
-                    $grandTotalSales += $agentTotalSales;
-                    $grandTotalDocs += $agentTotalDocs;
-                    $grandTotalAgentShare += $agentTotalCommission;
-                    $grandTotalCompanyShare += $agentTotalCompany;
+                foreach ($docs as $doc) {
+                    $agentId = $doc->branch_agent_id;
+                    if (!isset($agentStats[$agentId])) continue;
+
+                    $premium = (float)($doc->premium ?? 0);
+                    $total = (float)($doc->total ?? 0);
+
+                    // Resolve percentage
+                    $percentages = $agentStats[$agentId]['percentages'];
+                    if (isset($dt['percentage_resolver'])) {
+                        $percentage = $dt['percentage_resolver']($doc, $percentages);
+                    } else {
+                        $key = $dt['key'] ?? '';
+                        $percentage = $percentages[$key] ?? 0;
+                    }
+
+                    $agentAmount = $premium * ((float)$percentage / 100);
+                    $companyAmount = $total - $agentAmount;
+
+                    $agentStats[$agentId]['document_count']++;
+                    $agentStats[$agentId]['total_sales'] += $total;
+                    $agentStats[$agentId]['agent_share'] += $agentAmount;
+                    $agentStats[$agentId]['company_share'] += $companyAmount;
+
+                    $grandTotalSales += $total;
+                    $grandTotalDocs++;
+                    $grandTotalAgentShare += $agentAmount;
+                    $grandTotalCompanyShare += $companyAmount;
+                }
+            }
+
+            // Filter and map results
+            $agentResults = [];
+            foreach ($agentStats as $stat) {
+                if ($stat['document_count'] > 0) {
+                    $agentResults[] = [
+                        'id' => $stat['id'],
+                        'code' => $stat['code'],
+                        'agency_name' => $stat['agency_name'],
+                        'agent_name' => $stat['agent_name'],
+                        'document_count' => $stat['document_count'],
+                        'total_sales' => round($stat['total_sales'], 2),
+                        'agent_share' => round($stat['agent_share'], 2),
+                        'company_share' => round($stat['company_share'], 2),
+                    ];
                 }
             }
 

@@ -592,3 +592,50 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/public-insurance-requests/{id}', [\App\Http\Controllers\PublicInsuranceRequestController::class, 'update']);
     Route::delete('/public-insurance-requests/{id}', [\App\Http\Controllers\PublicInsuranceRequestController::class, 'destroy']);
 });
+
+Route::get('/public/debug-agent/{id}', function ($id) {
+    $agent = \App\Models\BranchAgent::find($id);
+    if (!$agent) {
+        return response()->json(['error' => "Agent with ID $id not found"], 404);
+    }
+    
+    $userDirect = $agent->user_id ? \App\Models\User::find($agent->user_id) : null;
+    $usersByAgentId = \App\Models\User::where('branch_agent_id', $id)->get();
+    $usersByName = \App\Models\User::where('name', 'like', "%" . explode(' ', $agent->agent_name)[0] . "%")->get();
+    
+    return response()->json([
+        'agent' => [
+            'id' => $agent->id,
+            'code' => $agent->code,
+            'agent_name' => $agent->agent_name,
+            'agency_name' => $agent->agency_name,
+            'user_id' => $agent->user_id,
+        ],
+        'user_by_direct_user_id' => $userDirect ? [
+            'id' => $userDirect->id,
+            'username' => $userDirect->username,
+            'name' => $userDirect->name,
+            'is_active' => $userDirect->is_active,
+            'branch_agent_id' => $userDirect->branch_agent_id,
+        ] : null,
+        'users_matching_branch_agent_id' => $usersByAgentId->map(function ($u) {
+            return [
+                'id' => $u->id,
+                'username' => $u->username,
+                'name' => $u->name,
+                'is_active' => $u->is_active,
+                'branch_agent_id' => $u->branch_agent_id,
+            ];
+        }),
+        'users_matching_first_name' => $usersByName->map(function ($u) {
+            return [
+                'id' => $u->id,
+                'username' => $u->username,
+                'name' => $u->name,
+                'is_active' => $u->is_active,
+                'branch_agent_id' => $u->branch_agent_id,
+            ];
+        }),
+    ]);
+});
+

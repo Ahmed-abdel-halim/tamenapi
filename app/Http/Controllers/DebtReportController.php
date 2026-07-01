@@ -24,40 +24,64 @@ class DebtReportController extends Controller
         ];
 
         $agents = BranchAgent::all();
-        $report = [];
-
+        $agentIds = $agents->pluck('id')->toArray();
+        
+        $agentReport = [];
         foreach ($agents as $agent) {
-            $totalSales = 0;
-            $totalAgentCommissions = 0;
-            
-            // Get percentages for this agent
             $percentages = $agent->document_percentages ?? [];
             if (is_string($percentages)) {
                 $percentages = json_decode($percentages, true) ?: [];
             }
+            $agentReport[$agent->id] = [
+                'id' => $agent->id,
+                'agent_id' => $agent->id,
+                'agency_name' => $agent->agency_name,
+                'percentages' => $percentages,
+                'total_sales' => 0.0,
+                'total_commissions' => 0.0,
+                'total_paid' => 0.0,
+                'last_payment_date' => 'لا يوجد',
+            ];
+        }
 
-            foreach ($insuranceTables as $table) {
-                if (DB::getSchemaBuilder()->hasTable($table)) {
-                    $docs = DB::table($table)->where('branch_agent_id', $agent->id)->get();
+        $schema = DB::getSchemaBuilder();
+        foreach ($insuranceTables as $table) {
+            if ($schema->hasTable($table)) {
+                $docs = DB::table($table)->whereIn('branch_agent_id', $agentIds)->get();
+                
+                foreach ($docs as $doc) {
+                    $agentId = $doc->branch_agent_id;
+                    if (!isset($agentReport[$agentId])) continue;
                     
-                    foreach ($docs as $doc) {
-                        $totalSales += (float)($doc->total ?? 0);
-                        
-                        // Calculate commission for this specific doc
-                        $premium = (float)($doc->premium ?? 0);
-                        $typeName = $this->mapTableToTypeName($table, $doc);
-                        $rate = (float)($percentages[$typeName] ?? 0);
-                        
-                        $totalAgentCommissions += ($premium * ($rate / 100));
-                    }
+                    $total = (float)($doc->total ?? 0);
+                    $premium = (float)($doc->premium ?? 0);
+                    
+                    $typeName = $this->mapTableToTypeName($table, $doc);
+                    $rate = (float)($agentReport[$agentId]['percentages'][$typeName] ?? 0);
+                    
+                    $agentReport[$agentId]['total_sales'] += $total;
+                    $agentReport[$agentId]['total_commissions'] += ($premium * ($rate / 100));
                 }
             }
+        }
 
-            // Get total paid by agent via Payment Vouchers
-            $totalPaid = DB::table('payment_vouchers')->where('branch_agent_id', $agent->id)->sum('amount');
+        // Get all payments and sum them and track last payment date
+        $payments = DB::table('payment_vouchers')
+            ->whereIn('branch_agent_id', $agentIds)
+            ->orderBy('payment_date', 'asc') // asc order allows overriding, ending up with the latest
+            ->get();
 
-            // Outstanding Debt = (Total Sales) - (Commissions) - (Payments)
-            $outstandingDebt = $totalSales - $totalAgentCommissions - $totalPaid;
+        foreach ($payments as $payment) {
+            $agentId = $payment->branch_agent_id;
+            if (isset($agentReport[$agentId])) {
+                $agentReport[$agentId]['total_paid'] += (float)$payment->amount;
+                $agentReport[$agentId]['last_payment_date'] = $payment->payment_date;
+            }
+        }
+
+        $report = [];
+        foreach ($agentReport as $data) {
+            $outstandingDebt = $data['total_sales'] - $data['total_commissions'] - $data['total_paid'];
 
             // Only show agents with debt
             if ($outstandingDebt > 0) {
@@ -65,17 +89,12 @@ class DebtReportController extends Controller
                 if ($outstandingDebt > 10000) $status = 'critical';
                 else if ($outstandingDebt > 5000) $status = 'warning';
 
-                $lastPayment = DB::table('payment_vouchers')
-                    ->where('branch_agent_id', $agent->id)
-                    ->orderBy('payment_date', 'desc')
-                    ->first();
-
                 $report[] = [
-                    'id' => $agent->id,
-                    'agent_id' => $agent->id,
-                    'agency_name' => $agent->agency_name,
+                    'id' => $data['id'],
+                    'agent_id' => $data['agent_id'],
+                    'agency_name' => $data['agency_name'],
                     'total_debt' => (float)$outstandingDebt,
-                    'last_payment_date' => $lastPayment ? $lastPayment->payment_date : 'لا يوجد',
+                    'last_payment_date' => $data['last_payment_date'],
                     'status' => $status,
                     'notes' => $outstandingDebt > 10000 ? 'يتطلب إجراء فوري' : 'متابعة دورية'
                 ];

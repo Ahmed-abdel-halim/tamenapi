@@ -554,4 +554,28 @@ class InternationalInsuranceDocumentController extends Controller
         
         return trim($words);
     }
+
+    /**
+     * Manual trigger for synchronizing documents with Union (LIFO).
+     */
+    public function syncFromUnion(Request $request, \App\Services\UnionSyncService $syncService)
+    {
+        try {
+            $stats = $syncService->sync();
+            return response()->json([
+                'success' => true,
+                'message' => 'تمت المزامنة بنجاح',
+                'created' => $stats['created'],
+                'updated' => $stats['updated'],
+                'failed'  => $stats['failed'],
+                'errors'  => $stats['errors']
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error in InternationalInsuranceDocumentController@syncFromUnion: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'فشلت المزامنة: ' . $e->getMessage()
+            ], 500);
+        }
+    }
 }

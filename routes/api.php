@@ -412,6 +412,7 @@ Route::get('/insurance-documents/{id}/eidc-print', [InsuranceDocumentController:
 Route::post('/insurance-documents/eidc-sync-all', [InsuranceDocumentController::class, 'eidcSyncFromAuthority']);
 
 
+Route::post('/international-insurance-documents/sync-union', [InternationalInsuranceDocumentController::class, 'syncFromUnion']);
 Route::apiResource('international-insurance-documents', InternationalInsuranceDocumentController::class);
 Route::get('/international-insurance-documents/{id}/print', [InternationalInsuranceDocumentController::class, 'print']);
 

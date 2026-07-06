@@ -557,11 +557,22 @@ class UnionSyncService
             return now()->toDateTimeString();
         }
 
-        // If the hour is 00:, shift it to 01: to avoid DST gap errors on TIMESTAMP columns in MySQL
-        if (preg_match('/^(\d{4}-\d{2}-\d{2})\s+00:(\d{2}:\d{2})$/', trim($dateStr), $matches)) {
+        $trimmed = trim($dateStr);
+
+        // 1. If the hour is 00:, shift it to 01: to avoid DST gap errors on TIMESTAMP columns in MySQL
+        if (preg_match('/^(\d{4}-\d{2}-\d{2})\s+00:(\d{2}:\d{2})$/', $trimmed, $matches)) {
             return $matches[1] . ' 01:' . $matches[2];
         }
 
-        return $dateStr;
+        // 2. If the hour is 02:xx:xx on a Sunday in March (DST start), shift it to 03:xx:xx
+        if (preg_match('/^(\d{4}-03-\d{2})\s+02:(\d{2}:\d{2})$/', $trimmed, $matches)) {
+            $datePart = $matches[1];
+            $dayOfWeek = date('w', strtotime($datePart)); // 0 = Sunday
+            if ($dayOfWeek == 0) {
+                return $datePart . ' 03:' . $matches[2];
+            }
+        }
+
+        return $trimmed;
     }
 }

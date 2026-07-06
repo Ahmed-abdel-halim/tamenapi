@@ -7,6 +7,7 @@ use App\Models\BranchAgent;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Cache;
 use Carbon\Carbon;
 
 class InternationalInsuranceDocumentController extends Controller
@@ -558,24 +559,60 @@ class InternationalInsuranceDocumentController extends Controller
     /**
      * Manual trigger for synchronizing documents with Union (LIFO).
      */
-    public function syncFromUnion(Request $request, \App\Services\UnionSyncService $syncService)
+    public function syncFromUnion(Request $request)
     {
         try {
-            $stats = $syncService->sync();
+            // Check if a sync is already running
+            $currentStatus = Cache::get('union_sync_status');
+            if ($currentStatus && ($currentStatus['status'] ?? '') === 'running') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'عملية المزامنة قيد التشغيل حالياً، يرجى الانتظار لحين اكتمالها.',
+                    'already_running' => true,
+                ]);
+            }
+
+            // Mark as running immediately so UI updates
+            Cache::put('union_sync_status', [
+                'status'  => 'running',
+                'message' => 'جاري بدء المزامنة مع الاتحاد...',
+                'started_at' => now()->toDateTimeString(),
+            ], 1800);
+
+            // Run the artisan command as a background process (no queue worker needed)
+            $artisanPath = base_path('artisan');
+            $phpBinary = PHP_BINARY ?: 'php';
+            $command = "{$phpBinary} {$artisanPath} lifo:sync-documents > /dev/null 2>&1 &";
+            pclose(popen($command, 'r'));
+
             return response()->json([
                 'success' => true,
-                'message' => 'تمت المزامنة بنجاح',
-                'created' => $stats['created'],
-                'updated' => $stats['updated'],
-                'failed'  => $stats['failed'],
-                'errors'  => $stats['errors']
+                'message' => 'تم بدء المزامنة في الخلفية، يمكنك متابعة حالتها.',
+                'background' => true,
             ]);
         } catch (\Exception $e) {
             Log::error('Error in InternationalInsuranceDocumentController@syncFromUnion: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
-                'message' => 'فشلت المزامنة: ' . $e->getMessage()
+                'message' => 'فشل بدء المزامنة: ' . $e->getMessage()
             ], 500);
         }
+    }
+
+    /**
+     * Check the status of the background sync job.
+     */
+    public function syncStatus()
+    {
+        $status = Cache::get('union_sync_status');
+
+        if (!$status) {
+            return response()->json([
+                'status'  => 'idle',
+                'message' => 'لا توجد عملية مزامنة حالياً',
+            ]);
+        }
+
+        return response()->json($status);
     }
 }

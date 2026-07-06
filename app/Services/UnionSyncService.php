@@ -100,7 +100,40 @@ class UnionSyncService
                 return $stats;
             }
 
-            Log::info('UnionSyncService: Retrieved a total of ' . count($reports) . ' reports. Preloading maps and database sync...');
+            $totalFetched = count($reports);
+            Log::info("UnionSyncService: Retrieved a total of {$totalFetched} reports from Union.");
+
+            // ★ INCREMENTAL SYNC: Filter out reports that already exist in the DB
+            // This avoids re-processing 90k+ records every time
+            $existingExternalIds = DB::table('international_insurance_documents')
+                ->whereNotNull('external_policy_number')
+                ->pluck('external_policy_number')
+                ->flip()
+                ->all();
+
+            $newReports = [];
+            foreach ($reports as $report) {
+                $lifoId = $report['id'] ?? null;
+                if ($lifoId && isset($existingExternalIds[$lifoId])) {
+                    $stats['skipped']++;
+                    continue; // Already in our DB, skip
+                }
+                $newReports[] = $report;
+            }
+
+            // Free memory from the full reports array
+            unset($reports);
+
+            if (empty($newReports)) {
+                Log::info("UnionSyncService: All {$totalFetched} reports already exist locally. Nothing new to sync.");
+                Cache::put('union_last_sync_at', now()->toDateTimeString(), 86400 * 30);
+                return $stats;
+            }
+
+            $reports = $newReports;
+            unset($newReports);
+
+            Log::info("UnionSyncService: " . count($reports) . " new reports to process (skipped {$stats['skipped']} existing). Preloading maps...");
 
             // 5. Preload all local users mapping for efficient lookup
             $localUsers = User::all();
@@ -124,7 +157,8 @@ class UnionSyncService
                 }
             }
 
-            // 6. Preload all existing documents to prevent N+1 DB queries
+            // 6. Preload existing documents map for the remaining new reports
+            // (Some new reports may match by document_number for updates)
             $existingDocs = DB::table('international_insurance_documents')
                 ->select('id', 'external_policy_number', 'document_number')
                 ->get();
@@ -138,6 +172,7 @@ class UnionSyncService
                     $existingDocNumberMap[$d->document_number] = $d->id;
                 }
             }
+            unset($existingDocs);
 
             // 7. Preload all agents
             $localAgents = BranchAgent::all();
@@ -336,7 +371,10 @@ class UnionSyncService
                 Log::info("UnionSyncService: Processed chunk " . ($chunkIndex + 1) . " of " . count($chunks));
             }
 
-            Log::info("UnionSyncService: Completed. Created: {$stats['created']}, Updated: {$stats['updated']}, Failed: {$stats['failed']}");
+            // Save last successful sync timestamp
+            Cache::put('union_last_sync_at', now()->toDateTimeString(), 86400 * 30);
+
+            Log::info("UnionSyncService: Completed. Created: {$stats['created']}, Updated: {$stats['updated']}, Skipped: {$stats['skipped']}, Failed: {$stats['failed']}");
         } catch (\Exception $e) {
             Log::error('UnionSyncService: Synchronization failed completely. Error: ' . $e->getMessage());
             $stats['errors'][] = $e->getMessage();

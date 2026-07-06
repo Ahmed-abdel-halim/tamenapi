@@ -408,7 +408,7 @@ class UnionSyncService
     protected function fetchReportsConcurrently(array $officesList): array
     {
         $allReports = [];
-        $largeOfficeIds = [1404, 1897, 1838, 1976, 1809, 1501, 2064, 1508, 1513, 1557, 1491, 1792, 1881];
+        $largeOfficeIds = [1404, 1897, 1838, 1976, 1809, 1501, 2064, 1508, 1513, 1557, 1491, 1792, 1881, 1899];
 
         // 1. Fetch large offices sequentially with high timeout
         foreach ($officesList as $office) {

@@ -211,7 +211,7 @@ class UnionSyncService
                             }
 
                             // Check if already exists in DB
-                            $existingId = $existingExternalMap[$lifoDocId] ?? $existingDocNumberMap[$cardNumber] ?? null;
+                            $existingId = $existingExternalMap[$lifoDocId] ?? $existingDocNumberMap[$cardNumber] ?? $existingExternalMap[$cardNumber] ?? null;
 
                             // Prepare mapped attributes
                             $premium       = (float) ($doc['insurance_installment'] ?? 0);
@@ -341,11 +341,39 @@ class UnionSyncService
                             ];
 
                             if ($existingId) {
+                                // Retrieve the old document_number before updating
+                                $oldDocNumber = DB::table('international_insurance_documents')
+                                    ->where('id', $existingId)
+                                    ->value('document_number');
+
                                 $attributes['updated_at'] = now();
                                 DB::table('international_insurance_documents')
                                     ->where('id', $existingId)
                                     ->update($attributes);
                                 $stats['updated']++;
+
+                                // If the document number changed (e.g. from local LBY0070 to LBY/7130950),
+                                // update any references in related tables to avoid broken links
+                                if ($oldDocNumber && $oldDocNumber !== $cardNumber) {
+                                    $tablesToUpdate = ['claims', 'document_requests', 'commissions'];
+                                    foreach ($tablesToUpdate as $table) {
+                                        try {
+                                            DB::table($table)
+                                                ->where('document_number', $oldDocNumber)
+                                                ->update(['document_number' => $cardNumber]);
+                                        } catch (\Exception $ex) {
+                                            Log::error("UnionSyncService: Failed to update document number in {$table}. Error: " . $ex->getMessage());
+                                        }
+                                    }
+                                }
+
+                                // Update maps to prevent duplicate processing
+                                if ($lifoDocId) {
+                                    $existingExternalMap[$lifoDocId] = $existingId;
+                                }
+                                if ($cardNumber) {
+                                    $existingDocNumberMap[$cardNumber] = $existingId;
+                                }
                             } else {
                                 $attributes['created_at'] = now();
                                 $attributes['updated_at'] = now();

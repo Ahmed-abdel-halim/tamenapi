@@ -356,6 +356,7 @@ Route::get('/cargo-insurance/{id}/print', ['App\Http\Controllers\CargoInsuranceD
 Route::get('/branches-agents/{id}/financial-stats', [BranchAgentController::class, 'getAgentFinancialStats']);
 Route::get('/global-financial-stats', [BranchAgentController::class, 'getGlobalFinancialStats']);
 Route::get('/branches-agents/{id}/print', [BranchAgentController::class, 'print']);
+Route::get('/branches-agents/{id}/print-permit', [BranchAgentController::class, 'printPermit']);
 Route::get('/branches-agents/{id}/account-report', [BranchAgentController::class, 'accountReport']);
 Route::get('/branches-agents/{id}/revenue-report', [BranchAgentController::class, 'revenueReport']);
 Route::post('/branches-agents/{id}/toggle-block', [BranchAgentController::class, 'toggleBlock']);

@@ -20,6 +20,7 @@ class BranchAgent extends Model
         'agency_number',
         'stamp_number',
         'contract_date',
+        'renewal_date',
         'contract_end_date',
         'contract_duration',
         'city',
@@ -61,6 +62,7 @@ class BranchAgent extends Model
 
     protected $casts = [
         'contract_date' => 'date',
+        'renewal_date' => 'date',
         'contract_end_date' => 'date',
         'consumed_custodies' => 'array',
         'fixed_custodies' => 'array',

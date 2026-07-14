@@ -73,6 +73,7 @@ class BranchAgentController extends Controller
                 'agency_number' => 'nullable|string',
                 'stamp_number' => 'nullable|string',
                 'contract_date' => 'required|date',
+                'renewal_date' => 'nullable|date',
                 'contract_end_date' => 'nullable|date',
                 'contract_duration' => 'nullable|string',
                 'city' => 'required|string',
@@ -254,6 +255,7 @@ class BranchAgentController extends Controller
                 'agency_number' => $request->agency_number,
                 'stamp_number' => $request->stamp_number,
                 'contract_date' => $request->contract_date,
+                'renewal_date' => $request->renewal_date,
                 'contract_end_date' => $request->contract_end_date,
                 'contract_duration' => $request->contract_duration,
                 'city' => $request->city,
@@ -633,6 +635,7 @@ class BranchAgentController extends Controller
             'agency_number' => 'nullable|string',
             'stamp_number' => 'nullable|string',
             'contract_date' => 'nullable|date',
+            'renewal_date' => 'nullable|date',
             'contract_end_date' => 'nullable|date',
             'contract_duration' => 'nullable|string',
             'city' => 'nullable|string',
@@ -788,7 +791,7 @@ class BranchAgentController extends Controller
             // معالجة JSON للعهود
             $updateData = $request->only([
                 'type', 'agency_name', 'agent_name', 'activity', 'agency_number',
-                'stamp_number', 'contract_date', 'contract_end_date', 'contract_duration',
+                'stamp_number', 'contract_date', 'renewal_date', 'contract_end_date', 'contract_duration',
                 'city', 'address', 'phone', 'nationality', 'national_id',
                 'identity_number', 'notes', 'status', 'contract_conditions',
                 'office_phone', 'office_location'
@@ -919,6 +922,19 @@ class BranchAgentController extends Controller
         try {
             $branchAgent = BranchAgent::with('user')->findOrFail($id);
             return view('branches-agents.print', compact('branchAgent'));
+        } catch (\Exception $e) {
+            abort(404, 'السجل غير موجود');
+        }
+    }
+
+    /**
+     * Print work permit
+     */
+    public function printPermit($id)
+    {
+        try {
+            $branchAgent = BranchAgent::with('user')->findOrFail($id);
+            return view('branches-agents.permit', compact('branchAgent'));
         } catch (\Exception $e) {
             abort(404, 'السجل غير موجود');
         }

@@ -43,7 +43,27 @@ class CommissionController extends Controller
                     $percentageKey = 'تأمين سيارات';
                 }
 
-                $percentage = $percentages[$percentageKey] ?? $percentages[$docType] ?? $percentages['تأمين سيارات إجباري'] ?? 0;
+                // Resolve percentage based on month of document
+                $docDate = $doc->created_at ?? now();
+                $docMonthYear = date('Y-m', strtotime($docDate)); // e.g. "2026-05"
+
+                if (isset($percentages['default']) || isset($percentages['monthly_overrides'])) {
+                    $monthlyVal = $percentages['monthly_overrides'][$docMonthYear][$percentageKey] 
+                        ?? $percentages['monthly_overrides'][$docMonthYear][$docType] 
+                        ?? null;
+
+                    if ($monthlyVal !== null) {
+                        $percentage = (float) $monthlyVal;
+                    } else {
+                        $percentage = (float) ($percentages['default'][$percentageKey] 
+                            ?? $percentages['default'][$docType] 
+                            ?? $percentages['default']['تأمين سيارات إجباري'] 
+                            ?? 0);
+                    }
+                } else {
+                    // Fallback to old flat format
+                    $percentage = (float) ($percentages[$percentageKey] ?? $percentages[$docType] ?? $percentages['تأمين سيارات إجباري'] ?? 0);
+                }
 
                 $premium = $doc->premium ?? 0;
                 $total_amount = $doc->total ?? 0;
@@ -67,11 +87,15 @@ class CommissionController extends Controller
                     ]);
                 } else {
                     if ($commission->status === 'pending') {
+                        // Use stored rate to calculate amount if document total changed, preserving historical rate!
+                        $storedRate = (float) $commission->commission_rate;
+                        $recalculatedAmount = $premium * ($storedRate / 100);
+
                         $commission->update([
                             'branch_agent_id' => $agent->id,
                             'total_amount' => $total_amount,
-                            'commission_rate' => $percentage,
-                            'commission_amount' => $commission_amount,
+                            'commission_amount' => $recalculatedAmount,
+                            // Do not update commission_rate to preserve history
                         ]);
                     }
                 }

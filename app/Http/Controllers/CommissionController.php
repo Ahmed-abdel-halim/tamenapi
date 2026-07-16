@@ -87,15 +87,19 @@ class CommissionController extends Controller
                     ]);
                 } else {
                     if ($commission->status === 'pending') {
-                        // Use stored rate to calculate amount if document total changed, preserving historical rate!
-                        $storedRate = (float) $commission->commission_rate;
-                        $recalculatedAmount = $premium * ($storedRate / 100);
+                        // Check if there is an explicit monthly override for this specific month
+                        $hasMonthlyOverride = isset($percentages['monthly_overrides'][$docMonthYear][$percentageKey]) 
+                            || isset($percentages['monthly_overrides'][$docMonthYear][$docType]);
+
+                        // If an explicit monthly override exists, use the resolved percentage; otherwise, preserve the historical rate
+                        $rateToUse = $hasMonthlyOverride ? $percentage : (float) $commission->commission_rate;
+                        $recalculatedAmount = $premium * ($rateToUse / 100);
 
                         $commission->update([
                             'branch_agent_id' => $agent->id,
                             'total_amount' => $total_amount,
+                            'commission_rate' => $rateToUse,
                             'commission_amount' => $recalculatedAmount,
-                            // Do not update commission_rate to preserve history
                         ]);
                     }
                 }

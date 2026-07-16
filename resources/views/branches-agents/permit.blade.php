@@ -75,7 +75,7 @@
         }
 
         .logo-img {
-            max-height: 75px;
+            max-height: 120px;
             object-fit: contain;
             margin-bottom: 10px;
         }
@@ -317,6 +317,30 @@
                         $docs = $branchAgent->authorized_documents ?? [];
                         if (empty($docs) && $branchAgent->user) {
                             $docs = $branchAgent->user->authorized_documents ?? [];
+                        }
+
+                        // تصفية الصلاحيات الإدارية والمالية وإبقاء وثائق التأمين فقط
+                        $excludedPermissions = [
+                            'كشف حساب الوكيل',
+                            'إغلاق حساب شهري',
+                            'كشف إغلاق الحساب الشهري',
+                            'إيصالات القبض',
+                            'إدارة المصروفات',
+                            'التسويات والعمولات',
+                            'الديون المستحقة',
+                            'الأرشيف المالي',
+                            'المخازن والعهدة',
+                            'الإحصائيات المالية',
+                            'مرتبات الموظفين'
+                        ];
+
+                        if (is_array($docs)) {
+                            $docs = array_filter($docs, function($doc) use ($excludedPermissions) {
+                                return !in_array($doc, $excludedPermissions);
+                            });
+                            $docs = array_values($docs);
+                        } else {
+                            $docs = [];
                         }
                     @endphp
                     

@@ -22,10 +22,48 @@ class PosMachineController extends Controller
         return $user;
     }
 
+    private function checkPermission($permission)
+    {
+        $user = $this->resolveUser();
+        if (!$user) {
+            return false;
+        }
+        if ($user->is_admin) {
+            return true;
+        }
+        $authorized = $user->authorized_documents ?? [];
+        if (!is_array($authorized)) {
+            return false;
+        }
+        return in_array($permission, $authorized) || in_array('المطابقة والتحصيلات المالية', $authorized) || in_array('المحاسب المالي', $authorized);
+    }
+
+    private function hasPosAccess()
+    {
+        $user = $this->resolveUser();
+        if (!$user) {
+            return false;
+        }
+        if ($user->is_admin) {
+            return true;
+        }
+        $authorized = $user->authorized_documents ?? [];
+        if (!is_array($authorized)) {
+            return false;
+        }
+        return in_array('المطابقة والتحصيلات المالية', $authorized) || 
+               in_array('المحاسب المالي', $authorized) ||
+               in_array('إدخال مبيعات نقاط البيع (POS)', $authorized) ||
+               in_array('مطابقة مبيعات نقاط البيع (POS)', $authorized);
+    }
+
     // ─── ماكينات POS ────────────────────────────────────────────────────────────
 
     public function index()
     {
+        if (!$this->hasPosAccess()) {
+            return response()->json(['success' => false, 'message' => 'غير مصرح لك بالوصول إلى هذه الصفحة'], 403);
+        }
         $user = $this->resolveUser();
         $branchAgentId = $user ? $user->branchAgent?->id : null;
 
@@ -50,6 +88,9 @@ class PosMachineController extends Controller
 
     public function store(Request $request)
     {
+        if (!$this->checkPermission('المطابقة والتحصيلات المالية')) {
+            return response()->json(['success' => false, 'message' => 'غير مصرح لك بتعريف أو تعديل ماكينات POS'], 403);
+        }
         $request->validate([
             'machine_name'      => 'required|string',
             'machine_serial'    => 'nullable|string',
@@ -77,6 +118,9 @@ class PosMachineController extends Controller
 
     public function update(Request $request, $id)
     {
+        if (!$this->checkPermission('المطابقة والتحصيلات المالية')) {
+            return response()->json(['success' => false, 'message' => 'غير مصرح لك بتعريف أو تعديل ماكينات POS'], 403);
+        }
         $machine = PosMachine::findOrFail($id);
 
         $request->validate([
@@ -101,12 +145,18 @@ class PosMachineController extends Controller
 
     public function destroy($id)
     {
+        if (!$this->checkPermission('المطابقة والتحصيلات المالية')) {
+            return response()->json(['success' => false, 'message' => 'غير مصرح لك بحذف ماكينات POS'], 403);
+        }
         PosMachine::findOrFail($id)->delete();
         return response()->json(['success' => true, 'message' => 'تم حذف الماكينة']);
     }
 
     public function toggleActive($id)
     {
+        if (!$this->checkPermission('المطابقة والتحصيلات المالية')) {
+            return response()->json(['success' => false, 'message' => 'غير مصرح لك بتعديل حالة ماكينات POS'], 403);
+        }
         $machine = PosMachine::findOrFail($id);
         $machine->update(['is_active' => !$machine->is_active]);
         return response()->json(['success' => true, 'data' => $machine]);
@@ -116,6 +166,9 @@ class PosMachineController extends Controller
 
     public function transactions(Request $request)
     {
+        if (!$this->hasPosAccess()) {
+            return response()->json(['success' => false, 'message' => 'غير مصرح لك بالوصول إلى هذه الصفحة'], 403);
+        }
         $user = $this->resolveUser();
         $branchAgentId = $user ? $user->branchAgent?->id : null;
 
@@ -174,6 +227,9 @@ class PosMachineController extends Controller
 
     public function storeTransaction(Request $request)
     {
+        if (!$this->checkPermission('إدخال مبيعات نقاط البيع (POS)')) {
+            return response()->json(['success' => false, 'message' => 'غير مصرح لك بإضافة معاملات تسوية POS'], 403);
+        }
         $user = $this->resolveUser();
         $branchAgentId = $user ? $user->branchAgent?->id : null;
 
@@ -215,6 +271,9 @@ class PosMachineController extends Controller
 
     public function updateTransaction(Request $request, $id)
     {
+        if (!$this->checkPermission('إدخال مبيعات نقاط البيع (POS)')) {
+            return response()->json(['success' => false, 'message' => 'غير مصرح لك بتعديل معاملات تسوية POS'], 403);
+        }
         $user = $this->resolveUser();
         $branchAgentId = $user ? $user->branchAgent?->id : null;
 
@@ -266,6 +325,9 @@ class PosMachineController extends Controller
 
     public function destroyTransaction($id)
     {
+        if (!$this->checkPermission('إدخال مبيعات نقاط البيع (POS)')) {
+            return response()->json(['success' => false, 'message' => 'غير مصرح لك بحذف معاملات تسوية POS'], 403);
+        }
         $user = $this->resolveUser();
         $branchAgentId = $user ? $user->branchAgent?->id : null;
 
@@ -291,6 +353,9 @@ class PosMachineController extends Controller
 
     public function toggleReconcile($id)
     {
+        if (!$this->checkPermission('مطابقة مبيعات نقاط البيع (POS)')) {
+            return response()->json(['success' => false, 'message' => 'غير مصرح لك بتأكيد أو إلغاء مطابقة معاملات تسوية POS'], 403);
+        }
         $user = $this->resolveUser();
         $branchAgentId = $user ? $user->branchAgent?->id : null;
 
@@ -313,6 +378,9 @@ class PosMachineController extends Controller
 
     public function dashboard()
     {
+        if (!$this->hasPosAccess()) {
+            return response()->json(['success' => false, 'message' => 'غير مصرح لك بالوصول إلى هذه الصفحة'], 403);
+        }
         $user = $this->resolveUser();
         $branchAgentId = $user ? $user->branchAgent?->id : null;
 

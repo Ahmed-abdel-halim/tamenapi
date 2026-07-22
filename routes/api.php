@@ -305,6 +305,7 @@ Route::put('/users/{user}/email', [UserController::class, 'updateEmail']);
 Route::put('/users/{user}/password', [UserController::class, 'updatePassword']);
 Route::get('/branches-agents/monthly-account-closure', [BranchAgentController::class, 'getMonthlyAccountClosure']);
 Route::post('/branches-agents/monthly-account-closure', [BranchAgentController::class, 'saveMonthlyAccountClosure']);
+Route::delete('/branches-agents/monthly-account-closure/{id}', [BranchAgentController::class, 'deleteMonthlyAccountClosure']);
 Route::get('/branches-agents/{id}/monthly-account-closure-print', [BranchAgentController::class, 'printMonthlyAccountClosure']);
 Route::get('/branches-agents/monthly-account-closures-report', [BranchAgentController::class, 'getMonthlyAccountClosuresReport']);
 Route::get('/branches-agents/pending-counts', [BranchAgentController::class, 'adminPendingCounts']);

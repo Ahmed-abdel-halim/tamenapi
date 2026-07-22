@@ -2999,6 +2999,32 @@ class BranchAgentController extends Controller
     }
 
     /**
+     * Delete monthly account closure record / receipt
+     */
+    public function deleteMonthlyAccountClosure($id)
+    {
+        try {
+            $closure = MonthlyAccountClosure::findOrFail($id);
+            $closure->delete();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'تم حذف إغلاق الحساب وإيصال الاستلام بنجاح'
+            ]);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'إغلاق الحساب غير موجود'
+            ], 404);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'حدث خطأ أثناء حذف إغلاق الحساب: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
      * Toggle block status for the agent's user.
      */
     public function toggleBlock($id)

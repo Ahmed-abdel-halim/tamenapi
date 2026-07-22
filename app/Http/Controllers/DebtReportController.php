@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\Models\BranchAgent;
+use App\Helpers\AgentPercentageHelper;
 
 class DebtReportController extends Controller
 {
@@ -57,7 +58,8 @@ class DebtReportController extends Controller
                     $premium = (float)($doc->premium ?? 0);
                     
                     $typeName = $this->mapTableToTypeName($table, $doc);
-                    $rate = (float)($agentReport[$agentId]['percentages'][$typeName] ?? 0);
+                    $docDate = $doc->issue_date ?? $doc->start_date ?? $doc->created_at ?? null;
+                    $rate = AgentPercentageHelper::resolvePercentage($agentReport[$agentId]['percentages'], $typeName, $docDate);
                     
                     $agentReport[$agentId]['total_sales'] += $total;
                     $agentReport[$agentId]['total_commissions'] += ($premium * ($rate / 100));

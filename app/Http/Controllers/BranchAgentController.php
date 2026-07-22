@@ -23,6 +23,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\View;
+use App\Helpers\AgentPercentageHelper;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use App\Notifications\SystemNotification;
 
@@ -1066,36 +1067,12 @@ class BranchAgentController extends Controller
 
             // معالجة كل نوع من الوثائق - تأمين السيارات (جميع الأنواع)
             foreach ($insuranceDocuments as $doc) {
-                // تحديد نوع التأمين من insurance_type
-                $insuranceType = $doc->insurance_type ?? '';
+                // تحديد نوع التأمين وتاريخ الوثيقة
+                $insuranceType = $doc->insurance_type ?? 'تأمين إجباري سيارات';
+                $docDate = $doc->issue_date ?? $doc->created_at ?? null;
                 
-                // البحث عن النسبة حسب نوع التأمين المحدد
-                $percentage = 0;
-                
-                // خريطة أنواع التأمين في قاعدة البيانات إلى مفاتيح النسب
-                $insuranceTypeToPercentageKey = [
-                    'تأمين إجباري سيارات' => 'تأمين سيارات', // النسبة محفوظة تحت "تأمين سيارات"
-                    'تأمين سيارة جمرك' => 'تأمين سيارة جمرك',
-                    'تأمين سيارات أجنبية' => 'تأمين سيارات أجنبية',
-                    'تأمين طرف ثالث سيارات' => 'تأمين طرف ثالث سيارات',
-                ];
-                
-                // البحث عن المفتاح المناسب للنسبة
-                $percentageKey = $insuranceTypeToPercentageKey[$insuranceType] ?? null;
-                
-                if ($percentageKey && isset($documentPercentages[$percentageKey])) {
-                    $percentage = $documentPercentages[$percentageKey];
-                } elseif (isset($documentPercentages[$insuranceType])) {
-                    // إذا كان المفتاح مطابق تماماً
-                    $percentage = $documentPercentages[$insuranceType];
-                } else {
-                    // البحث عن النسبة من أي نوع تأمين سيارات كبديل
-                    $percentage = $documentPercentages['تأمين سيارات إجباري'] ?? 
-                                 $documentPercentages['تأمين سيارات'] ?? 
-                                 $documentPercentages['تأمين سيارة جمرك'] ?? 
-                                 $documentPercentages['تأمين سيارات أجنبية'] ?? 
-                                 $documentPercentages['تأمين طرف ثالث سيارات'] ?? 0;
-                }
+                // البحث عن النسبة بواسطة المساعد الموحد
+                $percentage = AgentPercentageHelper::resolvePercentage($documentPercentages, $insuranceType, $docDate);
                 
                 // حساب النسبة من القسط المقرر (premium) وليس من الإجمالي (total)
                 $premium = $doc->premium ?? 0;

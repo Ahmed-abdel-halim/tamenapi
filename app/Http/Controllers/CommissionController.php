@@ -6,6 +6,7 @@ use App\Models\Commission;
 use App\Models\BranchAgent;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
+use App\Helpers\AgentPercentageHelper;
 
 class CommissionController extends Controller
 {
@@ -37,33 +38,9 @@ class CommissionController extends Controller
                 $docNumber = $doc->insurance_number ?? (string) $doc->id;
 
                 $percentages = is_string($agent->document_percentages) ? json_decode($agent->document_percentages, true) : ($agent->document_percentages ?? []);
+                $docDate = $doc->issue_date ?? $doc->start_date ?? $doc->created_at ?? now();
 
-                $percentageKey = $docType;
-                if (in_array($docType, ['تأمين سيارات إجباري', 'تأمين إجباري سيارات', 'تأمين سيارة جمرك', 'تأمين سيارات أجنبية', 'تأمين طرف ثالث سيارات'])) {
-                    $percentageKey = 'تأمين سيارات';
-                }
-
-                // Resolve percentage based on month of document
-                $docDate = $doc->created_at ?? now();
-                $docMonthYear = date('Y-m', strtotime($docDate)); // e.g. "2026-05"
-
-                if (isset($percentages['default']) || isset($percentages['monthly_overrides'])) {
-                    $monthlyVal = $percentages['monthly_overrides'][$docMonthYear][$percentageKey] 
-                        ?? $percentages['monthly_overrides'][$docMonthYear][$docType] 
-                        ?? null;
-
-                    if ($monthlyVal !== null) {
-                        $percentage = (float) $monthlyVal;
-                    } else {
-                        $percentage = (float) ($percentages['default'][$percentageKey] 
-                            ?? $percentages['default'][$docType] 
-                            ?? $percentages['default']['تأمين سيارات إجباري'] 
-                            ?? 0);
-                    }
-                } else {
-                    // Fallback to old flat format
-                    $percentage = (float) ($percentages[$percentageKey] ?? $percentages[$docType] ?? $percentages['تأمين سيارات إجباري'] ?? 0);
-                }
+                $percentage = AgentPercentageHelper::resolvePercentage($percentages, $docType, $docDate);
 
                 $premium = $doc->premium ?? 0;
                 $total_amount = $doc->total ?? 0;

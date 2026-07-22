@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 use App\Models\User;
+use App\Helpers\AgentPercentageHelper;
 
 class FinancialStatisticsController extends Controller
 {
@@ -268,24 +269,7 @@ class FinancialStatisticsController extends Controller
 
             // Define document tables with their date columns and percentage keys
             $documentTables = [
-                [
-                    'table' => 'insurance_documents',
-                    'date_col' => 'issue_date',
-                    'fallback_date' => 'created_at',
-                    'percentage_resolver' => function ($doc, $percentages) {
-                        $insuranceType = $doc->insurance_type ?? '';
-                        $keyMap = [
-                            'تأمين إجباري سيارات' => 'تأمين سيارات',
-                            'تأمين سيارة جمرك' => 'تأمين سيارة جمرك',
-                            'تأمين سيارات أجنبية' => 'تأمين سيارات أجنبية',
-                            'تأمين طرف ثالث سيارات' => 'تأمين طرف ثالث سيارات',
-                        ];
-                        $key = $keyMap[$insuranceType] ?? null;
-                        if ($key && isset($percentages[$key])) return $percentages[$key];
-                        if (isset($percentages[$insuranceType])) return $percentages[$insuranceType];
-                        return $percentages['تأمين سيارات إجباري'] ?? $percentages['تأمين سيارات'] ?? 0;
-                    }
-                ],
+                ['table' => 'insurance_documents', 'date_col' => 'issue_date', 'fallback_date' => 'created_at', 'key' => 'تأمين سيارات'],
                 ['table' => 'international_insurance_documents', 'date_col' => 'issue_date', 'fallback_date' => 'created_at', 'key' => 'تأمين سيارات دولي'],
                 ['table' => 'travel_insurance_documents', 'date_col' => 'issue_date', 'fallback_date' => 'created_at', 'key' => 'تأمين المسافرين'],
                 ['table' => 'resident_insurance_documents', 'date_col' => 'issue_date', 'fallback_date' => 'created_at', 'key' => 'تأمين الوافدين'],
@@ -347,14 +331,13 @@ class FinancialStatisticsController extends Controller
                     $premium = (float)($doc->premium ?? 0);
                     $total = (float)($doc->total ?? 0);
 
-                    // Resolve percentage
+                    // Resolve document date for percentage calculation
+                    $docDate = $doc->$dateCol ?? $doc->created_at ?? null;
+                    $rawDocType = $doc->insurance_type ?? $dt['key'] ?? 'تأمين سيارات';
+
+                    // Resolve percentage using AgentPercentageHelper
                     $percentages = $agentStats[$agentId]['percentages'];
-                    if (isset($dt['percentage_resolver'])) {
-                        $percentage = $dt['percentage_resolver']($doc, $percentages);
-                    } else {
-                        $key = $dt['key'] ?? '';
-                        $percentage = $percentages[$key] ?? 0;
-                    }
+                    $percentage = AgentPercentageHelper::resolvePercentage($percentages, $rawDocType, $docDate);
 
                     $agentAmount = $premium * ((float)$percentage / 100);
                     $companyAmount = $total - $agentAmount;

@@ -233,6 +233,266 @@ class FinancialStatisticsController extends Controller
      * Live Agents Production Report
      * Returns real-time production stats for all agents within a date range.
      */
+    /**
+     * Agent Monthly Ledger (كشف حساب الوكيل الشهري)
+     * Returns monthly production breakdown per agent since contract date,
+     * with carried-over balances and payment records.
+     */
+    public function getAgentMonthlyLedger(Request $request)
+    {
+        try {
+            $agentId = $request->get('agent_id');
+            $excludeCanceled = $request->boolean('exclude_canceled', false);
+
+            if (!$agentId) {
+                return response()->json(['success' => false, 'message' => 'يرجى تحديد الوكيل'], 422);
+            }
+
+            $agent = DB::table('branches_agents')
+                ->where('id', $agentId)
+                ->first();
+
+            if (!$agent) {
+                return response()->json(['success' => false, 'message' => 'الوكيل غير موجود'], 404);
+            }
+
+            // Determine start month (from contract_date or created_at)
+            $startDateRaw = $agent->contract_date ?? $agent->created_at;
+            $startDate = \Carbon\Carbon::parse($startDateRaw)->startOfMonth();
+            $endDate   = \Carbon\Carbon::now()->startOfMonth();
+
+            $percentages = is_string($agent->document_percentages)
+                ? json_decode($agent->document_percentages, true) ?? []
+                : (is_array($agent->document_percentages) ? $agent->document_percentages : []);
+
+            // Load existing closures for this agent (keyed by YYYY-MM)
+            $existingClosures = DB::table('monthly_account_closures')
+                ->where('branch_agent_id', $agentId)
+                ->whereNotNull('year')
+                ->whereNotNull('month')
+                ->get()
+                ->keyBy(function ($row) {
+                    return $row->year . '-' . str_pad($row->month, 2, '0', STR_PAD_LEFT);
+                });
+
+            $documentTables = [
+                ['table' => 'insurance_documents',                         'date_col' => 'issue_date',  'key' => 'تأمين سيارات'],
+                ['table' => 'international_insurance_documents',           'date_col' => 'issue_date',  'key' => 'تأمين سيارات دولي'],
+                ['table' => 'travel_insurance_documents',                  'date_col' => 'issue_date',  'key' => 'تأمين المسافرين'],
+                ['table' => 'resident_insurance_documents',                'date_col' => 'issue_date',  'key' => 'تأمين الوافدين'],
+                ['table' => 'marine_structure_insurance_documents',        'date_col' => 'issue_date',  'key' => 'تأمين الهياكل البحرية'],
+                ['table' => 'professional_liability_insurance_documents',  'date_col' => 'issue_date',  'key' => 'تأمين المسؤولية المهنية (الطبية)'],
+                ['table' => 'personal_accident_insurance_documents',       'date_col' => 'issue_date',  'key' => 'تأمين الحوادث الشخصية'],
+                ['table' => 'school_student_insurance_documents',          'date_col' => 'start_date',  'key' => 'تأمين طلبة المدارس'],
+                ['table' => 'cargo_insurance_documents',                   'date_col' => 'created_at',  'key' => 'تأمين البضائع'],
+                ['table' => 'cash_in_transit_insurance_documents',         'date_col' => 'start_date',  'key' => 'تأمين نقل النقدية'],
+            ];
+
+            $schema = DB::getSchemaBuilder();
+
+            // Build month list and collect production data per month
+            $months = [];
+            $cursor = $startDate->copy();
+            while ($cursor <= $endDate) {
+                $months[$cursor->format('Y-m')] = [
+                    'year'           => (int)$cursor->year,
+                    'month'          => (int)$cursor->month,
+                    'month_label'    => $cursor->locale('ar')->isoFormat('MMMM YYYY'),
+                    'month_key'      => $cursor->format('Y-m'),
+                    'from_date'      => $cursor->format('Y-m-01'),
+                    'to_date'        => $cursor->copy()->endOfMonth()->format('Y-m-d'),
+                    'document_count' => 0,
+                    'total_sales'    => 0.0,
+                    'agent_share'    => 0.0,
+                    'company_share'  => 0.0,
+                    'percentage'     => 0.0,
+                ];
+                $cursor->addMonth();
+            }
+
+            // Fetch all docs for this agent across all tables
+            foreach ($documentTables as $dt) {
+                $tableName = $dt['table'];
+                $dateCol   = $dt['date_col'];
+
+                if (!$schema->hasTable($tableName)) continue;
+                if (!$schema->hasColumn($tableName, 'branch_agent_id')) continue;
+
+                $query = DB::table($tableName)->where('branch_agent_id', $agentId);
+
+                // Exclude canceled documents if requested
+                if ($excludeCanceled && $schema->hasColumn($tableName, 'status')) {
+                    $query->where(function ($q) {
+                        $q->whereNull('status')->orWhere('status', '!=', 'ملغية');
+                    });
+                }
+
+                $docs = $query->get();
+
+                foreach ($docs as $doc) {
+                    // Resolve the document date
+                    $rawDate = null;
+                    if ($dateCol !== 'created_at' && $schema->hasColumn($tableName, $dateCol)) {
+                        $rawDate = $doc->$dateCol ?? $doc->created_at ?? null;
+                    } else {
+                        $rawDate = $doc->created_at ?? null;
+                    }
+
+                    if (!$rawDate) continue;
+
+                    try {
+                        $docDate = \Carbon\Carbon::parse($rawDate);
+                    } catch (\Exception $e) {
+                        continue;
+                    }
+
+                    $monthKey = $docDate->format('Y-m');
+                    if (!isset($months[$monthKey])) continue;
+
+                    $premium  = (float)($doc->premium ?? 0);
+                    $total    = (float)($doc->total ?? 0);
+                    $rawDocType = $doc->insurance_type ?? $dt['key'] ?? 'تأمين سيارات';
+
+                    $pct          = \App\Helpers\AgentPercentageHelper::resolvePercentage($percentages, $rawDocType, $rawDate);
+                    $agentAmount  = $premium * ($pct / 100);
+                    $companyAmount = $total - $agentAmount;
+
+                    $months[$monthKey]['document_count']++;
+                    $months[$monthKey]['total_sales']   += $total;
+                    $months[$monthKey]['agent_share']   += $agentAmount;
+                    $months[$monthKey]['company_share'] += $companyAmount;
+                    // Store last resolved percentage for display
+                    if ($months[$monthKey]['document_count'] === 1) {
+                        $months[$monthKey]['percentage'] = $pct;
+                    }
+                }
+            }
+
+            // Build final rows with carried-over balance
+            $carriedBalance = 0.0;
+            $rows = [];
+            $grandTotalSales       = 0.0;
+            $grandTotalDocs        = 0;
+            $grandTotalAgentShare  = 0.0;
+            $grandTotalCompanyShare = 0.0;
+            $grandTotalPaid        = 0.0;
+            $grandTotalRemaining   = 0.0;
+
+            foreach ($months as $mk => $m) {
+                $closure = $existingClosures->get($mk);
+
+                $dueAmount       = round($m['agent_share'], 2);
+                $paidAmount      = $closure ? (float)$closure->paid_amount : 0.0;
+                $remaining       = round($dueAmount + $carriedBalance - $paidAmount, 2);
+                $closureId       = $closure ? $closure->id : null;
+
+                $rows[] = [
+                    'closure_id'      => $closureId,
+                    'year'            => $m['year'],
+                    'month'           => $m['month'],
+                    'month_label'     => $m['month_label'],
+                    'month_key'       => $mk,
+                    'from_date'       => $m['from_date'],
+                    'to_date'         => $m['to_date'],
+                    'percentage'      => round($m['percentage'], 2),
+                    'document_count'  => $m['document_count'],
+                    'total_sales'     => round($m['total_sales'], 2),
+                    'agent_share'     => $dueAmount,
+                    'company_share'   => round($m['company_share'], 2),
+                    'carried_balance' => round($carriedBalance, 2),
+                    'paid_amount'     => round($paidAmount, 2),
+                    'remaining'       => $remaining,
+                    'notes'           => $closure->notes ?? null,
+                ];
+
+                $carriedBalance = $remaining > 0 ? $remaining : 0.0;
+
+                $grandTotalSales        += $m['total_sales'];
+                $grandTotalDocs         += $m['document_count'];
+                $grandTotalAgentShare   += $dueAmount;
+                $grandTotalCompanyShare += $m['company_share'];
+                $grandTotalPaid         += $paidAmount;
+                $grandTotalRemaining    = $carriedBalance;
+            }
+
+            return response()->json([
+                'success' => true,
+                'agent' => [
+                    'id'            => $agent->id,
+                    'code'          => $agent->code,
+                    'agency_name'   => $agent->agency_name,
+                    'agent_name'    => $agent->agent_name,
+                    'contract_date' => $agent->contract_date,
+                ],
+                'months' => array_values($rows),
+                'summary' => [
+                    'total_months'        => count($rows),
+                    'total_documents'     => $grandTotalDocs,
+                    'total_sales'         => round($grandTotalSales, 2),
+                    'total_agent_share'   => round($grandTotalAgentShare, 2),
+                    'total_company_share' => round($grandTotalCompanyShare, 2),
+                    'total_paid'          => round($grandTotalPaid, 2),
+                    'total_remaining'     => round($grandTotalRemaining, 2),
+                ],
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'حدث خطأ أثناء جلب كشف الحساب الشهري',
+                'error'   => config('app.debug') ? $e->getMessage() : 'خطأ غير معروف'
+            ], 500);
+        }
+    }
+
+    /**
+     * Update monthly payment (تسديد الدفعة الشهرية)
+     */
+    public function updateMonthlyPayment(Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                'branch_agent_id' => 'required|integer|exists:branches_agents,id',
+                'year'            => 'required|integer',
+                'month'           => 'required|integer|min:1|max:12',
+                'paid_amount'     => 'required|numeric|min:0',
+                'due_amount'      => 'required|numeric|min:0',
+                'notes'           => 'nullable|string|max:500',
+            ]);
+
+            $fromDate = \Carbon\Carbon::create($validated['year'], $validated['month'], 1)->format('Y-m-d');
+            $toDate   = \Carbon\Carbon::create($validated['year'], $validated['month'], 1)->endOfMonth()->format('Y-m-d');
+            $remaining = round((float)$validated['due_amount'] - (float)$validated['paid_amount'], 2);
+
+            $closure = \App\Models\MonthlyAccountClosure::updateOrCreate(
+                [
+                    'branch_agent_id' => $validated['branch_agent_id'],
+                    'year'            => $validated['year'],
+                    'month'           => $validated['month'],
+                ],
+                [
+                    'from_date'        => $fromDate,
+                    'to_date'          => $toDate,
+                    'due_amount'       => $validated['due_amount'],
+                    'paid_amount'      => $validated['paid_amount'],
+                    'remaining_amount' => max(0, $remaining),
+                    'notes'            => $validated['notes'] ?? null,
+                ]
+            );
+
+            return response()->json([
+                'success'   => true,
+                'message'   => 'تم تسجيل الدفعة بنجاح',
+                'closure'   => $closure,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'حدث خطأ أثناء تسجيل الدفعة',
+                'error'   => config('app.debug') ? $e->getMessage() : 'خطأ غير معروف'
+            ], 500);
+        }
+    }
+
     public function getLiveAgentsProduction(Request $request)
     {
         try {

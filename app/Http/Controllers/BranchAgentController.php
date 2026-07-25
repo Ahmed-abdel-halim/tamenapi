@@ -42,7 +42,7 @@ class BranchAgentController extends Controller
             }
 
             if ($request->boolean('light')) {
-                $branchesAgents = $query->select('id', 'agency_name', 'agent_name', 'status', 'user_id')
+                $branchesAgents = $query->select('id', 'code', 'agency_name', 'agent_name', 'status', 'user_id')
                     ->orderBy('created_at', 'desc')
                     ->get();
             } else {

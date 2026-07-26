@@ -81,8 +81,21 @@ class PaymentVoucherController extends Controller
      */
     public function destroy($id)
     {
-        $voucher = PaymentVoucher::findOrFail($id);
-        $voucher->delete();
-        return response()->json(['message' => 'Voucher deleted successfully']);
+        try {
+            $voucher = PaymentVoucher::findOrFail($id);
+
+            // Nullify payment_voucher_id in agent_transfers to avoid FK constraint issues
+            DB::table('agent_transfers')
+                ->where('payment_voucher_id', $voucher->id)
+                ->update(['payment_voucher_id' => null]);
+
+            $voucher->delete();
+
+            return response()->json(['message' => 'تم حذف الإيصال بنجاح']);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'حدث خطأ أثناء الحذف: ' . $e->getMessage()
+            ], 500);
+        }
     }
 }

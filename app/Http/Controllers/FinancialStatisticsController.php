@@ -368,23 +368,124 @@ class FinancialStatisticsController extends Controller
                 }
             }
 
+            // Collect all payment sources for this agent (Payment Vouchers, Approved Transfers, Closures)
+            $allPayments = [];
+
+            // 1. Payment Vouchers (إيصالات القبض في إدارة الإيرادات)
+            if ($schema->hasTable('payment_vouchers')) {
+                $vouchers = DB::table('payment_vouchers')
+                    ->where('branch_agent_id', $agentId)
+                    ->get();
+
+                foreach ($vouchers as $v) {
+                    $extra = is_string($v->extra_details) ? json_decode($v->extra_details, true) : (array)($v->extra_details ?? []);
+                    $year = $extra['year'] ?? null;
+                    $month = $extra['month'] ?? null;
+                    $date = $v->payment_date ?? $v->created_at ?? date('Y-m-d');
+
+                    if ($year && $month) {
+                        $mKey = sprintf('%04d-%02d', (int)$year, (int)$month);
+                    } else {
+                        $mKey = \Carbon\Carbon::parse($date)->format('Y-m');
+                    }
+
+                    $allPayments[] = [
+                        'amount'    => (float)$v->amount,
+                        'month_key' => $mKey,
+                    ];
+                }
+            }
+
+            // 2. Approved Agent Transfers without a Payment Voucher (حوالات معتمدة)
+            if ($schema->hasTable('agent_transfers')) {
+                $transfers = DB::table('agent_transfers')
+                    ->where('branch_agent_id', $agentId)
+                    ->where('status', 'approved')
+                    ->whereNull('payment_voucher_id')
+                    ->get();
+
+                foreach ($transfers as $t) {
+                    $date = $t->transfer_date ?? $t->approval_date ?? $t->created_at ?? date('Y-m-d');
+                    $mKey = \Carbon\Carbon::parse($date)->format('Y-m');
+                    $allPayments[] = [
+                        'amount'    => (float)$t->amount,
+                        'month_key' => $mKey,
+                    ];
+                }
+            }
+
+            // 3. Monthly Account Closures with paid_amount where no voucher exists
+            if ($schema->hasTable('monthly_account_closures')) {
+                $closures = DB::table('monthly_account_closures')
+                    ->where('branch_agent_id', $agentId)
+                    ->where('paid_amount', '>', 0)
+                    ->get();
+
+                foreach ($closures as $c) {
+                    $mKey = sprintf('%04d-%02d', (int)$c->year, (int)$c->month);
+                    $hasVoucher = DB::table('payment_vouchers')
+                        ->where('branch_agent_id', $agentId)
+                        ->where(function($q) use ($c) {
+                            $q->where('extra_details->closure_id', $c->id)
+                              ->orWhere(function($q2) use ($c) {
+                                  $q2->where('extra_details->year', $c->year)
+                                     ->where('extra_details->month', $c->month);
+                              });
+                        })
+                        ->exists();
+
+                    if (!$hasVoucher) {
+                        $allPayments[] = [
+                            'amount'    => (float)$c->paid_amount,
+                            'month_key' => $mKey,
+                        ];
+                    }
+                }
+            }
+
+            // Group payments by month_key
+            $firstMonthKey = array_key_first($months);
+            $lastMonthKey  = array_key_last($months);
+            $paymentsByMonth = [];
+
+            foreach ($allPayments as $p) {
+                $mk = $p['month_key'];
+                if (!isset($months[$mk])) {
+                    if ($firstMonthKey && $mk < $firstMonthKey) {
+                        $mk = $firstMonthKey;
+                    } elseif ($lastMonthKey && $mk > $lastMonthKey) {
+                        $mk = $lastMonthKey;
+                    }
+                }
+                if ($mk && isset($months[$mk])) {
+                    $paymentsByMonth[$mk] = ($paymentsByMonth[$mk] ?? 0.0) + $p['amount'];
+                }
+            }
+
             // Build final rows with carried-over balance
             $carriedBalance = 0.0;
             $rows = [];
-            $grandTotalSales       = 0.0;
-            $grandTotalDocs        = 0;
-            $grandTotalAgentShare  = 0.0;
+            $grandTotalSales        = 0.0;
+            $grandTotalDocs         = 0;
+            $grandTotalAgentShare   = 0.0;
             $grandTotalCompanyShare = 0.0;
-            $grandTotalPaid        = 0.0;
-            $grandTotalRemaining   = 0.0;
+            $grandTotalPaid         = 0.0;
+            $grandTotalRemaining    = 0.0;
 
             foreach ($months as $mk => $m) {
                 $closure = $existingClosures->get($mk);
 
-                $dueAmount       = round($m['agent_share'], 2);
-                $paidAmount      = $closure ? (float)$closure->paid_amount : 0.0;
-                $remaining       = round($dueAmount + $carriedBalance - $paidAmount, 2);
-                $closureId       = $closure ? $closure->id : null;
+                $dueAmount = round($m['agent_share'], 2);
+
+                // Use combined payments for this month (fallback to closure paid_amount)
+                if (isset($paymentsByMonth[$mk])) {
+                    $paidAmount = round($paymentsByMonth[$mk], 2);
+                } else {
+                    $paidAmount = $closure ? (float)$closure->paid_amount : 0.0;
+                }
+
+                $remaining = round($dueAmount + $carriedBalance - $paidAmount, 2);
+                $closureId = $closure ? $closure->id : null;
 
                 $rows[] = [
                     'closure_id'      => $closureId,

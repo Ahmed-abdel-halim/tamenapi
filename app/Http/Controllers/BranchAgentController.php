@@ -3363,13 +3363,39 @@ class BranchAgentController extends Controller
 
             $totalCompanyShare = $totalRevenue - $totalAgentShare;
 
-            // المدفوع للشركة = مجموع الحوالات المعتمدة
-            $paidToCompany = AgentTransfer::where('branch_agent_id', $id)
-                ->where('status', 'approved')
+            // المدفوع للشركة = مجموع كافة المقبوضات وإيصالات الدفع والحوالات المعتمدة للوكيل
+            $vouchersPaid = DB::table('payment_vouchers')
+                ->where('branch_agent_id', $id)
                 ->sum('amount');
 
+            $transfersPaid = DB::table('agent_transfers')
+                ->where('branch_agent_id', $id)
+                ->where('status', 'approved')
+                ->whereNull('payment_voucher_id')
+                ->sum('amount');
+
+            $closuresPaid = DB::table('monthly_account_closures')
+                ->where('branch_agent_id', $id)
+                ->where('paid_amount', '>', 0)
+                ->get()
+                ->filter(function($c) use ($id) {
+                    return !DB::table('payment_vouchers')
+                        ->where('branch_agent_id', $id)
+                        ->where(function($q) use ($c) {
+                            $q->where('extra_details->closure_id', $c->id)
+                              ->orWhere(function($q2) use ($c) {
+                                  $q2->where('extra_details->year', $c->year)
+                                     ->where('extra_details->month', $c->month);
+                              });
+                        })
+                        ->exists();
+                })
+                ->sum('paid_amount');
+
+            $paidToCompany = round($vouchersPaid + $transfersPaid + $closuresPaid, 2);
+
             // المتبقي = حصة الشركة - المدفوع
-            $remainingForCompany = max(0, $totalCompanyShare - $paidToCompany);
+            $remainingForCompany = max(0, round($totalCompanyShare - $paidToCompany, 2));
 
             return response()->json([
                 'success'               => true,

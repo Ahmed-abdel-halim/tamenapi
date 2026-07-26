@@ -67,17 +67,20 @@ class DebtReportController extends Controller
             }
         }
 
-        // Get all payments and sum them and track last payment date
-        $payments = DB::table('payment_vouchers')
-            ->whereIn('branch_agent_id', $agentIds)
-            ->orderBy('payment_date', 'asc') // asc order allows overriding, ending up with the latest
-            ->get();
-
-        foreach ($payments as $payment) {
-            $agentId = $payment->branch_agent_id;
+        // Get unified total paid and latest payment date per agent using AgentPaymentHelper
+        foreach ($agents as $agent) {
+            $agentId = $agent->id;
             if (isset($agentReport[$agentId])) {
-                $agentReport[$agentId]['total_paid'] += (float)$payment->amount;
-                $agentReport[$agentId]['last_payment_date'] = $payment->payment_date;
+                $agentReport[$agentId]['total_paid'] = \App\Helpers\AgentPaymentHelper::getTotalPaid($agentId);
+                
+                $allPayments = \App\Helpers\AgentPaymentHelper::getAllPayments($agentId);
+                if (!empty($allPayments)) {
+                    usort($allPayments, function ($a, $b) {
+                        return strcmp($a['payment_date'], $b['payment_date']);
+                    });
+                    $lastP = end($allPayments);
+                    $agentReport[$agentId]['last_payment_date'] = $lastP['payment_date'] ?? 'لا يوجد';
+                }
             }
         }
 

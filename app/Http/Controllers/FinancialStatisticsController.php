@@ -445,7 +445,7 @@ class FinancialStatisticsController extends Controller
     }
 
     /**
-     * Update monthly payment (تسديد الدفعة الشهرية)
+     * Update monthly payment (تسديد الدفعة الشهرية مع إنشاء إيصال القبض وإصدار معاملة الخزينة)
      */
     public function updateMonthlyPayment(Request $request)
     {
@@ -456,12 +456,20 @@ class FinancialStatisticsController extends Controller
                 'month'           => 'required|integer|min:1|max:12',
                 'paid_amount'     => 'required|numeric|min:0',
                 'due_amount'      => 'required|numeric|min:0',
+                'payment_amount'  => 'nullable|numeric|min:0',
                 'notes'           => 'nullable|string|max:500',
             ]);
 
             $fromDate = \Carbon\Carbon::create($validated['year'], $validated['month'], 1)->format('Y-m-d');
             $toDate   = \Carbon\Carbon::create($validated['year'], $validated['month'], 1)->endOfMonth()->format('Y-m-d');
             $remaining = round((float)$validated['due_amount'] - (float)$validated['paid_amount'], 2);
+
+            $existingClosure = \App\Models\MonthlyAccountClosure::where('branch_agent_id', $validated['branch_agent_id'])
+                ->where('year', $validated['year'])
+                ->where('month', $validated['month'])
+                ->first();
+
+            $previousPaidAmount = $existingClosure ? (float)$existingClosure->paid_amount : 0;
 
             $closure = \App\Models\MonthlyAccountClosure::updateOrCreate(
                 [
@@ -479,10 +487,60 @@ class FinancialStatisticsController extends Controller
                 ]
             );
 
+            // Amount paid in this specific action
+            $newPaymentAmount = isset($validated['payment_amount']) && (float)$validated['payment_amount'] > 0
+                ? (float)$validated['payment_amount']
+                : round((float)$validated['paid_amount'] - $previousPaidAmount, 2);
+
+            $paymentVoucher = null;
+            if ($newPaymentAmount > 0) {
+                $agent = \App\Models\BranchAgent::find($validated['branch_agent_id']);
+                $agencyName = $agent ? ($agent->agency_name ?? ($agent->agent_name ?? "وكيل #{$agent->id}")) : 'وكيل';
+
+                $monthNames = [1=>'يناير', 2=>'فبراير', 3=>'مارس', 4=>'أبريل', 5=>'مايو', 6=>'يونيو', 7=>'يوليو', 8=>'أغسطس', 9=>'سبتمبر', 10=>'أكتوبر', 11=>'نوفمبر', 12=>'ديسمبر'];
+                $monthLabel = ($monthNames[$validated['month']] ?? $validated['month']) . ' ' . $validated['year'];
+
+                // Generate unique Payment Voucher number
+                $voucherNumber = 'PV-' . date('Y') . '-' . rand(1000, 9999);
+                while (\App\Models\PaymentVoucher::where('voucher_number', $voucherNumber)->exists()) {
+                    $voucherNumber = 'PV-' . date('Y') . '-' . rand(1000, 9999);
+                }
+
+                // 1. Create Payment Voucher (إيصال قبض مالي في قسم إدارة الإيرادات)
+                $paymentVoucher = \App\Models\PaymentVoucher::create([
+                    'voucher_number'   => $voucherNumber,
+                    'branch_agent_id'  => $validated['branch_agent_id'],
+                    'amount'           => $newPaymentAmount,
+                    'payment_method'   => 'نقدي',
+                    'payment_date'     => date('Y-m-d'),
+                    'notes'            => "تسديد دفعة كشف حساب شهري ({$monthLabel})" . ($validated['notes'] ? " - {$validated['notes']}" : ''),
+                    'extra_details'    => [
+                        'type'       => 'monthly_account_closure',
+                        'year'       => $validated['year'],
+                        'month'      => $validated['month'],
+                        'closure_id' => $closure->id,
+                    ]
+                ]);
+
+                // 2. Create Treasury Transaction (معاملة مقبوضات في خزينة الإيرادات)
+                \App\Models\TreasuryTransaction::create([
+                    'transaction_date' => date('Y-m-d'),
+                    'type'             => 'income',
+                    'amount'           => $newPaymentAmount,
+                    'description'      => "تسديد كشف حساب شهري - {$agencyName} - شهر {$monthLabel}",
+                    'source'           => $agencyName,
+                    'reference_number' => $voucherNumber,
+                    'branch_agent_id'  => $validated['branch_agent_id'],
+                    'payment_source'   => 'نقدي',
+                    'notes'            => $validated['notes'] ?? null,
+                ]);
+            }
+
             return response()->json([
-                'success'   => true,
-                'message'   => 'تم تسجيل الدفعة بنجاح',
-                'closure'   => $closure,
+                'success'         => true,
+                'message'         => 'تم تسجيل الدفعة وإنشاء إيصال القبض في إدارة الإيرادات والخزينة بنجاح',
+                'closure'         => $closure,
+                'payment_voucher' => $paymentVoucher,
             ]);
         } catch (\Exception $e) {
             return response()->json([

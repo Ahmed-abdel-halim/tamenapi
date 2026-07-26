@@ -43,6 +43,23 @@ class PaymentVoucherController extends Controller
 
         try {
             $voucher = PaymentVoucher::create($request->all());
+
+            // Sync with Treasury Transactions for Treasury & Revenue Management
+            $agent = BranchAgent::find($request->branch_agent_id);
+            $agencyName = $agent ? ($agent->agency_name ?? $agent->agent_name) : 'وكيل';
+
+            \App\Models\TreasuryTransaction::create([
+                'transaction_date' => $request->payment_date ?? date('Y-m-d'),
+                'type'             => 'income',
+                'amount'           => $request->amount,
+                'description'      => "إيصال قبض مالي رقم: {$request->voucher_number} - {$agencyName}",
+                'source'           => $agencyName,
+                'reference_number' => $request->reference_number ?? $request->voucher_number,
+                'branch_agent_id'  => $request->branch_agent_id,
+                'payment_source'   => $request->payment_method ?? 'نقدي',
+                'notes'            => $request->notes ?? null,
+            ]);
+
             return response()->json($voucher, 201);
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 500);

@@ -151,16 +151,26 @@ class FinancialStatisticsController extends Controller
             ];
         }
 
+        // Calculate total actual paid amount from agents across all payment sources
+        $totalPaid = 0.0;
+        if (DB::getSchemaBuilder()->hasTable('branches_agents')) {
+            $agents = DB::table('branches_agents')->select('id')->get();
+            foreach ($agents as $ag) {
+                $totalPaid += \App\Helpers\AgentPaymentHelper::getTotalPaid((int)$ag->id);
+            }
+        }
+
         return response()->json([
             'stats' => [
                 ['label' => 'إجمالي الإيرادات', 'value' => (float) $totalRevenue, 'icon' => 'fa-solid fa-money-bill-trend-up', 'color' => '#139625', 'trend' => $growthRate >= 0 ? 'up' : 'down', 'trendValue' => (int) abs($growthRate), 'suffix' => 'د.ل'],
+                ['label' => 'إجمالي المقبوضات الفعلية', 'value' => (float) $totalPaid, 'icon' => 'fa-solid fa-hand-holding-dollar', 'color' => '#10b981', 'trend' => 'up', 'trendValue' => 10, 'suffix' => 'د.ل'],
                 ['label' => 'صافي الربح', 'value' => (float) $netProfit, 'icon' => 'fa-solid fa-wallet', 'color' => '#014cb1', 'trend' => 'up', 'trendValue' => 15, 'suffix' => 'د.ل'],
                 ['label' => 'إجمالي مرتبات الموظفين', 'value' => (float) $totalSalaries, 'icon' => 'fa-solid fa-users-gear', 'color' => '#f59e0b', 'trend' => 'up', 'trendValue' => 2, 'suffix' => 'د.ل'],
                 ['label' => 'معدل النمو الشهري', 'value' => (float) $growthRate, 'icon' => 'fa-solid fa-chart-line', 'color' => '#8b5cf6', 'trend' => $growthRate >= 0 ? 'up' : 'down', 'trendValue' => (int) abs($growthRate), 'suffix' => '%'],
                 ['label' => 'الوثائق الملغاة', 'value' => (int) $canceledDocs, 'icon' => 'fa-solid fa-file-circle-xmark', 'color' => '#ef4444', 'trend' => 'down', 'trendValue' => 3, 'suffix' => 'وثيقة'],
                 ['label' => 'إجمالي الضرائب والرسوم', 'value' => (float) ($totalTax + $totalStamp + $totalSupervision), 'icon' => 'fa-solid fa-landmark', 'color' => '#ec4899', 'trend' => 'up', 'trendValue' => 12, 'suffix' => 'د.ل'],
                 ['label' => 'المصروفات الثابة', 'value' => (float) $totalExpenses, 'icon' => 'fa-solid fa-building-columns', 'color' => '#6366f1', 'trend' => 'down', 'trendValue' => 1, 'suffix' => 'د.ل'],
-                ['label' => 'أرصدة قيد التحصيل', 'value' => (float) ($totalRevenue * 1.05), 'icon' => 'fa-solid fa-clock-rotate-left', 'color' => '#10b981', 'trend' => 'up', 'trendValue' => 20, 'suffix' => 'د.ل'],
+                ['label' => 'أرصدة قيد التحصيل', 'value' => (float) max(0, $totalRevenue - $totalPaid), 'icon' => 'fa-solid fa-clock-rotate-left', 'color' => '#f59e0b', 'trend' => 'up', 'trendValue' => 20, 'suffix' => 'د.ل'],
             ],
             'chartData' => $chartData,
             'categoryData' => $categoriesData,

@@ -385,18 +385,26 @@ class OldDocumentController extends Controller
                 }
             }
 
+            $page     = (int)$request->get('page', 1);
+            $perPage  = (int)$request->get('per_page', 15);
+            $offset   = max(0, ($page - 1) * $perPage);
+
             // Sort merged results by created_at / id desc
             usort($results, function ($a, $b) {
                 return strcmp((string)$b['created_at'], (string)$a['created_at']);
             });
 
-            // Slice for perPage
-            $slicedResults = array_slice($results, 0, $perPage);
+            $totalCount = count($results);
+            $lastPage   = max(1, (int)ceil($totalCount / $perPage));
+            $slicedResults = array_slice($results, $offset, $perPage);
 
             return response()->json([
-                'success' => true,
-                'data'    => $slicedResults,
-                'total'   => count($results),
+                'success'      => true,
+                'data'         => $slicedResults,
+                'total'        => $totalCount,
+                'current_page' => $page,
+                'per_page'     => $perPage,
+                'last_page'    => $lastPage,
             ]);
 
         } catch (\Exception $e) {

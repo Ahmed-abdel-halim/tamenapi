@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 
 // Models
@@ -241,6 +242,162 @@ class OldDocumentController extends Controller
                 'success' => false,
                 'message' => 'حدث خطأ أثناء حفظ الوثيقة القديمة',
                 'error' => config('app.debug') ? $e->getMessage() : 'خطأ غير معروف'
+            ], 500);
+        }
+    }
+
+    /**
+     * Get a list of old documents across document tables.
+     */
+    public function index(Request $request)
+    {
+        try {
+            $branchAgentId = $request->get('branch_agent_id');
+            $documentType  = $request->get('document_type');
+            $search        = $request->get('search');
+            $perPage       = (int)$request->get('per_page', 100);
+
+            $documentTables = [
+                'compulsory' => [
+                    'table' => 'insurance_documents',
+                    'number_field' => 'insurance_number',
+                    'type_label' => 'تأمين إجباري سيارات',
+                ],
+                'international' => [
+                    'table' => 'international_insurance_documents',
+                    'number_field' => 'document_number',
+                    'type_label' => 'تأمين السيارات الدولي',
+                ],
+                'travel' => [
+                    'table' => 'travel_insurance_documents',
+                    'number_field' => 'insurance_number',
+                    'type_label' => 'تأمين المسافرين',
+                ],
+                'resident' => [
+                    'table' => 'resident_insurance_documents',
+                    'number_field' => 'insurance_number',
+                    'type_label' => 'تأمين الوافدين للمقيمين',
+                ],
+                'marine' => [
+                    'table' => 'marine_structure_insurance_documents',
+                    'number_field' => 'insurance_number',
+                    'type_label' => 'تأمين الهياكل البحرية',
+                ],
+                'medical' => [
+                    'table' => 'professional_liability_insurance_documents',
+                    'number_field' => 'insurance_number',
+                    'type_label' => 'تأمين المسؤولية المهنية (الطبية)',
+                ],
+                'personal_accident' => [
+                    'table' => 'personal_accident_insurance_documents',
+                    'number_field' => 'insurance_number',
+                    'type_label' => 'تأمين الحوادث الشخصية',
+                ],
+                'school_student' => [
+                    'table' => 'school_student_insurance_documents',
+                    'number_field' => 'policy_number',
+                    'type_label' => 'تأمين حماية طلاب المدارس',
+                ],
+                'cash_in_transit' => [
+                    'table' => 'cash_in_transit_insurance_documents',
+                    'number_field' => 'policy_number',
+                    'type_label' => 'تأمين نقل النقدية',
+                ],
+                'cargo' => [
+                    'table' => 'cargo_insurance_documents',
+                    'number_field' => 'policy_number',
+                    'type_label' => 'تأمين شحن البضائع',
+                ],
+            ];
+
+            $agentsMap = BranchAgent::pluck('agency_name', 'id')->toArray();
+
+            $results = [];
+
+            foreach ($documentTables as $typeKey => $config) {
+                if ($documentType && $documentType !== 'all' && $documentType !== $typeKey) {
+                    continue;
+                }
+
+                $tableName   = $config['table'];
+                $numberField = $config['number_field'];
+                $typeLabel   = $config['type_label'];
+
+                if (!Schema::hasTable($tableName)) {
+                    continue;
+                }
+
+                $query = DB::table($tableName);
+
+                if ($branchAgentId) {
+                    if (Schema::hasColumn($tableName, 'branch_agent_id')) {
+                        $query->where('branch_agent_id', $branchAgentId);
+                    }
+                }
+
+                if ($search) {
+                    $query->where(function ($q) use ($numberField, $search, $tableName) {
+                        $q->where($numberField, 'like', "%{$search}%");
+                        if (Schema::hasColumn($tableName, 'insured_name')) {
+                            $q->orWhere('insured_name', 'like', "%{$search}%");
+                        }
+                        if (Schema::hasColumn($tableName, 'name')) {
+                            $q->orWhere('name', 'like', "%{$search}%");
+                        }
+                        if (Schema::hasColumn($tableName, 'student_name')) {
+                            $q->orWhere('student_name', 'like', "%{$search}%");
+                        }
+                    });
+                }
+
+                $docs = $query->orderBy('id', 'desc')->limit(100)->get();
+
+                foreach ($docs as $doc) {
+                    $docNum = $doc->$numberField ?? ($doc->insurance_number ?? $doc->document_number ?? $doc->policy_number ?? '-');
+                    $name   = $doc->insured_name ?? $doc->name ?? $doc->student_name ?? '-';
+                    $agentId = $doc->branch_agent_id ?? null;
+                    $agentName = $agentId && isset($agentsMap[$agentId]) ? $agentsMap[$agentId] : '-';
+                    $startDate = $doc->start_date ?? $doc->issue_date ?? $doc->created_at ?? '-';
+                    $endDate   = $doc->end_date ?? '-';
+                    $total     = $doc->total ?? $doc->premium ?? $doc->premium_amount ?? 0;
+                    $createdAt = $doc->created_at ?? $doc->issue_date ?? '-';
+
+                    $results[] = [
+                        'id'              => $doc->id,
+                        'document_type'   => $typeKey,
+                        'type_label'      => $doc->insurance_type ?? $typeLabel,
+                        'document_number' => $docNum,
+                        'insured_name'    => $name,
+                        'branch_agent_id' => $agentId,
+                        'agent_name'      => $agentName,
+                        'start_date'      => $startDate ? substr((string)$startDate, 0, 10) : '-',
+                        'end_date'        => $endDate ? substr((string)$endDate, 0, 10) : '-',
+                        'total'           => (float)$total,
+                        'created_at'      => $createdAt ? substr((string)$createdAt, 0, 10) : '-',
+                    ];
+                }
+            }
+
+            // Sort merged results by created_at / id desc
+            usort($results, function ($a, $b) {
+                return strcmp((string)$b['created_at'], (string)$a['created_at']);
+            });
+
+            // Slice for perPage
+            $slicedResults = array_slice($results, 0, $perPage);
+
+            return response()->json([
+                'success' => true,
+                'data'    => $slicedResults,
+                'total'   => count($results),
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Error fetching old documents list: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'حدث خطأ أثناء جلب قائمة الوثائق القديمة',
+                'error'   => config('app.debug') ? $e->getMessage() : 'خطأ غير معروف'
             ], 500);
         }
     }

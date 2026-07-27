@@ -268,6 +268,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/office-users/{id}', [UserController::class, 'destroyOfficeUser']);
     
     // إدارة الوثائق القديمة
+    Route::get('/old-documents', [OldDocumentController::class, 'index']);
     Route::post('/old-documents', [OldDocumentController::class, 'store']);
 });
 

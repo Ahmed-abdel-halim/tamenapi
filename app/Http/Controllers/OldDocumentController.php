@@ -129,8 +129,11 @@ class OldDocumentController extends Controller
             $isUpdate = $document->exists;
             $document->timestamps = false; // إلغاء التحديث التلقائي للتواريخ
 
-            // تعيين الحقول العامة للتواريخ
+            // تعيين الحقول العامة والخاصة بالوثائق القديمة
             $document->$numberField = $documentNumber;
+            if (in_array('is_old_document', $columns)) {
+                $document->is_old_document = true;
+            }
             
             // في بعض الجداول اسم حقل التاريخ هو issue_date كـ timestamp
             $columns = Schema::getColumnListing($document->getTable());
@@ -328,6 +331,10 @@ class OldDocumentController extends Controller
                 }
 
                 $query = DB::table($tableName);
+
+                if (Schema::hasColumn($tableName, 'is_old_document')) {
+                    $query->where('is_old_document', true);
+                }
 
                 if ($branchAgentId) {
                     if (Schema::hasColumn($tableName, 'branch_agent_id')) {

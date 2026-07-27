@@ -312,6 +312,9 @@ Route::get('/branches-agents/monthly-account-closures-report', [BranchAgentContr
 Route::get('/branches-agents/pending-counts', [BranchAgentController::class, 'adminPendingCounts']);
 Route::get('/financial-statistics/agent-monthly-ledger', [\App\Http\Controllers\FinancialStatisticsController::class, 'getAgentMonthlyLedger']);
 Route::post('/financial-statistics/agent-monthly-ledger/payment', [\App\Http\Controllers\FinancialStatisticsController::class, 'updateMonthlyPayment']);
+Route::get('/financial-statistics/agent-month-documents', [\App\Http\Controllers\FinancialStatisticsController::class, 'getAgentMonthDocuments']);
+Route::put('/financial-statistics/agent-month-document', [\App\Http\Controllers\FinancialStatisticsController::class, 'updateAgentMonthDocument']);
+Route::delete('/financial-statistics/agent-month-document', [\App\Http\Controllers\FinancialStatisticsController::class, 'deleteAgentMonthDocument']);
 Route::apiResource('branches-agents', BranchAgentController::class);
 Route::apiResource('payment-vouchers', 'App\Http\Controllers\PaymentVoucherController');
 Route::apiResource('expenses', 'App\Http\Controllers\ExpenseController');

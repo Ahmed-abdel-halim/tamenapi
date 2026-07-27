@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\DB;
 class AgentPaymentHelper
 {
     /**
-     * Get total amount paid by an agent across all payment sources without duplicate counting.
+     * Get total amount paid by an agent across payment sources (إدارة الإيرادات + تسديدات الإقفالات).
      *
      * @param int $agentId
      * @return float
@@ -24,17 +24,7 @@ class AgentPaymentHelper
                 ->sum('amount');
         }
 
-        // 2. Approved Agent Transfers without a Payment Voucher (الحوالات المعتمدة)
-        $transfersPaid = 0.0;
-        if ($schema->hasTable('agent_transfers')) {
-            $transfersPaid = (float)DB::table('agent_transfers')
-                ->where('branch_agent_id', $agentId)
-                ->where('status', 'approved')
-                ->whereNull('payment_voucher_id')
-                ->sum('amount');
-        }
-
-        // 3. Monthly Account Closures with paid_amount where no Payment Voucher exists
+        // 2. Monthly Account Closures with paid_amount where no Payment Voucher exists
         $closuresPaid = 0.0;
         if ($schema->hasTable('monthly_account_closures')) {
             $closuresPaid = (float)DB::table('monthly_account_closures')
@@ -56,11 +46,12 @@ class AgentPaymentHelper
                 ->sum('paid_amount');
         }
 
-        return round($vouchersPaid + $transfersPaid + $closuresPaid, 2);
+        return round($vouchersPaid + $closuresPaid, 2);
     }
 
     /**
      * Get all payment items for an agent tagged with month_key for monthly ledgers & account statements.
+     * Only counts Payment Vouchers from Revenue Management (إدارة الإيرادات) and Closures.
      *
      * @param int $agentId
      * @return array
@@ -70,7 +61,7 @@ class AgentPaymentHelper
         $schema = DB::getSchemaBuilder();
         $allPayments = [];
 
-        // 1. Payment Vouchers
+        // 1. Payment Vouchers (إدارة الإيرادات)
         if ($schema->hasTable('payment_vouchers')) {
             $vouchers = DB::table('payment_vouchers')
                 ->where('branch_agent_id', $agentId)
@@ -96,29 +87,7 @@ class AgentPaymentHelper
             }
         }
 
-        // 2. Approved Transfers without Payment Voucher
-        if ($schema->hasTable('agent_transfers')) {
-            $transfers = DB::table('agent_transfers')
-                ->where('branch_agent_id', $agentId)
-                ->where('status', 'approved')
-                ->whereNull('payment_voucher_id')
-                ->get();
-
-            foreach ($transfers as $t) {
-                $date = $t->transfer_date ?? $t->approval_date ?? $t->created_at ?? date('Y-m-d');
-                $mKey = \Carbon\Carbon::parse($date)->format('Y-m');
-
-                $allPayments[] = [
-                    'amount'       => (float)$t->amount,
-                    'payment_date' => $date,
-                    'month_key'    => $mKey,
-                    'source'       => 'agent_transfer',
-                    'id'           => $t->id,
-                ];
-            }
-        }
-
-        // 3. Closures with paid_amount without Payment Voucher
+        // 2. Closures with paid_amount without Payment Voucher
         if ($schema->hasTable('monthly_account_closures')) {
             $closures = DB::table('monthly_account_closures')
                 ->where('branch_agent_id', $agentId)

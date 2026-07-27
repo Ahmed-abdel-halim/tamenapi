@@ -752,4 +752,342 @@ class FinancialStatisticsController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Get all documents for a specific agent in a specific month across all 10 document tables.
+     */
+    public function getAgentMonthDocuments(Request $request)
+    {
+        try {
+            $agentId = $request->get('agent_id');
+            $year    = (int)$request->get('year');
+            $month   = (int)$request->get('month');
+            $search  = $request->get('search');
+            $docTypeFilter = $request->get('document_type');
+
+            if (!$agentId || !$year || !$month) {
+                return response()->json(['success' => false, 'message' => 'بيانات الطلب غير مكتملة (يرجى تحديد الوكيل والسنة والشهر)'], 422);
+            }
+
+            $agent = DB::table('branches_agents')->where('id', $agentId)->first();
+            if (!$agent) {
+                return response()->json(['success' => false, 'message' => 'الوكيل غير موجود'], 404);
+            }
+
+            $percentages = is_string($agent->document_percentages)
+                ? json_decode($agent->document_percentages, true) ?? []
+                : (is_array($agent->document_percentages) ? $agent->document_percentages : []);
+
+            $fromDate = \Carbon\Carbon::create($year, $month, 1)->startOfDay()->toDateTimeString();
+            $toDate   = \Carbon\Carbon::create($year, $month, 1)->endOfMonth()->endOfDay()->toDateTimeString();
+
+            $documentTables = [
+                'compulsory' => [
+                    'table'        => 'insurance_documents',
+                    'date_col'     => 'issue_date',
+                    'number_field' => 'insurance_number',
+                    'name_field'   => 'insured_name',
+                    'type_label'   => 'تأمين إجباري سيارات',
+                ],
+                'international' => [
+                    'table'        => 'international_insurance_documents',
+                    'date_col'     => 'issue_date',
+                    'number_field' => 'document_number',
+                    'name_field'   => 'insured_name',
+                    'type_label'   => 'تأمين السيارات الدولي',
+                ],
+                'travel' => [
+                    'table'        => 'travel_insurance_documents',
+                    'date_col'     => 'issue_date',
+                    'number_field' => 'insurance_number',
+                    'name_field'   => 'insured_name',
+                    'type_label'   => 'تأمين المسافرين',
+                ],
+                'resident' => [
+                    'table'        => 'resident_insurance_documents',
+                    'date_col'     => 'issue_date',
+                    'number_field' => 'insurance_number',
+                    'name_field'   => 'insured_name',
+                    'type_label'   => 'تأمين الوافدين للمقيمين',
+                ],
+                'marine' => [
+                    'table'        => 'marine_structure_insurance_documents',
+                    'date_col'     => 'issue_date',
+                    'number_field' => 'insurance_number',
+                    'name_field'   => 'insured_name',
+                    'type_label'   => 'تأمين الهياكل البحرية',
+                ],
+                'medical' => [
+                    'table'        => 'professional_liability_insurance_documents',
+                    'date_col'     => 'issue_date',
+                    'number_field' => 'insurance_number',
+                    'name_field'   => 'insured_name',
+                    'type_label'   => 'تأمين المسؤولية المهنية (الطبية)',
+                ],
+                'personal_accident' => [
+                    'table'        => 'personal_accident_insurance_documents',
+                    'date_col'     => 'issue_date',
+                    'number_field' => 'insurance_number',
+                    'name_field'   => 'insured_name',
+                    'type_label'   => 'تأمين الحوادث الشخصية',
+                ],
+                'school_student' => [
+                    'table'        => 'school_student_insurance_documents',
+                    'date_col'     => 'start_date',
+                    'number_field' => 'policy_number',
+                    'name_field'   => 'student_name',
+                    'type_label'   => 'تأمين حماية طلاب المدارس',
+                ],
+                'cash_in_transit' => [
+                    'table'        => 'cash_in_transit_insurance_documents',
+                    'date_col'     => 'start_date',
+                    'number_field' => 'policy_number',
+                    'name_field'   => 'insured_name',
+                    'type_label'   => 'تأمين نقل النقدية',
+                ],
+                'cargo' => [
+                    'table'        => 'cargo_insurance_documents',
+                    'date_col'     => 'created_at',
+                    'number_field' => 'policy_number',
+                    'name_field'   => 'insured_name',
+                    'type_label'   => 'تأمين شحن البضائع',
+                ],
+            ];
+
+            $schema = DB::getSchemaBuilder();
+            $documentsList = [];
+            $totalSales = 0.0;
+            $totalAgentShare = 0.0;
+            $totalCompanyShare = 0.0;
+
+            foreach ($documentTables as $typeKey => $config) {
+                if ($docTypeFilter && $docTypeFilter !== 'all' && $docTypeFilter !== $typeKey) {
+                    continue;
+                }
+
+                $tableName   = $config['table'];
+                $dateCol     = $config['date_col'];
+                $numberField = $config['number_field'];
+                $nameField   = $config['name_field'];
+                $defaultLabel= $config['type_label'];
+
+                if (!$schema->hasTable($tableName)) continue;
+                if (!$schema->hasColumn($tableName, 'branch_agent_id')) continue;
+
+                $query = DB::table($tableName)->where('branch_agent_id', $agentId);
+
+                // Date filtering
+                if ($schema->hasColumn($tableName, $dateCol)) {
+                    $query->whereBetween($dateCol, [$fromDate, $toDate]);
+                } else {
+                    $query->whereBetween('created_at', [$fromDate, $toDate]);
+                }
+
+                if ($search) {
+                    $query->where(function ($q) use ($numberField, $nameField, $search, $tableName, $schema) {
+                        $q->where($numberField, 'like', "%{$search}%");
+                        if ($schema->hasColumn($tableName, $nameField)) {
+                            $q->orWhere($nameField, 'like', "%{$search}%");
+                        }
+                        if ($schema->hasColumn($tableName, 'chassis_number')) {
+                            $q->orWhere('chassis_number', 'like', "%{$search}%");
+                        }
+                    });
+                }
+
+                $docs = $query->orderBy('id', 'desc')->get();
+
+                foreach ($docs as $doc) {
+                    $docNum   = $doc->$numberField ?? ($doc->insurance_number ?? $doc->document_number ?? $doc->policy_number ?? '-');
+                    $name     = $doc->$nameField ?? ($doc->insured_name ?? $doc->name ?? $doc->student_name ?? '-');
+                    $total    = (float)($doc->total ?? $doc->premium_amount ?? 0);
+                    $premium  = (float)($doc->premium ?? $doc->premium_amount ?? 0);
+                    $rawDate  = $doc->$dateCol ?? $doc->issue_date ?? $doc->start_date ?? $doc->created_at ?? $fromDate;
+                    $typeLabel= $doc->insurance_type ?? $defaultLabel;
+
+                    $pct           = \App\Helpers\AgentPercentageHelper::resolvePercentage($percentages, $typeLabel, $rawDate);
+                    $agentAmount   = round($premium * ($pct / 100), 2);
+                    $companyAmount = round($total - $agentAmount, 2);
+
+                    $totalSales        += $total;
+                    $totalAgentShare   += $agentAmount;
+                    $totalCompanyShare += $companyAmount;
+
+                    $documentsList[] = [
+                        'id'              => $doc->id,
+                        'table'           => $tableName,
+                        'document_type'   => $typeKey,
+                        'type_label'      => $typeLabel,
+                        'document_number' => $docNum,
+                        'insured_name'    => $name,
+                        'issue_date'      => $doc->issue_date ?? ($doc->start_date ?? ($doc->created_at ?? '-')),
+                        'start_date'      => $doc->start_date ?? ($doc->issue_date ?? '-'),
+                        'end_date'        => $doc->end_date ?? '-',
+                        'premium'         => $premium,
+                        'total'           => $total,
+                        'percentage'      => $pct,
+                        'agent_share'     => $agentAmount,
+                        'company_share'   => $companyAmount,
+                        'is_old_document' => (bool)($doc->is_old_document ?? false),
+                        'status'          => $doc->status ?? 'فعالة',
+                        'notes'           => $doc->notes ?? null,
+                    ];
+                }
+            }
+
+            // Sort documents by date desc
+            usort($documentsList, function ($a, $b) {
+                return strcmp((string)$b['issue_date'], (string)$a['issue_date']);
+            });
+
+            return response()->json([
+                'success'   => true,
+                'documents' => $documentsList,
+                'summary'   => [
+                    'total_documents'     => count($documentsList),
+                    'total_sales'         => round($totalSales, 2),
+                    'total_agent_share'   => round($totalAgentShare, 2),
+                    'total_company_share' => round($totalCompanyShare, 2),
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'حدث خطأ أثناء جلب وثائق الشهر',
+                'error'   => config('app.debug') ? $e->getMessage() : 'خطأ غير معروف'
+            ], 500);
+        }
+    }
+
+    /**
+     * Update details of a specific document directly from month documents view.
+     */
+    public function updateAgentMonthDocument(Request $request)
+    {
+        try {
+            $tableName  = $request->input('table');
+            $documentId = $request->input('id');
+
+            if (!$tableName || !$documentId) {
+                return response()->json(['success' => false, 'message' => 'يرجى تحديد جدول والـ ID الخاص بالوثيقة'], 422);
+            }
+
+            $schema = DB::getSchemaBuilder();
+            if (!$schema->hasTable($tableName)) {
+                return response()->json(['success' => false, 'message' => 'جدول الوثيقة غير موجود'], 404);
+            }
+
+            $doc = DB::table($tableName)->where('id', $documentId)->first();
+            if (!$doc) {
+                return response()->json(['success' => false, 'message' => 'الوثيقة غير موجودة'], 404);
+            }
+
+            $updateData = [];
+
+            if ($request->has('insured_name')) {
+                if ($schema->hasColumn($tableName, 'insured_name')) {
+                    $updateData['insured_name'] = $request->input('insured_name');
+                } elseif ($schema->hasColumn($tableName, 'name')) {
+                    $updateData['name'] = $request->input('insured_name');
+                } elseif ($schema->hasColumn($tableName, 'student_name')) {
+                    $updateData['student_name'] = $request->input('insured_name');
+                }
+            }
+
+            if ($request->has('document_number')) {
+                if ($schema->hasColumn($tableName, 'insurance_number')) {
+                    $updateData['insurance_number'] = $request->input('document_number');
+                } elseif ($schema->hasColumn($tableName, 'document_number')) {
+                    $updateData['document_number'] = $request->input('document_number');
+                } elseif ($schema->hasColumn($tableName, 'policy_number')) {
+                    $updateData['policy_number'] = $request->input('document_number');
+                }
+            }
+
+            if ($request->has('total') && $schema->hasColumn($tableName, 'total')) {
+                $updateData['total'] = (float)$request->input('total');
+            }
+
+            if ($request->has('premium') && $schema->hasColumn($tableName, 'premium')) {
+                $updateData['premium'] = (float)$request->input('premium');
+            }
+
+            if ($request->has('start_date') && $schema->hasColumn($tableName, 'start_date')) {
+                $updateData['start_date'] = $request->input('start_date');
+            }
+
+            if ($request->has('end_date') && $schema->hasColumn($tableName, 'end_date')) {
+                $updateData['end_date'] = $request->input('end_date');
+            }
+
+            if ($request->has('issue_date') && $schema->hasColumn($tableName, 'issue_date')) {
+                $updateData['issue_date'] = $request->input('issue_date');
+            }
+
+            if ($request->has('notes') && $schema->hasColumn($tableName, 'notes')) {
+                $updateData['notes'] = $request->input('notes');
+            }
+
+            if ($request->has('status') && $schema->hasColumn($tableName, 'status')) {
+                $updateData['status'] = $request->input('status');
+            }
+
+            if (!empty($updateData)) {
+                if ($schema->hasColumn($tableName, 'updated_at')) {
+                    $updateData['updated_at'] = now();
+                }
+                DB::table($tableName)->where('id', $documentId)->update($updateData);
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'تم تحديث بيانات الوثيقة بنجاح'
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'حدث خطأ أثناء تحديث الوثيقة',
+                'error'   => config('app.debug') ? $e->getMessage() : 'خطأ غير معروف'
+            ], 500);
+        }
+    }
+
+    /**
+     * Delete a specific document directly from month documents view.
+     */
+    public function deleteAgentMonthDocument(Request $request)
+    {
+        try {
+            $tableName  = $request->input('table');
+            $documentId = $request->input('id');
+
+            if (!$tableName || !$documentId) {
+                return response()->json(['success' => false, 'message' => 'يرجى تحديد جدول والـ ID الخاص بالوثيقة'], 422);
+            }
+
+            $schema = DB::getSchemaBuilder();
+            if (!$schema->hasTable($tableName)) {
+                return response()->json(['success' => false, 'message' => 'جدول الوثيقة غير موجود'], 404);
+            }
+
+            $deleted = DB::table($tableName)->where('id', $documentId)->delete();
+            if (!$deleted) {
+                return response()->json(['success' => false, 'message' => 'الوثيقة غير موجودة أو تم حذفها مسبقاً'], 404);
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'تم حذف الوثيقة بنجاح'
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'حدث خطأ أثناء حذف الوثيقة',
+                'error'   => config('app.debug') ? $e->getMessage() : 'خطأ غير معروف'
+            ], 500);
+        }
+    }
 }

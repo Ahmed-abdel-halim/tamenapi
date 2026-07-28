@@ -5,12 +5,12 @@ namespace Tests\Feature;
 use App\Models\User;
 use App\Models\BranchAgent;
 use App\Models\InsuranceDocument;
-use Illuminate\Foundation\Testing\DatabaseTransactions;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class MonthDocumentsTest extends TestCase
 {
-    use DatabaseTransactions;
+    use RefreshDatabase;
 
     private $user;
     private $agent;

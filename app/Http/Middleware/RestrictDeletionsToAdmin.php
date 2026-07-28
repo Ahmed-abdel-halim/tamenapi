@@ -16,37 +16,7 @@ class RestrictDeletionsToAdmin
      */
     public function handle(Request $request, Closure $next)
     {
-        // Check if the request is a DELETE request
-        if ($request->isMethod('delete')) {
-            // Bypass restriction for settings sections and agent-transfers (which handles its own permissions check)
-            if ($request->is('api/cities*') || 
-                $request->is('api/plates*') || 
-                $request->is('api/colors*') || 
-                $request->is('api/vehicle-types*') ||
-                $request->is('api/agent-transfers*')) {
-                return $next($request);
-            }
-
-            // Attempt standard auth, fallback to sanctum guard for non-middleware routes, or custom X-User-Id header
-            $user = auth()->user() ?? auth('sanctum')->user();
-
-            // Fallback user identification matching the app's standard check (CheckBlockedAgent style)
-            if (!$user) {
-                $userId = $request->header('X-User-Id') ?? $request->input('user_id');
-                if ($userId) {
-                    $user = \App\Models\User::find($userId);
-                }
-            }
-
-            // If no user is found, or the user is not an administrator, deny deletion with a 403 response
-            if (!$user || !$user->is_admin) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'عذراً، لا تمتلك الصلاحية لحذف العناصر. هذا الإجراء متاح فقط لمدير النظام (الآدمن).'
-                ], 403);
-            }
-        }
-
+        // Allow deletion for all authenticated users who have access to the section
         return $next($request);
     }
 }

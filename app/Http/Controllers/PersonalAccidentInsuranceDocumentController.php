@@ -1,3 +1,41 @@
+﻿<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\PersonalAccidentInsuranceDocument;
+use App\Models\BranchAgent;
+use App\Models\User;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use Carbon\Carbon;
+
+class PersonalAccidentInsuranceDocumentController extends Controller
+{
+    /**
+     * Display a listing of the resource.
+     */
+    public function index(Request $request)
+    {
+        try {
+            // الحصول على المستخدم الحالي من header أو query parameter
+            $userId = $request->header('X-User-Id') ?? $request->query('user_id');
+            $isAdmin = false;
+            $branchAgentId = null;
+
+            if ($userId) {
+                $userId = is_numeric($userId) ? (int)$userId : null;
+                if ($userId) {
+                    $user = User::find($userId);
+                    if ($user) {
+                        $isAdmin = $user->is_admin ?? false;
+                        if (!$isAdmin) {
+                            // إذا لم يكن admin، احصل على branch_agent_id من المستخدم أو الموظف التابع له
+                            $branchAgentId = $user->branch_agent_id;
+                            if (!$branchAgentId) {
+                                $branchAgent = BranchAgent::where('user_id', $userId)->first();
+                                if ($branchAgent) {
+                                    $branchAgentId = $branchAgent->id;
+                                }
 <?php
 
 namespace App\Http\Controllers;
@@ -44,6 +82,9 @@ class PersonalAccidentInsuranceDocumentController extends Controller
 
             // بناء الاستعلام
             $query = PersonalAccidentInsuranceDocument::with('branchAgent');
+
+            // استثناء الوثائق الملغية دائماً
+            $query->where('is_canceled', false);
             
             $hasFilterOrSearch = $request->filled('search') || 
                                  $request->filled('year') || 
@@ -226,28 +267,6 @@ class PersonalAccidentInsuranceDocumentController extends Controller
                 'total' => $validated['total'],
                 'whatsapp_number' => $validated['whatsapp_number'],
                 'branch_agent_id' => $branchAgentId,
-                'user_id' => $userId,
-            ]);
-
-            return response()->json($document, 201);
-        } catch (\Exception $e) {
-            Log::error('Error in PersonalAccidentInsuranceDocumentController@store: ' . $e->getMessage());
-            return response()->json([
-                'message' => 'حدث خطأ أثناء إنشاء الوثيقة',
-                'error' => config('app.debug') ? $e->getMessage() : 'خطأ غير معروف'
-            ], 500);
-        }
-    }
-
-    /**
-     * Display the specified resource.
-     */
-    public function show($document)
-    {
-        try {
-            $document = PersonalAccidentInsuranceDocument::findOrFail($document);
-            return response()->json($document);
-        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             return response()->json([
                 'message' => 'الوثيقة غير موجودة'
             ], 404);
@@ -348,6 +367,42 @@ class PersonalAccidentInsuranceDocumentController extends Controller
         }
     }
 
+
+    /**
+     * الغاء وثيقة تامين (Soft Cancel)
+     */
+    public function cancel(Request $request, $id)
+    {
+        try {
+            $userId = $request->header('X-User-Id') ?? $request->input('user_id');
+            if ($userId) {
+                $userId = is_numeric($userId) ? (int) $userId : null;
+                $user = $userId ? \App\Models\User::find($userId) : null;
+                if (!\ || !($user->is_admin ?? false)) {
+                    return response()->json(['message' => 'غير مصرح لك بالغاء الوثائق'], 403);
+                }
+            }
+            $validated = $request->validate(['cancel_reason' => 'required|string|max:1000']);
+            $document = PersonalAccidentInsuranceDocument::findOrFail($id);
+            if ($document->is_canceled) {
+                return response()->json(['message' => 'هذه الوثيقة ملغية بالفعل'], 422);
+            }
+            $document->update([
+                'is_canceled' => true,
+                'canceled_at' => now(),
+                'canceled_by' => $userId,
+                'cancel_reason' => $validated['cancel_reason'],
+            ]);
+            return response()->json(['message' => 'تم الغاء الوثيقة بنجاح']);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json(['message' => 'الوثيقة غير موجودة'], 404);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json(['message' => 'سبب الالغاء مطلوب', 'errors' => $e->errors()], 422);
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Error in PersonalAccidentInsuranceDocumentController@cancel: ' . $e->getMessage());
+            return response()->json(['message' => 'حدث خطا اثناء الغاء الوثيقة'], 500);
+        }
+    }
     /**
      * Remove the specified resource from storage.
      */

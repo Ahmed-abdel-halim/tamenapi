@@ -37,6 +37,10 @@ use App\Http\Controllers\ExpenseSubCategoryController;
 use App\Http\Controllers\LifoReportController;
 use App\Http\Controllers\DepartmentController;
 use App\Http\Controllers\OldDocumentController;
+use App\Http\Controllers\CanceledDocumentsController;
+use App\Http\Controllers\SchoolStudentInsuranceDocumentController;
+use App\Http\Controllers\CashInTransitInsuranceDocumentController;
+use App\Http\Controllers\CargoInsuranceDocumentController;
 
 
 
@@ -418,18 +422,23 @@ Route::post('/insurance-documents/{id}/eidc-cancel', [InsuranceDocumentControlle
 Route::post('/insurance-documents/{id}/eidc-retry', [InsuranceDocumentController::class, 'eidcRetrySync']);
 Route::get('/insurance-documents/{id}/eidc-print', [InsuranceDocumentController::class, 'eidcPrintProxy']);
 Route::post('/insurance-documents/eidc-sync-all', [InsuranceDocumentController::class, 'eidcSyncFromAuthority']);
+Route::post('/insurance-documents/{id}/cancel', [InsuranceDocumentController::class, 'cancel']);
+
 
 
 Route::post('/international-insurance-documents/sync-union', [InternationalInsuranceDocumentController::class, 'syncFromUnion']);
 Route::get('/international-insurance-documents/sync-union-status', [InternationalInsuranceDocumentController::class, 'syncStatus']);
 Route::apiResource('international-insurance-documents', InternationalInsuranceDocumentController::class);
 Route::get('/international-insurance-documents/{id}/print', [InternationalInsuranceDocumentController::class, 'print']);
+Route::post('/international-insurance-documents/{id}/cancel', [InternationalInsuranceDocumentController::class, 'cancel']);
 
 Route::apiResource('travel-insurance-documents', TravelInsuranceDocumentController::class);
 Route::get('/travel-insurance-documents/{id}/print', [TravelInsuranceDocumentController::class, 'print']);
+Route::post('/travel-insurance-documents/{id}/cancel', [TravelInsuranceDocumentController::class, 'cancel']);
 
 Route::apiResource('resident-insurance-documents', ResidentInsuranceDocumentController::class);
 Route::get('/resident-insurance-documents/{id}/print', [ResidentInsuranceDocumentController::class, 'print']);
+Route::post('/resident-insurance-documents/{id}/cancel', [ResidentInsuranceDocumentController::class, 'cancel']);
 
 Route::get('/marine-engine-models', [MarineEngineModelController::class, 'index']);
 Route::post('/marine-engine-models', [MarineEngineModelController::class, 'store']);
@@ -438,11 +447,13 @@ Route::apiResource('marine-structure-insurance-documents', MarineStructureInsura
     'marine-structure-insurance-documents' => 'document'
 ]);
 Route::get('/marine-structure-insurance-documents/{document}/print', [MarineStructureInsuranceDocumentController::class, 'print']);
+Route::post('/marine-structure-insurance-documents/{document}/cancel', [MarineStructureInsuranceDocumentController::class, 'cancel']);
 
 Route::apiResource('professional-liability-insurance-documents', ProfessionalLiabilityInsuranceDocumentController::class)->parameters([
     'professional-liability-insurance-documents' => 'document'
 ]);
 Route::get('/professional-liability-insurance-documents/{document}/print', [ProfessionalLiabilityInsuranceDocumentController::class, 'print']);
+Route::post('/professional-liability-insurance-documents/{document}/cancel', [ProfessionalLiabilityInsuranceDocumentController::class, 'cancel']);
 
 // Routes for professions management
 Route::get('/professions', [ProfessionController::class, 'index']);
@@ -457,6 +468,28 @@ Route::apiResource('personal-accident-insurance-documents', PersonalAccidentInsu
     'personal-accident-insurance-documents' => 'document'
 ]);
 Route::get('/personal-accident-insurance-documents/{document}/print', [PersonalAccidentInsuranceDocumentController::class, 'print']);
+Route::post('/personal-accident-insurance-documents/{document}/cancel', [PersonalAccidentInsuranceDocumentController::class, 'cancel']);
+
+// School Student, Cash in Transit, Cargo
+Route::apiResource('school-student-insurance-documents', SchoolStudentInsuranceDocumentController::class)->parameters([
+    'school-student-insurance-documents' => 'id'
+]);
+Route::post('/school-student-insurance-documents/{id}/cancel', [SchoolStudentInsuranceDocumentController::class, 'cancel']);
+
+Route::apiResource('cash-in-transit-insurance-documents', CashInTransitInsuranceDocumentController::class)->parameters([
+    'cash-in-transit-insurance-documents' => 'id'
+]);
+Route::post('/cash-in-transit-insurance-documents/{id}/cancel', [CashInTransitInsuranceDocumentController::class, 'cancel']);
+
+Route::apiResource('cargo-insurance-documents', CargoInsuranceDocumentController::class)->parameters([
+    'cargo-insurance-documents' => 'id'
+]);
+Route::post('/cargo-insurance-documents/{id}/cancel', [CargoInsuranceDocumentController::class, 'cancel']);
+
+
+// ─── Canceled Documents Management (إدارة الوثائق الملغية) ───────────────────
+Route::get('/canceled-documents', [CanceledDocumentsController::class, 'index']);
+Route::get('/canceled-documents/stats', [CanceledDocumentsController::class, 'stats']);
 
 Route::apiResource('external-entities', \App\Http\Controllers\ExternalEntityController::class);
 Route::apiResource('mail-documents', \App\Http\Controllers\MailDocumentController::class);

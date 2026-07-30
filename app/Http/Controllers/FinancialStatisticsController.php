@@ -253,6 +253,7 @@ class FinancialStatisticsController extends Controller
         try {
             $agentId = $request->get('agent_id');
             $excludeCanceled = $request->boolean('exclude_canceled', false);
+            $documentType = $request->get('document_type', 'all');
 
             if (!$agentId) {
                 return response()->json(['success' => false, 'message' => 'يرجى تحديد الوكيل'], 422);
@@ -304,10 +305,12 @@ class FinancialStatisticsController extends Controller
             $months = [];
             $cursor = $startDate->copy();
             while ($cursor <= $endDate) {
+                $monthNum = (int)$cursor->month;
+                $yearNum  = (int)$cursor->year;
                 $months[$cursor->format('Y-m')] = [
-                    'year'           => (int)$cursor->year,
-                    'month'          => (int)$cursor->month,
-                    'month_label'    => $cursor->locale('ar')->isoFormat('MMMM YYYY'),
+                    'year'           => $yearNum,
+                    'month'          => $monthNum,
+                    'month_label'    => "شهر {$monthNum} - {$yearNum}",
                     'month_key'      => $cursor->format('Y-m'),
                     'from_date'      => $cursor->format('Y-m-01'),
                     'to_date'        => $cursor->copy()->endOfMonth()->format('Y-m-d'),
@@ -320,13 +323,22 @@ class FinancialStatisticsController extends Controller
                 $cursor->addMonth();
             }
 
+
             // Fetch all docs for this agent across all tables
             foreach ($documentTables as $dt) {
                 $tableName = $dt['table'];
                 $dateCol   = $dt['date_col'];
 
+                // تصفية بحسب نوع الوثيقة
+                if ($documentType && $documentType !== 'all') {
+                    if ($documentType !== $tableName && $documentType !== $dt['key']) {
+                        continue;
+                    }
+                }
+
                 if (!$schema->hasTable($tableName)) continue;
                 if (!$schema->hasColumn($tableName, 'branch_agent_id')) continue;
+
 
                 $query = DB::table($tableName)->where('branch_agent_id', $agentId);
 

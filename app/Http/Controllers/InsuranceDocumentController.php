@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 
 namespace App\Http\Controllers;
 
@@ -21,60 +21,690 @@ class InsuranceDocumentController extends Controller
     {
         try {
             // الحصول على المستخدم الحالي من header أو query parameter
-            $userId = $request->header('X-User-Id') ?? $request->input('user_id');
+            $userId = $request->header('X-User-Id') ?? $request->query('user_id');
+            $isAdmin = false;
+            $branchAgentId = null;
+
             if ($userId) {
                 $userId = is_numeric($userId) ? (int) $userId : null;
-                $user = $userId ? \App\Models\User::find($userId) : null;
-                if (!$user) {
-                    return response()->json(['message' => 'غير مصرح لك بإلغاء الوثائق'], 403);
+                if ($userId) {
+                    $user = User::find($userId);
+                    if ($user) {
+                        $isAdmin = $user->is_admin ?? false;
+                        if (!$isAdmin) {
+                            // إذا لم يكن admin، احصل على branch_agent_id من المستخدم أو الموظف التابع له
+                            $branchAgentId = $user->branch_agent_id;
+                            if (!$branchAgentId) {
+                                $branchAgent = BranchAgent::where('user_id', $userId)->first();
+                                if ($branchAgent) {
+                                    $branchAgentId = $branchAgent->id;
+                                }
+                            }
+                        }
+                    }
                 }
-                $isAdmin = $user->is_admin ?? false;
-                $authDocs = is_array($user->authorized_documents)
-                    ? $user->authorized_documents
-                    : (is_string($user->authorized_documents) ? json_decode($user->authorized_documents, true) : []);
-                if (!is_array($authDocs)) $authDocs = [];
-                $hasPermission = $isAdmin || !empty($authDocs) || $user->department_id !== null || ($user->branch_agent_id ?? null) !== null;
-                if (!$hasPermission) {
-                    return response()->json(['message' => 'غير مصرح لك بإلغاء الوثائق'], 403);
-                }
-            }
             }
 
+            // بناء الاستعلام
+            $query = InsuranceDocument::with(['plate.city', 'vehicleType', 'branchAgent']);
+            
+            $hasFilterOrSearch = $request->filled('search') || 
+                                 $request->filled('year') || 
+                                 $request->filled('month') || 
+                                 $request->filled('day') ||
+                                 ($isAdmin && $request->filled('branch_agent_id'));
+
+            if ($request->boolean('archived')) {
+                $query->archived();
+            } elseif (!$hasFilterOrSearch) {
+                $query->active();
+            }
+
+            // إذا لم يكن admin، قم بتصفية الوثائق حسب branch_agent_id
+            if (!$isAdmin) {
+                if ($branchAgentId) {
+                    $query->where('branch_agent_id', $branchAgentId);
+                } else {
+                    $query->where('user_id', $userId);
+                }
+            }
+
+            // إضافة ميزة البحث
+            $search = $request->query('search');
+            if ($search) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('insurance_number', 'like', "%{$search}%")
+                        ->orWhere('insured_name', 'like', "%{$search}%")
+                        ->orWhere('phone', 'like', "%{$search}%")
+                        ->orWhere('insurance_type', 'like', "%{$search}%");
+                });
+            }
+
+            // فلتر الوكيل (للادمن)
+            if ($isAdmin && $request->has('branch_agent_id')) {
+                $query->where('branch_agent_id', $request->query('branch_agent_id'));
+            }
+
+            // فلاتر التاريخ (السنة، الشهر، اليوم)
+            if ($request->has('year')) {
+                $query->whereYear('issue_date', $request->query('year'));
+            }
+            if ($request->has('month')) {
+                $query->whereMonth('issue_date', $request->query('month'));
+            }
+            if ($request->has('day')) {
+                $query->whereDay('issue_date', $request->query('day'));
+            }
+
+            $perPage = $request->query('per_page', 10);
+            $documents = $query->orderBy('issue_date', 'desc')
+                ->orderBy('id', 'desc')
+                ->paginate($perPage);
+
+            $documents->getCollection()->transform(function ($document) use ($isAdmin) {
+                $transferCount = InsuranceOwnershipTransfer::where('insurance_document_id', $document->id)->count();
+                $document->ownership_transfer_count = $transferCount;
+                $document->has_ownership_transfer = $transferCount > 0;
+
+                // إضافة اسم الوكالة للادمن فقط
+                if ($isAdmin) {
+                    $document->agency_name = $document->branchAgent ? ($document->branchAgent->agency_name ?? null) : null;
+                } else {
+                    $document->agency_name = null;
+                }
+
+                return $document;
+            });
+
+            return response()->json($documents);
+        } catch (\Exception $e) {
+            Log::error('Error in InsuranceDocumentController@index: ' . $e->getMessage());
+            Log::error('Stack trace: ' . $e->getTraceAsString());
+            return response()->json([
+                'message' => 'حدث خطأ أثناء جلب البيانات',
+                'error' => config('app.debug') ? $e->getMessage() : 'خطأ غير معروف'
+            ], 500);
+        }
+    }
+
+    /**
+     * Helper to get the authenticated user or the user specified in the header
+     */
+    private function getAuthenticatedUser(Request $request): ?User
+    {
+        // Try Sanctum auth first
+        if ($request->user()) {
+            return $request->user();
+        }
+
+        // Fallback to X-User-Id header
+        $userId = $request->header('X-User-Id');
+        if ($userId && is_numeric($userId)) {
+            return User::find($userId);
+        }
+
+        return null;
+    }
+
+    /**
+     * Store a newly created resource in storage.
+     */
+    public function store(Request $request)
+    {
+        try {
             $validated = $request->validate([
-                'cancel_reason' => 'required|string|max:1000',
+                'insurance_type' => 'required|in:تأمين إجباري سيارات,تأمين سيارة جمرك,تأمين طرف ثالث سيارات,تأمين سيارات أجنبية',
+                'plate_id' => 'nullable|exists:plates,id',
+                'port' => 'nullable|string|max:255',
+                'start_date' => 'required|date',
+                'end_date' => 'nullable|date',
+                'duration' => 'nullable|string|max:255',
+                'chassis_number' => 'required|string|max:255',
+                'plate_number_manual' => 'required|string|max:255',
+                'vehicle_type_id' => 'required_unless:insurance_type,تأمين إجباري سيارات|nullable|exists:vehicle_types,id',
+                'color' => 'required|string|max:255',
+                'year' => 'required|integer|min:1960|max:2026',
+                'manufacturing_country' => 'nullable|string|max:255',
+                'fuel_type' => 'nullable|in:بنزين/Gasoline,ديزل/Diesel,كهرباء/Electric,غاز طبيعي/CNG,هيدروجين/Hydrogen',
+                'license_purpose' => 'required_unless:insurance_type,تأمين سيارات أجنبية|nullable|in:خاصة/Private,عامة/Public,نقل/Transport,زراعي/Agricultural,صناعي/Industrial',
+                'engine_power' => 'required_unless:insurance_type,تأمين طرف ثالث سيارات,تأمين سيارات أجنبية|nullable|string|max:255',
+                'authorized_passengers' => 'nullable|integer|min:0|max:100',
+                'load_capacity' => 'nullable|numeric|min:0|max:1000',
+                'insured_name' => 'required|string|max:255',
+                'phone' => 'required|string|min:10|max:255',
+                'whatsapp_number' => 'required|string|min:10|max:255',
+                'driving_license_number' => 'nullable|string|max:255',
+                'nid_passport' => 'required|string|min:6|max:50',
+                'nationality' => 'required|string|max:100',
+                'email' => 'required|email|max:255',
+                'address' => 'required|string|max:255',
+                'engine_number' => 'nullable|string|max:255',
+                'engine_cc' => 'nullable|string|max:255',
+                'vehicle_weight' => 'nullable|string|max:255',
+                'notes' => 'nullable|string',
+                'premium' => 'required|numeric|min:0|max:999999',
+                'third_party_purpose' => 'nullable|string|max:255',
+                'foreign_car_country' => 'nullable|string|max:255',
+                'foreign_car_purpose' => 'nullable|string|max:255',
+                'print_type' => 'nullable|in:A5,A4',
+                // EIDC Vehicle Classification (required for mandatory insurance)
+                'eidc_vehicle_type_id' => 'nullable|string',
+                'eidc_vehicle_spec_id' => 'nullable|string',
+                'eidc_vehicle_detail_id' => 'nullable|string',
+                'TypeOfVehicle' => 'nullable|string',
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'message' => 'خطأ في التحقق من البيانات',
+                'errors' => $e->errors()
+            ], 422);
+        }
+
+        try {
+            // توليد رقم التأمين التلقائي
+            $lastDocument = InsuranceDocument::where('insurance_number', 'like', 'BKMCI%')
+                ->orderBy('id', 'desc')
+                ->first();
+            if ($lastDocument && preg_match('/BKMCI(\d+)/', $lastDocument->insurance_number, $matches)) {
+                $nextNumber = (int) $matches[1] + 1;
+            } else {
+                $nextNumber = 1;
+            }
+            do {
+                $insuranceNumber = 'BKMCI' . str_pad($nextNumber, 3, '0', STR_PAD_LEFT);
+                $nextNumber++;
+            } while (InsuranceDocument::where('insurance_number', $insuranceNumber)->exists());
+
+            // حساب نهاية التأمين إذا تم تحديد المدة
+            $endDate = $validated['end_date'] ?? null;
+            if (!$endDate && isset($validated['duration']) && isset($validated['start_date'])) {
+                $startDate = Carbon::parse($validated['start_date']);
+                $duration = $validated['duration'];
+
+                // تأمين جمرك أو سيارات أجنبية - حساب بالأيام
+                if ($validated['insurance_type'] === 'تأمين سيارة جمرك' || $validated['insurance_type'] === 'تأمين سيارات أجنبية') {
+                    $days = 0;
+                    switch ($duration) {
+                        case 'أسبوعين (15 يوم)':
+                            $days = 15;
+                            break;
+                        case 'شهر (30 يوم)':
+                            $days = 30;
+                            break;
+                        case 'شهرين (60 يوم)':
+                            $days = 60;
+                            break;
+                        case 'ثلاثة أشهر (90 يوم)':
+                            $days = 90;
+                            break;
+                        case 'سنة (365 يوم)':
+                            $days = 365;
+                            break;
+                        case 'سنتين (730 يوم)':
+                            $days = 730;
+                            break;
+                    }
+                    $endDate = $startDate->copy()->addDays($days)->format('Y-m-d');
+                } else {
+                    // تأمين عادي - حساب بالسنوات
+                    if ($duration === 'سنتين (730 يوم)' || $duration === 'سنتين') {
+                        $endDate = $startDate->copy()->addYears(2)->format('Y-m-d');
+                    } else {
+                        // سنة (365 يوم) أو سنة (للتوافق مع البيانات القديمة)
+                        $endDate = $startDate->copy()->addYear()->format('Y-m-d');
+                    }
+                }
+            }
+
+            // حساب الإجمالي
+            $premium = (float) ($validated['premium'] ?? 0);
+            $tax = (float) ($request->input('tax', 1.000));
+            $stamp = (float) ($request->input('stamp', 0.500));
+            $issueFees = (float) ($request->input('issue_fees', 2.000));
+            $supervisionFees = (float) ($request->input('supervision_fees', 0.500));
+            $total = $premium + $tax + $stamp + $issueFees + $supervisionFees;
+
+            // الحصول على branch_agent_id من المستخدم الحالي
+            $branchAgentId = null;
+            $userId = $request->header('X-User-Id') ?? $request->input('user_id');
+            Log::info('Creating insurance document - User ID from request:', [
+                'header_X-User-Id' => $request->header('X-User-Id'),
+                'input_user_id' => $request->input('user_id'),
+                'userId' => $userId,
             ]);
 
+            if ($userId) {
+                $userId = is_numeric($userId) ? (int) $userId : null;
+                if ($userId) {
+                    $user = User::find($userId);
+                    if ($user) {
+                        $isAdmin = $user->is_admin ?? false;
+                        Log::info('User found:', [
+                            'user_id' => $userId,
+                            'is_admin' => $isAdmin,
+                        ]);
+
+                        if ($isAdmin) {
+                            // Admin can specify any agent
+                            $branchAgentId = $request->input('branch_agent_id');
+                        } else {
+                            // If not admin, force their own branch_agent_id
+                            $branchAgentId = $user->branch_agent_id;
+                            if (!$branchAgentId) {
+                                $branchAgent = BranchAgent::where('user_id', $userId)->first();
+                                if ($branchAgent) {
+                                    $branchAgentId = $branchAgent->id;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // If branch_agent_id is still null and we have it in request, and we didn't force it to null for non-admins
+            if (!$branchAgentId && $request->has('branch_agent_id')) {
+                $branchAgentId = $request->input('branch_agent_id');
+            }
+
+            Log::info('Final branch_agent_id to save:', ['branch_agent_id' => $branchAgentId]);
+
+            $document = InsuranceDocument::create([
+                'insurance_type' => $validated['insurance_type'],
+                'insurance_number' => $insuranceNumber,
+                'issue_date' => now(),
+                'plate_id' => $validated['plate_id'] ?? null,
+                'port' => $validated['port'] ?? null,
+                'start_date' => $validated['start_date'],
+                'end_date' => $endDate,
+                'duration' => $validated['duration'] ?? 'سنة',
+                'third_party_purpose' => $validated['third_party_purpose'] ?? null,
+                'foreign_car_country' => $validated['foreign_car_country'] ?? null,
+                'foreign_car_purpose' => $validated['foreign_car_purpose'] ?? null,
+                'chassis_number' => $validated['chassis_number'] ?? null,
+                'plate_number_manual' => $validated['plate_number_manual'] ?? null,
+                'vehicle_type_id' => $validated['vehicle_type_id'] ?? null,
+                'color' => $validated['color'] ?? null,
+                'year' => $validated['year'] ?? null,
+                'manufacturing_country' => $validated['manufacturing_country'] ?? null,
+                'fuel_type' => $validated['fuel_type'] ?? null,
+                'license_purpose' => $validated['license_purpose'] ?? null,
+                'engine_power' => $validated['engine_power'] ?? null,
+                'authorized_passengers' => $validated['authorized_passengers'] ?? null,
+                'load_capacity' => $validated['load_capacity'] ?? null,
+                'insured_name' => $validated['insured_name'] ?? null,
+                'phone' => $validated['phone'] ?? null,
+                'email' => $validated['email'] ?? null,
+                'address' => $validated['address'] ?? null,
+                'whatsapp_number' => $validated['whatsapp_number'] ?? null,
+                'driving_license_number' => $validated['driving_license_number'] ?? null,
+                'nid_passport' => $validated['nid_passport'] ?? null,
+                'nationality' => $validated['nationality'] ?? 'ليبي',
+                'engine_number' => $validated['engine_number'] ?? null,
+                'engine_cc' => $validated['engine_cc'] ?? null,
+                'vehicle_weight' => $validated['vehicle_weight'] ?? null,
+                'notes' => $validated['notes'] ?? null,
+                'premium' => $premium,
+                'tax' => $tax,
+                'stamp' => $stamp,
+                'issue_fees' => $issueFees,
+                'supervision_fees' => $supervisionFees,
+                'total' => $total,
+                'print_type' => $validated['print_type'] ?? 'A4',
+                'branch_agent_id' => $branchAgentId,
+                'user_id' => $userId,
+                // EIDC vehicle classification fields
+                'eidc_vehicle_type_id' => $validated['eidc_vehicle_type_id'] ?? null,
+                'eidc_vehicle_spec_id' => $validated['eidc_vehicle_spec_id'] ?? null,
+                'eidc_vehicle_detail_id' => $validated['eidc_vehicle_detail_id'] ?? null,
+                // Start with pending if mandatory insurance
+                'eidc_sync_status' => ($validated['insurance_type'] === 'تأمين إجباري سيارات') ? 'pending' : null,
+            ]);
+
+            // ─── EIDC Integration: Register on Authority System ────────────────
+            if ($validated['insurance_type'] === 'تأمين إجباري سيارات' && config('eidc.enabled', true)) {
+                $this->syncWithEidc($document, $validated, $endDate, $user ?? null);
+            }
+
+            return response()->json($document->fresh()->load(['plate.city', 'vehicleType']), 201);
+        } catch (\Exception $e) {
+            Log::error('Error in InsuranceDocumentController@store: ' . $e->getMessage());
+            return response()->json([
+                'message' => 'حدث خطأ أثناء إنشاء الوثيقة',
+                'error' => config('app.debug') ? $e->getMessage() : 'خطأ غير معروف'
+            ], 500);
+        }
+    }
+
+    /**
+     * Display the specified resource.
+     */
+    public function show(string $id)
+    {
+        try {
+            $document = InsuranceDocument::with(['plate.city', 'vehicleType'])->findOrFail($id);
+            return response()->json($document);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json([
+                'message' => 'الوثيقة غير موجودة'
+            ], 404);
+        } catch (\Exception $e) {
+            Log::error('Error in InsuranceDocumentController@show: ' . $e->getMessage());
+            return response()->json([
+                'message' => 'حدث خطأ أثناء جلب البيانات',
+                'error' => config('app.debug') ? $e->getMessage() : 'خطأ غير معروف'
+            ], 500);
+        }
+    }
+
+    /**
+     * Update the specified resource in storage.
+     */
+    public function update(Request $request, string $id)
+    {
+        try {
+            $validated = $request->validate([
+                'insurance_type' => 'required|in:تأمين إجباري سيارات,تأمين سيارة جمرك,تأمين طرف ثالث سيارات,تأمين سيارات أجنبية',
+                'plate_id' => 'nullable|exists:plates,id',
+                'port' => 'nullable|string|max:255',
+                'start_date' => 'required|date',
+                'end_date' => 'nullable|date',
+                'duration' => 'nullable|string|max:255',
+                'chassis_number' => 'required|string|max:255',
+                'plate_number_manual' => 'required|string|max:255',
+                'vehicle_type_id' => 'required_unless:insurance_type,تأمين إجباري سيارات|nullable|exists:vehicle_types,id',
+                'color' => 'required|string|max:255',
+                'year' => 'required|integer|min:1960|max:2026',
+                'manufacturing_country' => 'nullable|string|max:255',
+                'fuel_type' => 'nullable|in:بنزين/Gasoline,ديزل/Diesel,كهرباء/Electric,غاز طبيعي/CNG,هيدروجين/Hydrogen',
+                'license_purpose' => 'required_unless:insurance_type,تأمين سيارات أجنبية|nullable|in:خاصة/Private,عامة/Public,نقل/Transport,زراعي/Agricultural,صناعي/Industrial',
+                'engine_power' => 'required_unless:insurance_type,تأمين طرف ثالث سيارات,تأمين سيارات أجنبية|nullable|string|max:255',
+                'authorized_passengers' => 'nullable|integer|min:0|max:100',
+                'load_capacity' => 'nullable|numeric|min:0|max:1000',
+                'insured_name' => 'required|string|max:255',
+                'phone' => 'required|string|min:10|max:255',
+                'whatsapp_number' => 'required|string|min:10|max:255',
+                'driving_license_number' => 'nullable|string|max:255',
+                'nid_passport' => 'required|string|min:6|max:255',
+                'nationality' => 'required|string|max:100',
+                'premium' => 'required|numeric|min:0|max:999999',
+                'third_party_purpose' => 'nullable|string|max:255',
+                'foreign_car_country' => 'nullable|string|max:255',
+                'foreign_car_purpose' => 'nullable|string|max:255',
+                'print_type' => 'nullable|in:A5,A4',
+                'email' => 'required|email|max:255',
+                'address' => 'required|string|max:255',
+                'engine_number' => 'nullable|string|max:255',
+                'engine_cc' => 'nullable|string|max:255',
+                'vehicle_weight' => 'nullable|string|max:255',
+                'notes' => 'nullable|string',
+                'TypeOfVehicle' => 'nullable|string',
+                'eidc_vehicle_type_id' => 'required_if:insurance_type,تأمين إجباري سيارات|nullable|string',
+                'eidc_vehicle_spec_id' => 'required_if:insurance_type,تأمين إجباري سيارات|nullable|string',
+                'eidc_vehicle_detail_id' => 'nullable|string',
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'message' => 'خطأ في التحقق من البيانات',
+                'errors' => $e->errors()
+            ], 422);
+        }
+
+        try {
             $document = InsuranceDocument::findOrFail($id);
 
-            if ($document->is_canceled) {
-                return response()->json(['message' => 'هذه الوثيقة ملغية بالفعل'], 422);
+            // حساب نهاية التأمين إذا تم تحديد المدة
+            $endDate = $validated['end_date'] ?? null;
+            if (!$endDate && isset($validated['duration']) && isset($validated['start_date'])) {
+                $startDate = Carbon::parse($validated['start_date']);
+                $duration = $validated['duration'];
+
+                // تأمين جمرك أو سيارات أجنبية - حساب بالأيام
+                if ($validated['insurance_type'] === 'تأمين سيارة جمرك' || $validated['insurance_type'] === 'تأمين سيارات أجنبية') {
+                    $days = 0;
+                    switch ($duration) {
+                        case 'أسبوعين (15 يوم)':
+                            $days = 15;
+                            break;
+                        case 'شهر (30 يوم)':
+                            $days = 30;
+                            break;
+                        case 'شهرين (60 يوم)':
+                            $days = 60;
+                            break;
+                        case 'ثلاثة أشهر (90 يوم)':
+                            $days = 90;
+                            break;
+                        case 'سنة (365 يوم)':
+                            $days = 365;
+                            break;
+                        case 'سنتين (730 يوم)':
+                            $days = 730;
+                            break;
+                    }
+                    $endDate = $startDate->copy()->addDays($days)->format('Y-m-d');
+                } else {
+                    // تأمين عادي - حساب بالسنوات
+                    if ($duration === 'سنتين (730 يوم)' || $duration === 'سنتين') {
+                        $endDate = $startDate->copy()->addYears(2)->format('Y-m-d');
+                    } else {
+                        // سنة (365 يوم) أو سنة (للتوافق مع البيانات القديمة)
+                        $endDate = $startDate->copy()->addYear()->format('Y-m-d');
+                    }
+                }
+            }
+
+            // حساب الإجمالي
+            $premium = $validated['premium'] ?? 0;
+            $tax = 1.000;
+            $stamp = 0.500;
+            $issueFees = 2.000;
+            $supervisionFees = 0.500;
+            $total = $premium + $tax + $stamp + $issueFees + $supervisionFees;
+
+            // تحديث branch_agent_id فقط إذا كان المستخدم admin أو إذا لم يكن للوثيقة branch_agent_id
+            $branchAgentId = $document->branch_agent_id; // الحفاظ على القيمة الحالية
+            $userId = $request->header('X-User-Id') ?? $request->input('user_id');
+            if ($userId) {
+                $user = User::find($userId);
+                if ($user) {
+                    $isAdmin = $user->is_admin ?? false;
+                    if ($isAdmin) {
+                        // Admin يمكنه تغيير branch_agent_id من request إذا كان موجوداً
+                        $branchAgentId = $request->input('branch_agent_id') ?? $document->branch_agent_id;
+                    } else {
+                        // إذا لم يكن admin، احصل على branch_agent_id من المستخدم
+                        $branchAgent = BranchAgent::where('user_id', $userId)->first();
+                        if ($branchAgent) {
+                            // إذا لم يكن للوثيقة branch_agent_id، قم بتعيينه
+                            if (!$document->branch_agent_id) {
+                                $branchAgentId = $branchAgent->id;
+                            }
+                            // إذا كان للوثيقة branch_agent_id مختلف، لا تغيره (لأن المستخدم ليس admin)
+                        }
+                    }
+                }
             }
 
             $document->update([
-                'is_canceled' => true,
-                'canceled_at' => now(),
-                'canceled_by' => $userId,
-                'cancel_reason' => $validated['cancel_reason'],
+                'insurance_type' => $validated['insurance_type'],
+                'plate_id' => $validated['plate_id'] ?? null,
+                'port' => $validated['port'] ?? null,
+                'start_date' => $validated['start_date'],
+                'end_date' => $endDate,
+                'duration' => $validated['duration'] ?? 'سنة',
+                'third_party_purpose' => $validated['third_party_purpose'] ?? null,
+                'foreign_car_country' => $validated['foreign_car_country'] ?? null,
+                'foreign_car_purpose' => $validated['foreign_car_purpose'] ?? null,
+                'chassis_number' => $validated['chassis_number'] ?? null,
+                'branch_agent_id' => $branchAgentId,
+                'user_id' => $userId,
+                'plate_number_manual' => $validated['plate_number_manual'] ?? null,
+                'vehicle_type_id' => $validated['vehicle_type_id'] ?? null,
+                'color' => $validated['color'] ?? null,
+                'year' => $validated['year'] ?? null,
+                'manufacturing_country' => $validated['manufacturing_country'] ?? null,
+                'fuel_type' => $validated['fuel_type'] ?? null,
+                'license_purpose' => $validated['license_purpose'] ?? null,
+                'engine_power' => $validated['engine_power'] ?? null,
+                'authorized_passengers' => $validated['authorized_passengers'] ?? null,
+                'load_capacity' => $validated['load_capacity'] ?? null,
+                'insured_name' => $validated['insured_name'] ?? null,
+                'phone' => $validated['phone'] ?? null,
+                'whatsapp_number' => $validated['whatsapp_number'] ?? null,
+                'driving_license_number' => $validated['driving_license_number'] ?? null,
+                'nid_passport' => $validated['nid_passport'] ?? null,
+                'nationality' => $validated['nationality'] ?? 'ليبي',
+                'premium' => $premium,
+                'tax' => $tax,
+                'stamp' => $stamp,
+                'issue_fees' => $issueFees,
+                'supervision_fees' => $supervisionFees,
+                'total' => $total,
+                'print_type' => $validated['print_type'] ?? 'A4',
+                'email' => $validated['email'] ?? null,
+                'address' => $validated['address'] ?? null,
+                'engine_number' => $validated['engine_number'] ?? null,
+                'engine_cc' => $validated['engine_cc'] ?? null,
+                'vehicle_weight' => $validated['vehicle_weight'] ?? null,
+                'notes' => $validated['notes'] ?? null,
+                'eidc_vehicle_type_id' => $validated['eidc_vehicle_type_id'] ?? null,
+                'eidc_vehicle_spec_id' => $validated['eidc_vehicle_spec_id'] ?? null,
+                'eidc_vehicle_detail_id' => $validated['eidc_vehicle_detail_id'] ?? null,
             ]);
 
-            Log::info('Insurance document canceled', [
-                'document_id' => $id,
-                'canceled_by' => $userId,
-                'reason' => $validated['cancel_reason'],
-            ]);
+            // ─── EIDC Integration: Update on Authority System ────────────────
+            if ($document->insurance_type === 'تأمين إجباري سيارات' && config('eidc.enabled', true)) {
+                // نحتاج لتمرير البيانات المطلوبة لـ syncWithEidc
+                // ملاحظة: قد نحتاج لإضافة حقول EIDC المفقودة في validation الـ update
+                $syncData = array_merge($validated, [
+                    'eidc_vehicle_type_id' => $request->input('eidc_vehicle_type_id') ?? $document->eidc_vehicle_type_id,
+                    'eidc_vehicle_spec_id' => $request->input('eidc_vehicle_spec_id') ?? $document->eidc_vehicle_spec_id,
+                    'eidc_vehicle_detail_id' => $request->input('eidc_vehicle_detail_id') ?? $document->eidc_vehicle_detail_id,
+                    'nid_passport' => $validated['nid_passport'] ?? $document->nid_passport ?? '',
+                    'nationality' => $validated['nationality'] ?? $document->nationality ?? 'ليبي',
+                ]);
+                $this->syncWithEidc($document, $syncData, $endDate, $user ?? null);
+            }
 
-            return response()->json([
-                'message' => 'تم إلغاء الوثيقة بنجاح',
-                'document' => $document->fresh()
-            ]);
+            return response()->json($document->load(['plate.city', 'vehicleType']));
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
-            return response()->json(['message' => 'الوثيقة غير موجودة'], 404);
-        } catch (\Illuminate\Validation\ValidationException $e) {
-            return response()->json(['message' => 'سبب الإلغاء مطلوب', 'errors' => $e->errors()], 422);
-        } catch (\Exception $e) {
-            Log::error('Error in InsuranceDocumentController@cancel: ' . $e->getMessage());
             return response()->json([
-                'message' => 'حدث خطأ أثناء إلغاء الوثيقة',
+                'message' => 'الوثيقة غير موجودة'
+            ], 404);
+        } catch (\Exception $e) {
+            Log::error('Error in InsuranceDocumentController@update: ' . $e->getMessage());
+            return response()->json([
+                'message' => 'حدث خطأ أثناء تحديث الوثيقة',
+                'error' => config('app.debug') ? $e->getMessage() : 'خطأ غير معروف'
+            ], 500);
+        }
+    }
+
+    /**
+     * Transfer ownership of insurance document
+     */
+    public function transferOwnership(Request $request, string $id)
+    {
+        try {
+            $validated = $request->validate([
+                'plate_id' => 'nullable|exists:plates,id',
+                'plate_number_manual' => 'nullable|string|max:255',
+                'insured_name' => 'required|string|max:255',
+                'phone' => 'nullable|string|max:255',
+                'driving_license_number' => 'nullable|string|max:255',
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'message' => 'خطأ في التحقق من البيانات',
+                'errors' => $e->errors()
+            ], 422);
+        }
+
+        try {
+            $document = InsuranceDocument::with(['plate.city', 'vehicleType'])->findOrFail($id);
+
+            // التحقق من نوع التأمين
+            $isMandatoryInsurance = $document->insurance_type === 'تأمين إجباري سيارات';
+            $isThirdPartyInsurance = $document->insurance_type === 'تأمين طرف ثالث سيارات';
+
+            // التحقق من أن plate_id مطلوب للتأمين الإجباري وطرف ثالث
+            if (($isMandatoryInsurance || $isThirdPartyInsurance) && !isset($validated['plate_id'])) {
+                return response()->json([
+                    'message' => 'الجهة المقيد بها مطلوبة',
+                    'errors' => ['plate_id' => ['الجهة المقيد بها مطلوبة']]
+                ], 422);
+            }
+
+            // حفظ البيانات السابقة قبل التحديث
+            $previousData = [
+                'previous_plate_id' => $document->plate_id,
+                'previous_plate_number_manual' => $document->plate_number_manual,
+                'previous_insured_name' => $document->insured_name,
+                'previous_phone' => $document->phone,
+                'previous_driving_license_number' => $document->driving_license_number,
+            ];
+
+            // تحديث البيانات القابلة للتعديل فقط
+            $document->update([
+                'plate_id' => ($isMandatoryInsurance || $isThirdPartyInsurance) ? ($validated['plate_id'] ?? null) : $document->plate_id,
+                'plate_number_manual' => $validated['plate_number_manual'] ?? $document->plate_number_manual,
+                'insured_name' => $validated['insured_name'],
+                'phone' => $validated['phone'] ?? null,
+                'driving_license_number' => $validated['driving_license_number'] ?? null,
+            ]);
+
+            // حفظ السجل التاريخي
+            InsuranceOwnershipTransfer::create([
+                'insurance_document_id' => $document->id,
+                'previous_plate_id' => $previousData['previous_plate_id'],
+                'previous_plate_number_manual' => $previousData['previous_plate_number_manual'],
+                'previous_insured_name' => $previousData['previous_insured_name'],
+                'previous_phone' => $previousData['previous_phone'],
+                'previous_driving_license_number' => $previousData['previous_driving_license_number'],
+                'new_plate_id' => ($isMandatoryInsurance || $isThirdPartyInsurance) ? ($validated['plate_id'] ?? null) : $document->plate_id,
+                'new_plate_number_manual' => $validated['plate_number_manual'] ?? $document->plate_number_manual,
+                'new_insured_name' => $validated['insured_name'],
+                'new_phone' => $validated['phone'] ?? null,
+                'new_driving_license_number' => $validated['driving_license_number'] ?? null,
+                'transferred_at' => Carbon::now(),
+            ]);
+
+            return response()->json($document->load(['plate.city', 'vehicleType']));
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json([
+                'message' => 'الوثيقة غير موجودة'
+            ], 404);
+        } catch (\Exception $e) {
+            Log::error('Error in InsuranceDocumentController@transferOwnership: ' . $e->getMessage());
+            return response()->json([
+                'message' => 'حدث خطأ أثناء نقل الملكية',
+                'error' => config('app.debug') ? $e->getMessage() : 'خطأ غير معروف'
+            ], 500);
+        }
+    }
+
+    /**
+     * Get ownership transfer history for an insurance document
+     */
+    public function getOwnershipTransferHistory(string $id)
+    {
+        try {
+            $document = InsuranceDocument::findOrFail($id);
+
+            $transfers = InsuranceOwnershipTransfer::where('insurance_document_id', $id)
+                ->with(['previousPlate.city', 'newPlate.city'])
+                ->orderBy('transferred_at', 'desc')
+                ->get();
+
+            return response()->json($transfers);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json([
+                'message' => 'الوثيقة غير موجودة'
+            ], 404);
+        } catch (\Exception $e) {
+            Log::error('Error in InsuranceDocumentController@getOwnershipTransferHistory: ' . $e->getMessage());
+            return response()->json([
+                'message' => 'حدث خطأ أثناء جلب تاريخ نقل الملكية',
                 'error' => config('app.debug') ? $e->getMessage() : 'خطأ غير معروف'
             ], 500);
         }
@@ -1124,6 +1754,84 @@ class InsuranceDocumentController extends Controller
         } catch (\Exception $e) {
             Log::error("EIDC: Proxy exception", ['error' => $e->getMessage()]);
             return response()->json(['message' => 'حدث خطأ أثناء جلب الوثيقة: ' . $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * إلغاء وثيقة - Soft Cancel (مخصص للأدمن والموظفين المصرح لهم فقط - يمنع الوكلاء تماماً)
+     */
+    public function cancel(Request $request, $id)
+    {
+        try {
+            $userId = $request->header('X-User-Id') ?? $request->input('user_id');
+            if (!$userId) {
+                return response()->json(['message' => 'غير مصرح لك بإلغاء الوثائق'], 403);
+            }
+            $userId = is_numeric($userId) ? (int) $userId : null;
+            $user = $userId ? \App\Models\User::find($userId) : null;
+            if (!$user) {
+                return response()->json(['message' => 'غير مصرح لك بإلغاء الوثائق'], 403);
+            }
+
+            // منع الوكلاء من الإلغاء تماماً
+            if ($user->branch_agent_id || \App\Models\BranchAgent::where('user_id', $user->id)->exists()) {
+                return response()->json(['message' => 'الوكلاء غير مصرح لهم بإلغاء الوثائق'], 403);
+            }
+
+            // فقط الأدمن والموظفين المصرح لهم
+            $isAdmin = $user->is_admin ?? false;
+            $authDocs = is_array($user->authorized_documents)
+                ? $user->authorized_documents
+                : (is_string($user->authorized_documents) ? json_decode($user->authorized_documents, true) : []);
+            if (!is_array($authDocs)) $authDocs = [];
+
+            $hasPermission = $isAdmin || !empty($authDocs) || ($user->department_id !== null);
+            if (!$hasPermission) {
+                return response()->json(['message' => 'غير مصرح لك بإلغاء الوثائق'], 403);
+            }
+
+            $validated = $request->validate(['cancel_reason' => 'required|string|max:1000']);
+            
+            $modelMap = [
+                'InsuranceDocumentController' => \App\Models\InsuranceDocument::class,
+                'TravelInsuranceDocumentController' => \App\Models\TravelInsuranceDocument::class,
+                'ResidentInsuranceDocumentController' => \App\Models\ResidentInsuranceDocument::class,
+                'MarineStructureInsuranceDocumentController' => \App\Models\MarineStructureInsuranceDocument::class,
+                'ProfessionalLiabilityInsuranceDocumentController' => \App\Models\ProfessionalLiabilityInsuranceDocument::class,
+                'PersonalAccidentInsuranceDocumentController' => \App\Models\PersonalAccidentInsuranceDocument::class,
+                'SchoolStudentInsuranceDocumentController' => \App\Models\SchoolStudentInsuranceDocument::class,
+                'CashInTransitInsuranceDocumentController' => \App\Models\CashInTransitInsuranceDocument::class,
+                'CargoInsuranceDocumentController' => \App\Models\CargoInsuranceDocument::class,
+                'InternationalInsuranceDocumentController' => \App\Models\InternationalInsuranceDocument::class,
+            ];
+
+            $shortName = (new \ReflectionClass($this))->getShortName();
+            $modelClass = $modelMap[$shortName] ?? null;
+
+            if (!$modelClass) {
+                return response()->json(['message' => 'تعذر تحديد نوع الوثيقة'], 500);
+            }
+
+            $document = $modelClass::findOrFail($id);
+            if ($document->is_canceled) {
+                return response()->json(['message' => 'هذه الوثيقة ملغية بالفعل'], 422);
+            }
+
+            $document->update([
+                'is_canceled' => true,
+                'canceled_at' => now(),
+                'canceled_by' => $userId,
+                'cancel_reason' => $validated['cancel_reason'],
+            ]);
+
+            return response()->json(['message' => 'تم إلغاء الوثيقة بنجاح']);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json(['message' => 'الوثيقة غير موجودة'], 404);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json(['message' => 'سبب الإلغاء مطلوب', 'errors' => $e->errors()], 422);
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error("Error in cancel document: " . $e->getMessage());
+            return response()->json(['message' => 'حدث خطأ أثناء إلغاء الوثيقة'], 500);
         }
     }
 }

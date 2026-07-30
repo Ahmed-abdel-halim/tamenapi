@@ -64,13 +64,11 @@ class FinancialStatisticsController extends Controller
 
         $growthRate = ($lastMonthRevenue > 0) ? (($currentMonthRevenue - $lastMonthRevenue) / $lastMonthRevenue) * 100 : 0;
 
-        // 6. Canceled Documents (Count docs where is_canceled = true or status = canceled)
+        // 6. Canceled Documents (Assuming status exists, default fallback if column not present)
         $canceledDocs = 0;
         foreach ($insuranceTables as $table) {
-            if (DB::getSchemaBuilder()->hasColumn($table, 'is_canceled')) {
-                $canceledDocs += DB::table($table)->where('is_canceled', true)->count();
-            } elseif (DB::getSchemaBuilder()->hasColumn($table, 'status')) {
-                $canceledDocs += DB::table($table)->where('status', 'canceled')->orWhere('status', 'ملغية')->count();
+            if (DB::getSchemaBuilder()->hasColumn($table, 'status')) {
+                $canceledDocs += DB::table($table)->where('status', 'canceled')->count();
             }
         }
 
@@ -330,12 +328,12 @@ class FinancialStatisticsController extends Controller
                 if (!$schema->hasTable($tableName)) continue;
                 if (!$schema->hasColumn($tableName, 'branch_agent_id')) continue;
 
-                // Exclude canceled documents (Soft Canceled via is_canceled or status)
-                if ($schema->hasColumn($tableName, 'is_canceled')) {
-                    $query->where('is_canceled', false);
-                } elseif ($schema->hasColumn($tableName, 'status')) {
+                $query = DB::table($tableName)->where('branch_agent_id', $agentId);
+
+                // Exclude canceled documents if requested
+                if ($excludeCanceled && $schema->hasColumn($tableName, 'status')) {
                     $query->where(function ($q) {
-                        $q->whereNull('status')->orWhere('status', '!=', 'ملغية')->where('status', '!=', 'canceled');
+                        $q->whereNull('status')->orWhere('status', '!=', 'ملغية');
                     });
                 }
 
@@ -447,26 +445,13 @@ class FinancialStatisticsController extends Controller
                 ];
 
                 $carriedBalance = $remaining > 0 ? $remaining : 0.0;
-                $lastRemaining  = $remaining;
 
                 $grandTotalSales        += $m['total_sales'];
                 $grandTotalDocs         += $m['document_count'];
                 $grandTotalAgentShare   += $dueAmount;
                 $grandTotalCompanyShare += $m['company_share'];
                 $grandTotalPaid         += $paidAmount;
-            }
-
-            // Calculate Canceled Documents for this specific Agent
-            $agentCanceledCount = 0;
-            $agentCanceledTotal = 0.0;
-            foreach ($documentTables as $dt) {
-                $tableName = $dt['table'];
-                if (!$schema->hasTable($tableName) || !$schema->hasColumn($tableName, 'branch_agent_id')) continue;
-                if ($schema->hasColumn($tableName, 'is_canceled')) {
-                    $cDocs = DB::table($tableName)->where('branch_agent_id', $agentId)->where('is_canceled', true)->get();
-                    $agentCanceledCount += $cDocs->count();
-                    $agentCanceledTotal += $cDocs->sum('total');
-                }
+                $grandTotalRemaining    = $carriedBalance;
             }
 
             return response()->json([
@@ -890,9 +875,6 @@ class FinancialStatisticsController extends Controller
                 if (!$schema->hasColumn($tableName, 'branch_agent_id')) continue;
 
                 $query = DB::table($tableName)->where('branch_agent_id', $agentId);
-                if ($schema->hasColumn($tableName, 'is_canceled')) {
-                    $query->where('is_canceled', false);
-                }
 
                 // Date filtering
                 if ($schema->hasColumn($tableName, $dateCol)) {

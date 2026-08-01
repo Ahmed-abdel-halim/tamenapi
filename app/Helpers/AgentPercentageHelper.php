@@ -8,7 +8,7 @@ class AgentPercentageHelper
      * Resolve agent percentage for a given document type and date.
      *
      * @param mixed $documentPercentages (array or json string or null)
-     * @param string $docType (e.g. 'تأمين سيارات إجباري', 'تأمين المسافرين', etc.)
+     * @param string $docType (e.g. 'تأمين سيارات إجباري', 'تأمين السيارات الدولي', 'تأمين سيارات دولي', etc.)
      * @param string|null $docDate (e.g. '2025-01-10' or '2025-01-10 14:30:00')
      * @return float
      */
@@ -27,20 +27,8 @@ class AgentPercentageHelper
             return 0.0;
         }
 
-        // Map specific insurance document types to standard percentage keys
-        $key = $docType;
-        $carKeys = [
-            'تأمين إجباري سيارات',
-            'تأمين سيارة جمرك',
-            'تأمين سيارات أجنبية',
-            'تأمين طرف ثالث سيارات',
-            'تأمين سيارات إجباري',
-            'تأمين سيارات'
-        ];
-
-        if (in_array($docType, $carKeys)) {
-            $key = 'تأمين سيارات';
-        }
+        // Generate list of candidate keys to search for this document type
+        $candidateKeys = self::getCandidateKeys($docType);
 
         $formattedDate = null;
         $monthKey = null;
@@ -60,7 +48,7 @@ class AgentPercentageHelper
                 $pStart = $period['start_date'] ?? '';
                 $pEnd = $period['end_date'] ?? '';
 
-                if (($pType === $key || $pType === $docType) && !empty($pStart) && !empty($pEnd)) {
+                if (in_array($pType, $candidateKeys) && !empty($pStart) && !empty($pEnd)) {
                     if ($formattedDate >= $pStart && $formattedDate <= $pEnd) {
                         return (float) ($period['percentage'] ?? 0);
                     }
@@ -72,37 +60,159 @@ class AgentPercentageHelper
         if ($monthKey && isset($documentPercentages['monthly_overrides']) && is_array($documentPercentages['monthly_overrides'])) {
             if (isset($documentPercentages['monthly_overrides'][$monthKey]) && is_array($documentPercentages['monthly_overrides'][$monthKey])) {
                 $monthData = $documentPercentages['monthly_overrides'][$monthKey];
-                if (isset($monthData[$key])) return (float) $monthData[$key];
-                if (isset($monthData[$docType])) return (float) $monthData[$docType];
-                if ($key === 'تأمين سيارات' && isset($monthData['تأمين سيارات إجباري'])) return (float) $monthData['تأمين سيارات إجباري'];
+                foreach ($candidateKeys as $cKey) {
+                    if (isset($monthData[$cKey]) && is_numeric($monthData[$cKey])) {
+                        return (float) $monthData[$cKey];
+                    }
+                }
             }
         }
 
         // 3. Check default nested structure { default: { ... } }
         if (isset($documentPercentages['default']) && is_array($documentPercentages['default'])) {
             $def = $documentPercentages['default'];
-            if (isset($def[$key])) return (float) $def[$key];
-            if (isset($def[$docType])) return (float) $def[$docType];
-            if ($key === 'تأمين سيارات' && isset($def['تأمين سيارات إجباري'])) return (float) $def['تأمين سيارات إجباري'];
-            if (isset($def['تأمين سيارات'])) return (float) $def['تأمين سيارات'];
+            foreach ($candidateKeys as $cKey) {
+                if (isset($def[$cKey]) && is_numeric($def[$cKey])) {
+                    return (float) $def[$cKey];
+                }
+            }
         }
 
-        // 4. Check flat format (object: { "تأمين سيارات": 50 })
-        if (isset($documentPercentages[$key]) && is_numeric($documentPercentages[$key])) return (float) $documentPercentages[$key];
-        if (isset($documentPercentages[$docType]) && is_numeric($documentPercentages[$docType])) return (float) $documentPercentages[$docType];
-        if ($key === 'تأمين سيارات' && isset($documentPercentages['تأمين سيارات إجباري']) && is_numeric($documentPercentages['تأمين سيارات إجباري'])) {
-            return (float) $documentPercentages['تأمين سيارات إجباري'];
+        // 4. Check flat format (object: { "تأمين سيارات دولي": 50 })
+        foreach ($candidateKeys as $cKey) {
+            if (isset($documentPercentages[$cKey]) && is_numeric($documentPercentages[$cKey])) {
+                return (float) $documentPercentages[$cKey];
+            }
         }
 
         // 5. Check indexed array format [{ document_type: '...', percentage: 50 }]
         foreach ($documentPercentages as $k => $val) {
             if (is_array($val) && isset($val['document_type'])) {
-                if ($val['document_type'] === $key || $val['document_type'] === $docType) {
+                if (in_array($val['document_type'], $candidateKeys)) {
                     return (float) ($val['percentage'] ?? 0);
                 }
             }
         }
 
         return 0.0;
+    }
+
+    /**
+     * Get candidate keys for a given document type.
+     */
+    private static function getCandidateKeys(string $docType): array
+    {
+        $docTypeClean = trim($docType);
+
+        // International Car Insurance
+        $internationalKeys = [
+            'تأمين سيارات دولي',
+            'تأمين السيارات الدولي',
+            'تأمين دولي',
+            'خدمات تامين السيارات الدولي تونس',
+            'car_international',
+            'InternationalInsuranceDocument'
+        ];
+        if (in_array($docTypeClean, $internationalKeys)) {
+            return $internationalKeys;
+        }
+
+        // Obligatory / Local Car Insurance
+        $carKeys = [
+            'تأمين سيارات',
+            'تأمين سيارات إجباري',
+            'تأمين إجباري سيارات',
+            'تأمين سيارة جمرك',
+            'تأمين سيارات أجنبية',
+            'تأمين طرف ثالث سيارات',
+            'InsuranceDocument'
+        ];
+        if (in_array($docTypeClean, $carKeys)) {
+            return array_unique(array_merge([$docTypeClean], $carKeys));
+        }
+
+        // Travel Insurance
+        $travelKeys = [
+            'تأمين المسافرين',
+            'تأمين زائرين ليبيا',
+            'تأمين السفر',
+            'TravelInsuranceDocument'
+        ];
+        if (in_array($docTypeClean, $travelKeys)) {
+            return $travelKeys;
+        }
+
+        // Resident Insurance
+        $residentKeys = [
+            'تأمين الوافدين',
+            'ResidentInsuranceDocument'
+        ];
+        if (in_array($docTypeClean, $residentKeys)) {
+            return $residentKeys;
+        }
+
+        // Marine Structure Insurance
+        $marineKeys = [
+            'تأمين الهياكل البحرية',
+            'MarineStructureInsuranceDocument'
+        ];
+        if (in_array($docTypeClean, $marineKeys)) {
+            return $marineKeys;
+        }
+
+        // Professional Liability Insurance
+        $professionalKeys = [
+            'تأمين المسؤولية المهنية (الطبية)',
+            'تأمين المسؤولية المهنية',
+            'ProfessionalLiabilityInsuranceDocument'
+        ];
+        if (in_array($docTypeClean, $professionalKeys)) {
+            return $professionalKeys;
+        }
+
+        // Personal Accident Insurance
+        $accidentKeys = [
+            'تأمين الحوادث الشخصية',
+            'PersonalAccidentInsuranceDocument'
+        ];
+        if (in_array($docTypeClean, $accidentKeys)) {
+            return $accidentKeys;
+        }
+
+        // School Student Insurance
+        $schoolKeys = [
+            'تأمين طلبة المدارس',
+            'تأمين حماية طلاب المدارس',
+            'SchoolStudentInsuranceDocument'
+        ];
+        if (in_array($docTypeClean, $schoolKeys)) {
+            return $schoolKeys;
+        }
+
+        // Cargo Insurance
+        $cargoKeys = [
+            'تأمين البضائع',
+            'تأمين شحن البضائع',
+            'CargoInsuranceDocument'
+        ];
+        if (in_array($docTypeClean, $cargoKeys)) {
+            return $cargoKeys;
+        }
+
+        // Cash In Transit Insurance
+        $cashKeys = [
+            'تأمين نقل النقدية',
+            'CashInTransitInsuranceDocument'
+        ];
+        if (in_array($docTypeClean, $cashKeys)) {
+            return $cashKeys;
+        }
+
+        // Fallback: return the docType clean and common variations
+        return array_unique([
+            $docTypeClean,
+            str_replace('السيارات', 'سيارات', $docTypeClean),
+            str_replace('سيارات', 'السيارات', $docTypeClean)
+        ]);
     }
 }

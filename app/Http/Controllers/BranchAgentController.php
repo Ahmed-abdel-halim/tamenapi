@@ -1101,7 +1101,8 @@ class BranchAgentController extends Controller
             }
 
             foreach ($internationalInsuranceDocuments as $doc) {
-                $percentage = $documentPercentages['تأمين سيارات دولي'] ?? 0;
+                $docDate = $doc->issue_date ?? $doc->created_at ?? null;
+                $percentage = AgentPercentageHelper::resolvePercentage($documentPercentages, 'تأمين السيارات الدولي', $docDate);
                 // حساب النسبة من القسط المقرر (premium) وليس من الإجمالي (total)
                 $premium = $doc->premium ?? 0;
                 $total = $doc->total ?? 0;
@@ -1583,7 +1584,8 @@ class BranchAgentController extends Controller
                     continue;
                 }
                 
-                $percentage = $documentPercentages['تأمين سيارات دولي'] ?? 0;
+                $docDate = $doc->issue_date ?? $doc->created_at ?? null;
+                $percentage = AgentPercentageHelper::resolvePercentage($documentPercentages, 'تأمين السيارات الدولي', $docDate);
                 $premium = $doc->premium ?? 0;
                 $total = $doc->total ?? 0;
                 $agentAmount = $premium * ($percentage / 100);
@@ -2625,7 +2627,8 @@ class BranchAgentController extends Controller
                     continue;
                 }
                 
-                $percentage = $documentPercentages['تأمين سيارات دولي'] ?? 0;
+                $docDate = $doc->issue_date ?? $doc->created_at ?? null;
+                $percentage = AgentPercentageHelper::resolvePercentage($documentPercentages, 'تأمين السيارات الدولي', $docDate);
                 $premium = $doc->premium ?? 0;
                 $total = $doc->total ?? 0;
                 $agentAmount = $premium * ($percentage / 100);
@@ -3176,14 +3179,7 @@ class BranchAgentController extends Controller
             }
 
             $getPercentage = function($category) use ($percentages) {
-                if (is_array($percentages)) {
-                    foreach ($percentages as $p) {
-                        if (isset($p['document_type']) && $p['document_type'] === $category) {
-                            return floatval($p['percentage']);
-                        }
-                    }
-                }
-                return 0;
+                return AgentPercentageHelper::resolvePercentage($percentages, $category);
             };
 
             $processDocuments = function ($docs, $category) use (&$documentsByCategory, &$totalCompanyAmount, &$totalAmount, &$grandTotal, $getPercentage) {
@@ -3333,7 +3329,7 @@ class BranchAgentController extends Controller
                     ->select($selectCols)
                     ->get();
 
-                $pct        = $documentPercentages[$pctKey] ?? 0;
+                $pct        = AgentPercentageHelper::resolvePercentage($documentPercentages, $pctKey);
                 $agentShare = 0;
                 $revenue    = 0;
                 foreach ($rows as $row) {
@@ -3479,7 +3475,7 @@ class BranchAgentController extends Controller
 
                     $premiumVal = $premiumCol ? ($row->$premiumCol ?? 0) : 0;
                     $totalVal   = $totalCol   ? ($row->$totalCol   ?? 0) : $premiumVal;
-                    $pct        = $documentPercentages[$pctKey] ?? 0;
+                    $pct        = AgentPercentageHelper::resolvePercentage($documentPercentages, $pctKey);
 
                     $totalAgentShare += $premiumVal * ($pct / 100);
                     $totalRevenue   += $totalVal;

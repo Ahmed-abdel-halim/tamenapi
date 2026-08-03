@@ -1130,8 +1130,8 @@ class BranchAgentController extends Controller
             }
 
             foreach ($travelInsuranceDocuments as $doc) {
-                $percentage = $documentPercentages['تأمين المسافرين'] ?? 
-                             $documentPercentages['تأمين زائرين ليبيا'] ?? 0;
+                $docDate = $doc->issue_date ?? $doc->created_at ?? null;
+                $percentage = AgentPercentageHelper::resolvePercentage($documentPercentages, 'تأمين المسافرين', $docDate);
                 // حساب النسبة من القسط المقرر (premium) وليس من الإجمالي (total)
                 $premium = $doc->premium ?? 0;
                 $total = $doc->total ?? 0;
@@ -1165,7 +1165,8 @@ class BranchAgentController extends Controller
             }
 
             foreach ($residentInsuranceDocuments as $doc) {
-                $percentage = $documentPercentages['تأمين الوافدين'] ?? 0;
+                $docDate = $doc->issue_date ?? $doc->created_at ?? null;
+                $percentage = AgentPercentageHelper::resolvePercentage($documentPercentages, 'تأمين الوافدين', $docDate);
                 // حساب النسبة من القسط المقرر (premium) وليس من الإجمالي (total)
                 $premium = $doc->premium ?? 0;
                 $total = $doc->total ?? 0;
@@ -1199,7 +1200,8 @@ class BranchAgentController extends Controller
             }
 
             foreach ($marineStructureInsuranceDocuments as $doc) {
-                $percentage = $documentPercentages['تأمين الهياكل البحرية'] ?? 0;
+                $docDate = $doc->issue_date ?? $doc->created_at ?? null;
+                $percentage = AgentPercentageHelper::resolvePercentage($documentPercentages, 'تأمين الهياكل البحرية', $docDate);
                 // حساب النسبة من القسط المقرر (premium) وليس من الإجمالي (total)
                 $premium = $doc->premium ?? 0;
                 $total = $doc->total ?? 0;
@@ -1227,7 +1229,8 @@ class BranchAgentController extends Controller
             }
 
             foreach ($professionalLiabilityInsuranceDocuments as $doc) {
-                $percentage = $documentPercentages['تأمين المسؤولية المهنية (الطبية)'] ?? 0;
+                $docDate = $doc->issue_date ?? $doc->created_at ?? null;
+                $percentage = AgentPercentageHelper::resolvePercentage($documentPercentages, 'تأمين المسؤولية المهنية (الطبية)', $docDate);
                 // حساب النسبة من القسط المقرر (premium) وليس من الإجمالي (total)
                 $premium = $doc->premium ?? 0;
                 $total = $doc->total ?? 0;
@@ -1255,7 +1258,8 @@ class BranchAgentController extends Controller
             }
 
             foreach ($personalAccidentInsuranceDocuments as $doc) {
-                $percentage = $documentPercentages['تأمين الحوادث الشخصية'] ?? 0;
+                $docDate = $doc->issue_date ?? $doc->created_at ?? null;
+                $percentage = AgentPercentageHelper::resolvePercentage($documentPercentages, 'تأمين الحوادث الشخصية', $docDate);
                 // حساب النسبة من القسط المقرر (premium) وليس من الإجمالي (total)
                 $premium = $doc->premium ?? 0;
                 $total = $doc->total ?? 0;
@@ -1286,7 +1290,8 @@ class BranchAgentController extends Controller
             }
 
             foreach ($schoolStudentInsuranceDocuments as $doc) {
-                $percentage = $documentPercentages['تأمين طلبة المدارس'] ?? 0;
+                $docDate = $doc->start_date ?? $doc->created_at ?? null;
+                $percentage = AgentPercentageHelper::resolvePercentage($documentPercentages, 'تأمين طلبة المدارس', $docDate);
                 $premium = $doc->premium ?? 0;
                 $total = $doc->total ?? 0;
                 $agentAmount = $premium * ($percentage / 100);
@@ -1313,7 +1318,8 @@ class BranchAgentController extends Controller
             }
 
             foreach ($cargoInsuranceDocuments as $doc) {
-                $percentage = $documentPercentages['تأمين البضائع'] ?? 0;
+                $docDate = $doc->created_at ?? null;
+                $percentage = AgentPercentageHelper::resolvePercentage($documentPercentages, 'تأمين البضائع', $docDate);
                 $premium = $doc->premium ?? 0;
                 $total = $doc->total ?? 0;
                 $agentAmount = $premium * ($percentage / 100);
@@ -1340,7 +1346,8 @@ class BranchAgentController extends Controller
             }
 
             foreach ($cashInTransitInsuranceDocuments as $doc) {
-                $percentage = $documentPercentages['تأمين نقل النقدية'] ?? 0;
+                $docDate = $doc->start_date ?? $doc->created_at ?? null;
+                $percentage = AgentPercentageHelper::resolvePercentage($documentPercentages, 'تأمين نقل النقدية', $docDate);
                 $premium = $doc->premium ?? 0;
                 $total = $doc->total ?? 0;
                 $agentAmount = $premium * ($percentage / 100);
@@ -1521,28 +1528,9 @@ class BranchAgentController extends Controller
                 ->get();
 
             foreach ($insuranceDocuments as $doc) {
-                $insuranceType = $doc->insurance_type ?? '';
-                $percentage = 0;
-                
-                $insuranceTypeToPercentageKey = [
-                    'تأمين إجباري سيارات' => 'تأمين سيارات',
-                    'تأمين سيارة جمرك' => 'تأمين سيارة جمرك',
-                    'تأمين سيارات أجنبية' => 'تأمين سيارات أجنبية',
-                    'تأمين طرف ثالث سيارات' => 'تأمين طرف ثالث سيارات',
-                ];
-                
-                $percentageKey = $insuranceTypeToPercentageKey[$insuranceType] ?? null;
-                if ($percentageKey && isset($documentPercentages[$percentageKey])) {
-                    $percentage = $documentPercentages[$percentageKey];
-                } elseif (isset($documentPercentages[$insuranceType])) {
-                    $percentage = $documentPercentages[$insuranceType];
-                } else {
-                    $percentage = $documentPercentages['تأمين سيارات إجباري'] ?? 
-                                 $documentPercentages['تأمين سيارات'] ?? 
-                                 $documentPercentages['تأمين سيارة جمرك'] ?? 
-                                 $documentPercentages['تأمين سيارات أجنبية'] ?? 
-                                 $documentPercentages['تأمين طرف ثالث سيارات'] ?? 0;
-                }
+                $insuranceType = $doc->insurance_type ?? 'تأمين إجباري سيارات';
+                $docDate = $doc->issue_date ?? $doc->created_at ?? null;
+                $percentage = AgentPercentageHelper::resolvePercentage($documentPercentages, $insuranceType, $docDate);
                 
                 // التحقق من نوع التأمين قبل الإضافة
                 if (!$shouldIncludeDocument($insuranceType)) {
@@ -1621,8 +1609,8 @@ class BranchAgentController extends Controller
                     continue;
                 }
                 
-                $percentage = $documentPercentages['تأمين المسافرين'] ?? 
-                             $documentPercentages['تأمين زائرين ليبيا'] ?? 0;
+                $docDate = $doc->issue_date ?? $doc->created_at ?? null;
+                $percentage = AgentPercentageHelper::resolvePercentage($documentPercentages, 'تأمين المسافرين', $docDate);
                 $premium = $doc->premium ?? 0;
                 $total = $doc->total ?? 0;
                 $agentAmount = $premium * ($percentage / 100);
@@ -1663,7 +1651,8 @@ class BranchAgentController extends Controller
                     continue;
                 }
                 
-                $percentage = $documentPercentages['تأمين الوافدين'] ?? 0;
+                $docDate = $doc->issue_date ?? $doc->created_at ?? null;
+                $percentage = AgentPercentageHelper::resolvePercentage($documentPercentages, 'تأمين الوافدين', $docDate);
                 $premium = $doc->premium ?? 0;
                 $total = $doc->total ?? 0;
                 $agentAmount = $premium * ($percentage / 100);
@@ -1704,7 +1693,8 @@ class BranchAgentController extends Controller
                     continue;
                 }
                 
-                $percentage = $documentPercentages['تأمين الهياكل البحرية'] ?? 0;
+                $docDate = $doc->issue_date ?? $doc->created_at ?? null;
+                $percentage = AgentPercentageHelper::resolvePercentage($documentPercentages, 'تأمين الهياكل البحرية', $docDate);
                 $premium = $doc->premium ?? 0;
                 $total = $doc->total ?? 0;
                 $agentAmount = $premium * ($percentage / 100);
@@ -1740,7 +1730,8 @@ class BranchAgentController extends Controller
                     continue;
                 }
                 
-                $percentage = $documentPercentages['تأمين المسؤولية المهنية (الطبية)'] ?? 0;
+                $docDate = $doc->issue_date ?? $doc->created_at ?? null;
+                $percentage = AgentPercentageHelper::resolvePercentage($documentPercentages, 'تأمين المسؤولية المهنية (الطبية)', $docDate);
                 $premium = $doc->premium ?? 0;
                 $total = $doc->total ?? 0;
                 $agentAmount = $premium * ($percentage / 100);
@@ -1776,7 +1767,8 @@ class BranchAgentController extends Controller
                     continue;
                 }
                 
-                $percentage = $documentPercentages['تأمين الحوادث الشخصية'] ?? 0;
+                $docDate = $doc->issue_date ?? $doc->created_at ?? null;
+                $percentage = AgentPercentageHelper::resolvePercentage($documentPercentages, 'تأمين الحوادث الشخصية', $docDate);
                 $premium = $doc->premium ?? 0;
                 $total = $doc->total ?? 0;
                 $agentAmount = $premium * ($percentage / 100);
@@ -1813,7 +1805,8 @@ class BranchAgentController extends Controller
                     continue;
                 }
                 
-                $percentage = $documentPercentages['تأمين طلبة المدارس'] ?? 0;
+                $docDate = $doc->start_date ?? $doc->created_at ?? null;
+                $percentage = AgentPercentageHelper::resolvePercentage($documentPercentages, 'تأمين طلبة المدارس', $docDate);
                 $premium = $doc->premium ?? 0;
                 $total = $doc->total ?? 0;
                 $agentAmount = $premium * ($percentage / 100);
@@ -1848,7 +1841,8 @@ class BranchAgentController extends Controller
                     continue;
                 }
                 
-                $percentage = $documentPercentages['تأمين البضائع'] ?? 0;
+                $docDate = $doc->created_at ?? null;
+                $percentage = AgentPercentageHelper::resolvePercentage($documentPercentages, 'تأمين البضائع', $docDate);
                 $premium = $doc->premium ?? 0;
                 $total = $doc->total ?? 0;
                 $agentAmount = $premium * ($percentage / 100);
@@ -1883,7 +1877,8 @@ class BranchAgentController extends Controller
                     continue;
                 }
                 
-                $percentage = $documentPercentages['تأمين نقل النقدية'] ?? 0;
+                $docDate = $doc->start_date ?? $doc->created_at ?? null;
+                $percentage = AgentPercentageHelper::resolvePercentage($documentPercentages, 'تأمين نقل النقدية', $docDate);
                 $premium = $doc->premium ?? 0;
                 $total = $doc->total ?? 0;
                 $agentAmount = $premium * ($percentage / 100);
@@ -2557,34 +2552,15 @@ class BranchAgentController extends Controller
                 ->get();
 
             foreach ($insuranceDocuments as $doc) {
-                $insuranceType = $doc->insurance_type ?? '';
+                $insuranceType = $doc->insurance_type ?? 'تأمين إجباري سيارات';
                 
                 // التحقق من نوع التأمين قبل الإضافة
                 if (!$shouldIncludeDocument($insuranceType)) {
                     continue;
                 }
                 
-                $percentage = 0;
-                
-                $insuranceTypeToPercentageKey = [
-                    'تأمين إجباري سيارات' => 'تأمين سيارات',
-                    'تأمين سيارة جمرك' => 'تأمين سيارة جمرك',
-                    'تأمين سيارات أجنبية' => 'تأمين سيارات أجنبية',
-                    'تأمين طرف ثالث سيارات' => 'تأمين طرف ثالث سيارات',
-                ];
-                
-                $percentageKey = $insuranceTypeToPercentageKey[$insuranceType] ?? null;
-                if ($percentageKey && isset($documentPercentages[$percentageKey])) {
-                    $percentage = $documentPercentages[$percentageKey];
-                } elseif (isset($documentPercentages[$insuranceType])) {
-                    $percentage = $documentPercentages[$insuranceType];
-                } else {
-                    $percentage = $documentPercentages['تأمين سيارات إجباري'] ?? 
-                                 $documentPercentages['تأمين سيارات'] ?? 
-                                 $documentPercentages['تأمين سيارة جمرك'] ?? 
-                                 $documentPercentages['تأمين سيارات أجنبية'] ?? 
-                                 $documentPercentages['تأمين طرف ثالث سيارات'] ?? 0;
-                }
+                $docDate = $doc->issue_date ?? $doc->created_at ?? null;
+                $percentage = AgentPercentageHelper::resolvePercentage($documentPercentages, $insuranceType, $docDate);
                 
                 $premium = $doc->premium ?? 0;
                 $total = $doc->total ?? 0;
@@ -2669,8 +2645,8 @@ class BranchAgentController extends Controller
                     continue;
                 }
                 
-                $percentage = $documentPercentages['تأمين المسافرين'] ?? 
-                             $documentPercentages['تأمين زائرين ليبيا'] ?? 0;
+                $docDate = $doc->issue_date ?? $doc->created_at ?? null;
+                $percentage = AgentPercentageHelper::resolvePercentage($documentPercentages, 'تأمين المسافرين', $docDate);
                 $premium = $doc->premium ?? 0;
                 $total = $doc->total ?? 0;
                 $agentAmount = $premium * ($percentage / 100);
@@ -2716,7 +2692,8 @@ class BranchAgentController extends Controller
                     continue;
                 }
                 
-                $percentage = $documentPercentages['تأمين الوافدين'] ?? 0;
+                $docDate = $doc->issue_date ?? $doc->created_at ?? null;
+                $percentage = AgentPercentageHelper::resolvePercentage($documentPercentages, 'تأمين الوافدين', $docDate);
                 $premium = $doc->premium ?? 0;
                 $total = $doc->total ?? 0;
                 $agentAmount = $premium * ($percentage / 100);
@@ -2762,7 +2739,8 @@ class BranchAgentController extends Controller
                     continue;
                 }
                 
-                $percentage = $documentPercentages['تأمين الهياكل البحرية'] ?? 0;
+                $docDate = $doc->issue_date ?? $doc->created_at ?? null;
+                $percentage = AgentPercentageHelper::resolvePercentage($documentPercentages, 'تأمين الهياكل البحرية', $docDate);
                 $premium = $doc->premium ?? 0;
                 $total = $doc->total ?? 0;
                 $agentAmount = $premium * ($percentage / 100);
@@ -2803,7 +2781,8 @@ class BranchAgentController extends Controller
                     continue;
                 }
                 
-                $percentage = $documentPercentages['تأمين المسؤولية المهنية (الطبية)'] ?? 0;
+                $docDate = $doc->issue_date ?? $doc->created_at ?? null;
+                $percentage = AgentPercentageHelper::resolvePercentage($documentPercentages, 'تأمين المسؤولية المهنية (الطبية)', $docDate);
                 $premium = $doc->premium ?? 0;
                 $total = $doc->total ?? 0;
                 $agentAmount = $premium * ($percentage / 100);
@@ -2844,7 +2823,8 @@ class BranchAgentController extends Controller
                     continue;
                 }
                 
-                $percentage = $documentPercentages['تأمين الحوادث الشخصية'] ?? 0;
+                $docDate = $doc->issue_date ?? $doc->created_at ?? null;
+                $percentage = AgentPercentageHelper::resolvePercentage($documentPercentages, 'تأمين الحوادث الشخصية', $docDate);
                 $premium = $doc->premium ?? 0;
                 $total = $doc->total ?? 0;
                 $agentAmount = $premium * ($percentage / 100);
@@ -3319,20 +3299,28 @@ class BranchAgentController extends Controller
                 $totalCol   = $hasTotal ? 'total' : ($hasSumInsured ? 'sum_insured' : null);
                 $premiumCol = $hasPremium ? 'premium' : ($hasPremiumAmount ? 'premium_amount' : null);
 
+                $hasIssueDate = $schema->hasColumn($tableName, 'issue_date');
+                $hasStartDate = $schema->hasColumn($tableName, 'start_date');
+                $hasCreatedAt = $schema->hasColumn($tableName, 'created_at');
+
                 $selectCols = ['id'];
                 if ($totalCol)   $selectCols[] = $totalCol;
                 if ($premiumCol) $selectCols[] = $premiumCol;
                 if ($hasEndDate) $selectCols[] = 'end_date';
+                if ($hasIssueDate) $selectCols[] = 'issue_date';
+                if ($hasStartDate) $selectCols[] = 'start_date';
+                if ($hasCreatedAt) $selectCols[] = 'created_at';
 
                 $rows = DB::table($tableName)
                     ->where('branch_agent_id', $id)
                     ->select($selectCols)
                     ->get();
 
-                $pct        = AgentPercentageHelper::resolvePercentage($documentPercentages, $pctKey);
                 $agentShare = 0;
                 $revenue    = 0;
                 foreach ($rows as $row) {
+                    $docDate    = $row->issue_date ?? $row->start_date ?? $row->created_at ?? null;
+                    $pct        = AgentPercentageHelper::resolvePercentage($documentPercentages, $pctKey, $docDate);
                     $premiumVal = $premiumCol ? ($row->$premiumCol ?? 0) : 0;
                     $totalVal   = $totalCol   ? ($row->$totalCol   ?? 0) : $premiumVal;
                     $agentShare += $premiumVal * ($pct / 100);
@@ -3407,7 +3395,7 @@ class BranchAgentController extends Controller
             // 1. insurance_documents (تأمين السيارات بكل أنواعه)
             if (DB::getSchemaBuilder()->hasTable('insurance_documents')) {
                 $rows = DB::table('insurance_documents')
-                    ->select('branch_agent_id', 'total', 'premium', 'insurance_type', 'end_date')
+                    ->select('branch_agent_id', 'total', 'premium', 'insurance_type', 'end_date', 'issue_date', 'created_at')
                     ->get();
 
                 $typeMap = [
@@ -3422,8 +3410,9 @@ class BranchAgentController extends Controller
                     $agent   = $agents->get($agentId);
                     $documentPercentages = $agent ? ($agent->document_percentages ?? []) : [];
 
-                    $pctKey = $typeMap[$row->insurance_type ?? ''] ?? 'تأمين سيارات';
-                    $pct    = $documentPercentages[$pctKey] ?? 0;
+                    $pctKey  = $typeMap[$row->insurance_type ?? ''] ?? 'تأمين سيارات';
+                    $docDate = $row->issue_date ?? $row->created_at ?? null;
+                    $pct     = AgentPercentageHelper::resolvePercentage($documentPercentages, $pctKey, $docDate);
 
                     $totalAgentShare += ($row->premium ?? 0) * ($pct / 100);
                     if ($row->end_date && $row->end_date < $today) $expiredCount++; else $activeCount++;
@@ -3455,6 +3444,9 @@ class BranchAgentController extends Controller
                 $hasPremiumAmount = $schema->hasColumn($tableName, 'premium_amount');
                 $hasSumInsured   = $schema->hasColumn($tableName, 'sum_insured');
                 $hasEndDate      = $schema->hasColumn($tableName, 'end_date');
+                $hasIssueDate    = $schema->hasColumn($tableName, 'issue_date');
+                $hasStartDate    = $schema->hasColumn($tableName, 'start_date');
+                $hasCreatedAt    = $schema->hasColumn($tableName, 'created_at');
 
                 $totalCol   = $hasTotal ? 'total' : ($hasSumInsured ? 'sum_insured' : null);
                 $premiumCol = $hasPremium ? 'premium' : ($hasPremiumAmount ? 'premium_amount' : null);
@@ -3463,6 +3455,9 @@ class BranchAgentController extends Controller
                 if ($totalCol)   $selectCols[] = $totalCol;
                 if ($premiumCol) $selectCols[] = $premiumCol;
                 if ($hasEndDate) $selectCols[] = 'end_date';
+                if ($hasIssueDate) $selectCols[] = 'issue_date';
+                if ($hasStartDate) $selectCols[] = 'start_date';
+                if ($hasCreatedAt) $selectCols[] = 'created_at';
 
                 $rows = DB::table($tableName)
                     ->select($selectCols)
@@ -3475,7 +3470,8 @@ class BranchAgentController extends Controller
 
                     $premiumVal = $premiumCol ? ($row->$premiumCol ?? 0) : 0;
                     $totalVal   = $totalCol   ? ($row->$totalCol   ?? 0) : $premiumVal;
-                    $pct        = AgentPercentageHelper::resolvePercentage($documentPercentages, $pctKey);
+                    $docDate    = $row->issue_date ?? $row->start_date ?? $row->created_at ?? null;
+                    $pct        = AgentPercentageHelper::resolvePercentage($documentPercentages, $pctKey, $docDate);
 
                     $totalAgentShare += $premiumVal * ($pct / 100);
                     $totalRevenue   += $totalVal;

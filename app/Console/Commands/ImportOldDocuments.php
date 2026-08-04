@@ -148,10 +148,21 @@ class ImportOldDocuments extends Command
                             $branchAgentId = $agentNameToId[$normName];
                         }
                     }
-                }
 
-                if (!$branchAgentId) {
-                    $noAgentCount++;
+                    // إذا كان اسم الجهة هو أدمن / إدارة / الفرع الرئيسي -> ربط بـ مكتب الاصدار (BK0063)
+                    if (!$branchAgentId) {
+                        $systemNames = ['admin', '.admin', 'hamza', 'المدار الليبي - المبيعات', 'الفرع الرئيسي', 'الادارة', 'مشرف النظام', 'محرر عقود'];
+                        $lowAgent = strtolower($agentName);
+                        foreach ($systemNames as $sysName) {
+                            if (str_contains($lowAgent, strtolower($sysName))) {
+                                $branchAgentId = $agentCodeToId['BK0063'] ?? 65;
+                                break;
+                            }
+                        }
+                    }
+                } else {
+                    // افتراضي للوثائق بدون وكيل -> مكتب الاصدار BK0063
+                    $branchAgentId = $agentCodeToId['BK0063'] ?? 65;
                 }
 
                 // التواريخ

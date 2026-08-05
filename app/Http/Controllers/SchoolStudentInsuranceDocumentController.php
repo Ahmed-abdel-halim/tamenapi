@@ -40,6 +40,13 @@ class SchoolStudentInsuranceDocumentController extends Controller
                 } else {
                     $query->where('user_id', $userId);
                 }
+            $statusParam = $request->query('status');
+            if ($statusParam === 'all') {
+                // Return all documents
+            } elseif ($statusParam === 'expired' || $statusParam === 'archived' || $request->boolean('archived')) {
+                $query->archived();
+            } elseif ($statusParam === 'active') {
+                $query->active();
             }
 
             // إضافة ميزة البحث

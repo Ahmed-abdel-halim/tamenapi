@@ -54,8 +54,13 @@ class InsuranceDocumentController extends Controller
                                  $request->filled('day') ||
                                  ($isAdmin && $request->filled('branch_agent_id'));
 
-            if ($request->boolean('archived')) {
+            $statusParam = $request->query('status');
+            if ($statusParam === 'all') {
+                // Return all documents (both active and expired)
+            } elseif ($statusParam === 'expired' || $statusParam === 'archived' || $request->boolean('archived')) {
                 $query->archived();
+            } elseif ($statusParam === 'active') {
+                $query->active();
             } elseif (!$hasFilterOrSearch) {
                 $query->active();
             }

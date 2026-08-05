@@ -41,6 +41,15 @@ class CargoInsuranceDocumentController extends Controller
                 }
             }
 
+            $statusParam = $request->query('status');
+            if ($statusParam === 'all') {
+                // Return all documents
+            } elseif ($statusParam === 'expired' || $statusParam === 'archived' || $request->boolean('archived')) {
+                $query->archived();
+            } elseif ($statusParam === 'active') {
+                $query->active();
+            }
+
             // إضافة ميزة البحث
             $search = $request->query('search');
             if ($search) {

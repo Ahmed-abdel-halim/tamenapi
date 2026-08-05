@@ -327,7 +327,6 @@ class FinancialStatisticsController extends Controller
             // Fetch all docs for this agent across all tables
             foreach ($documentTables as $dt) {
                 $tableName = $dt['table'];
-                $dateCol   = $dt['date_col'];
 
                 // تصفية بحسب نوع الوثيقة
                 if ($documentType && $documentType !== 'all') {
@@ -339,6 +338,10 @@ class FinancialStatisticsController extends Controller
                 if (!$schema->hasTable($tableName)) continue;
                 if (!$schema->hasColumn($tableName, 'branch_agent_id')) continue;
 
+                // تحديد أعمدة التاريخ المتاحة لهذا الجدول (مرة واحدة قبل الحلقة)
+                // الأولوية: issue_date > start_date > created_at
+                $hasIssueDate = $schema->hasColumn($tableName, 'issue_date');
+                $hasStartDate = $schema->hasColumn($tableName, 'start_date');
 
                 $query = DB::table($tableName)->where('branch_agent_id', $agentId);
 
@@ -352,10 +355,13 @@ class FinancialStatisticsController extends Controller
                 $docs = $query->get();
 
                 foreach ($docs as $doc) {
-                    // Resolve the document date
+                    // تحديد تاريخ الوثيقة بالأولوية: issue_date > start_date > created_at
+                    // نستخدم تاريخ البداية الفعلي للوثيقة وليس تاريخ إدخالها في النظام
                     $rawDate = null;
-                    if ($dateCol !== 'created_at' && $schema->hasColumn($tableName, $dateCol)) {
-                        $rawDate = $doc->$dateCol ?? $doc->created_at ?? null;
+                    if ($hasIssueDate && !empty($doc->issue_date)) {
+                        $rawDate = $doc->issue_date;
+                    } elseif ($hasStartDate && !empty($doc->start_date)) {
+                        $rawDate = $doc->start_date;
                     } else {
                         $rawDate = $doc->created_at ?? null;
                     }
@@ -878,7 +884,6 @@ class FinancialStatisticsController extends Controller
                 }
 
                 $tableName   = $config['table'];
-                $dateCol     = $config['date_col'];
                 $numberField = $config['number_field'];
                 $nameField   = $config['name_field'];
                 $defaultLabel= $config['type_label'];
@@ -886,14 +891,15 @@ class FinancialStatisticsController extends Controller
                 if (!$schema->hasTable($tableName)) continue;
                 if (!$schema->hasColumn($tableName, 'branch_agent_id')) continue;
 
+                // تحديد عمود التاريخ بالأولوية: issue_date > start_date > created_at
+                $hasIssueDate = $schema->hasColumn($tableName, 'issue_date');
+                $hasStartDate = $schema->hasColumn($tableName, 'start_date');
+                $filterDateCol = $hasIssueDate ? 'issue_date' : ($hasStartDate ? 'start_date' : 'created_at');
+
                 $query = DB::table($tableName)->where('branch_agent_id', $agentId);
 
-                // Date filtering
-                if ($schema->hasColumn($tableName, $dateCol)) {
-                    $query->whereBetween($dateCol, [$fromDate, $toDate]);
-                } else {
-                    $query->whereBetween('created_at', [$fromDate, $toDate]);
-                }
+                // Date filtering using preferred date column
+                $query->whereBetween($filterDateCol, [$fromDate, $toDate]);
 
                 if ($search) {
                     $query->where(function ($q) use ($numberField, $nameField, $search, $tableName, $schema) {
@@ -914,7 +920,7 @@ class FinancialStatisticsController extends Controller
                     $name     = $doc->$nameField ?? ($doc->insured_name ?? $doc->name ?? $doc->student_name ?? '-');
                     $total    = (float)($doc->total ?? $doc->premium_amount ?? 0);
                     $premium  = (float)($doc->premium ?? $doc->premium_amount ?? 0);
-                    $rawDate  = $doc->$dateCol ?? $doc->issue_date ?? $doc->start_date ?? $doc->created_at ?? $fromDate;
+                    $rawDate  = $doc->issue_date ?? $doc->start_date ?? $doc->created_at ?? $fromDate;
                     $typeLabel= $doc->insurance_type ?? $defaultLabel;
 
                     $pct           = \App\Helpers\AgentPercentageHelper::resolvePercentage($percentages, $typeLabel, $rawDate);

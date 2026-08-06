@@ -133,7 +133,7 @@ class UnionSyncService
                             'document_number'        => $num,
                             'external_policy_number' => $card['id'] ?? null,
                             'insured_name'           => 'بطاقة برتقالية ملغية (LIFO)',
-                            'item_type'              => 'سيارات',
+                            'item_type'              => 'سيارات خاصة ملاكي',
                             'total'                  => 0.000,
                             'premium'                => 0.000,
                             'tax'                    => 0.000,

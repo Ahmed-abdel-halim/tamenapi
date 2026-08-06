@@ -180,6 +180,8 @@ class CanceledDocumentsController extends Controller
             $page = (int) $request->query('page', 1);
 
 
+            $this->syncLifoCancelledCardsToDb();
+
             foreach ($models as $tableKey => $info) {
                 // تخطي إذا تم تحديد نوع معين
                 if ($filterType && $filterType !== $tableKey) {
@@ -187,16 +189,14 @@ class CanceledDocumentsController extends Controller
                 }
 
                 $modelClass = $info['model'];
+                $tableName = (new $modelClass)->getTable();
 
-                // التحقق من وجود العمود قبل الاستعلام
-                if (!\Illuminate\Support\Facades\Schema::hasColumn(
-                    (new $modelClass)->getTable(),
-                    'is_canceled'
-                )) {
-                    continue;
-                }
-
-                $query = $modelClass::where('is_canceled', true);
+                $query = $modelClass::where(function ($q) use ($tableName) {
+                    $q->where('is_canceled', true);
+                    if (\Illuminate\Support\Facades\Schema::hasColumn($tableName, 'status')) {
+                        $q->orWhere('status', 'ملغية')->orWhere('status', 'ملغيه');
+                    }
+                });
 
                 // فلتر الوكيل
                 if ($filterAgentId) {
@@ -358,6 +358,100 @@ class CanceledDocumentsController extends Controller
                 'message' => 'حدث خطأ أثناء جلب الإحصائيات',
                 'error' => config('app.debug') ? $e->getMessage() : 'خطأ غير معروف'
             ], 500);
+        }
+    }
+
+    /**
+     * مزامنة وتأكيد ربط البطاقات الملغية من LIFO بالوكلاء والجدول المحلي
+     */
+    private function syncLifoCancelledCardsToDb()
+    {
+        try {
+            $cards = \Illuminate\Support\Facades\Cache::get('lifo_cards_adminmli_all');
+            if (!$cards) {
+                $cards = \Illuminate\Support\Facades\Cache::get('lifo_cards_adminmli_cancel');
+            }
+            if (!is_array($cards) || empty($cards)) {
+                return;
+            }
+
+            $agents = BranchAgent::all();
+            $agentsMap = [];
+            foreach ($agents as $ag) {
+                if ($ag->agency_name) $agentsMap[mb_strtolower(trim($ag->agency_name))] = $ag->id;
+                if ($ag->code) $agentsMap[mb_strtolower(trim($ag->code))] = $ag->id;
+                if ($ag->agent_name) $agentsMap[mb_strtolower(trim($ag->agent_name))] = $ag->id;
+            }
+
+            foreach ($cards as $card) {
+                $status = $card['cardstautesname'] ?? '';
+                if ($status !== 'البطاقات الملغية' && $status !== 'الملغية') {
+                    continue;
+                }
+
+                $num = $card['card_number'] ?? $card['card_serial'] ?? null;
+                if (!$num) continue;
+
+                $officeName = trim($card['offices'] ?? '');
+                $agentId = null;
+
+                if ($officeName) {
+                    $lowerOffice = mb_strtolower($officeName);
+                    if (isset($agentsMap[$lowerOffice])) {
+                        $agentId = $agentsMap[$lowerOffice];
+                    } else {
+                        foreach ($agents as $ag) {
+                            if (!empty($ag->code) && str_contains($lowerOffice, mb_strtolower($ag->code))) {
+                                $agentId = $ag->id;
+                                break;
+                            }
+                            if (!empty($ag->agency_name) && (str_contains($lowerOffice, mb_strtolower($ag->agency_name)) || str_contains(mb_strtolower($ag->agency_name), $lowerOffice))) {
+                                $agentId = $ag->id;
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                $existing = \Illuminate\Support\Facades\DB::table('international_insurance_documents')
+                    ->where('document_number', $num)
+                    ->first();
+
+                if ($existing) {
+                    \Illuminate\Support\Facades\DB::table('international_insurance_documents')
+                        ->where('id', $existing->id)
+                        ->update([
+                            'is_canceled' => 1,
+                            'status' => 'ملغية',
+                            'canceled_at' => $existing->canceled_at ?? (!empty($card['created_at']) ? substr($card['created_at'], 0, 19) : now()->toDateTimeString()),
+                            'cancel_reason' => $existing->cancel_reason ?? 'إلغاء البطاقة من خادم الاتحاد (LIFO)',
+                            'branch_agent_id' => $existing->branch_agent_id ?? $agentId,
+                        ]);
+                } else {
+                    \Illuminate\Support\Facades\DB::table('international_insurance_documents')->insert([
+                        'document_number'        => $num,
+                        'external_policy_number' => $card['id'] ?? null,
+                        'insured_name'           => 'بطاقة برتقالية ملغية (LIFO)',
+                        'insurance_type'         => 'التأمين الدولي',
+                        'total'                  => 0.000,
+                        'premium'                => 0.000,
+                        'tax'                    => 0.000,
+                        'supervision_fees'       => 0.000,
+                        'issue_fees'             => 0.000,
+                        'stamp'                  => 0.000,
+                        'issue_date'             => !empty($card['created_at']) ? substr($card['created_at'], 0, 19) : now()->toDateTimeString(),
+                        'branch_agent_id'        => $agentId,
+                        'is_canceled'            => 1,
+                        'status'                 => 'ملغية',
+                        'canceled_at'            => !empty($card['created_at']) ? substr($card['created_at'], 0, 19) : now()->toDateTimeString(),
+                        'cancel_reason'          => 'إلغاء البطاقة من خادم الاتحاد (LIFO)',
+                        'created_at'             => now(),
+                        'updated_at'             => now(),
+                    ]);
+                }
+            }
+        } catch (\Exception $e) {
+            Log::error('Error in syncLifoCancelledCardsToDb: ' . $e->getMessage());
         }
     }
 }

@@ -67,6 +67,7 @@ class UnionSyncService
             $cardsMap = [];
             $cancelledCardIds = [];
             $cancelledCardNumbers = [];
+            $cancelledCardsByNumber = [];
 
             foreach ($cardsList as $card) {
                 $status = $card['cardstautesname'] ?? '';
@@ -78,17 +79,84 @@ class UnionSyncService
                         $cancelledCardIds[$card['id']] = true;
                         if ($num) {
                             $cancelledCardNumbers[] = $num;
+                            $cancelledCardsByNumber[$num] = $card;
                         }
                     }
                 }
             }
 
-            // Delete any existing cancelled documents from the local database
+            // Preload agents for office/agency mapping
+            $allAgents = BranchAgent::all();
+            $agentMapByOffice = [];
+            foreach ($allAgents as $ag) {
+                if ($ag->agency_name) $agentMapByOffice[mb_strtolower(trim($ag->agency_name))] = $ag->id;
+                if ($ag->code) $agentMapByOffice[mb_strtolower(trim($ag->code))] = $ag->id;
+                if ($ag->agent_name) $agentMapByOffice[mb_strtolower(trim($ag->agent_name))] = $ag->id;
+            }
+
+            // Mark existing cancelled documents in local DB as canceled (instead of deleting)
             if (!empty($cancelledCardNumbers)) {
-                $deletedCount = DB::table('international_insurance_documents')
+                $updatedCount = DB::table('international_insurance_documents')
                     ->whereIn('document_number', $cancelledCardNumbers)
-                    ->delete();
-                Log::info("UnionSyncService: Deleted {$deletedCount} cancelled documents from local database.");
+                    ->update([
+                        'is_canceled' => 1,
+                        'status' => 'ملغية',
+                        'canceled_at' => DB::raw('IFNULL(canceled_at, NOW())'),
+                        'cancel_reason' => DB::raw("IFNULL(cancel_reason, 'إلغاء البطاقة من خادم الاتحاد (LIFO)')"),
+                    ]);
+                Log::info("UnionSyncService: Marked {$updatedCount} documents as cancelled in local database.");
+
+                // For any cancelled cards in LIFO list that are missing in DB, insert them mapped to their agent
+                foreach ($cancelledCardsByNumber as $num => $card) {
+                    $officeName = trim($card['offices'] ?? '');
+                    $agentId = null;
+                    if ($officeName) {
+                        $lowerOffice = mb_strtolower($officeName);
+                        if (isset($agentMapByOffice[$lowerOffice])) {
+                            $agentId = $agentMapByOffice[$lowerOffice];
+                        } else {
+                            foreach ($allAgents as $ag) {
+                                if (!empty($ag->code) && str_contains($lowerOffice, mb_strtolower($ag->code))) {
+                                    $agentId = $ag->id;
+                                    break;
+                                }
+                                if (!empty($ag->agency_name) && (str_contains($lowerOffice, mb_strtolower($ag->agency_name)) || str_contains(mb_strtolower($ag->agency_name), $lowerOffice))) {
+                                    $agentId = $ag->id;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
+                    $exists = DB::table('international_insurance_documents')->where('document_number', $num)->exists();
+                    if (!$exists) {
+                        DB::table('international_insurance_documents')->insert([
+                            'document_number'        => $num,
+                            'external_policy_number' => $card['id'] ?? null,
+                            'insured_name'           => 'بطاقة برتقالية ملغية (LIFO)',
+                            'insurance_type'         => 'التأمين الدولي',
+                            'total'                  => 0.000,
+                            'premium'                => 0.000,
+                            'tax'                    => 0.000,
+                            'supervision_fees'       => 0.000,
+                            'issue_fees'             => 0.000,
+                            'stamp'                  => 0.000,
+                            'issue_date'             => !empty($card['created_at']) ? substr($card['created_at'], 0, 19) : now()->toDateTimeString(),
+                            'branch_agent_id'        => $agentId,
+                            'is_canceled'            => 1,
+                            'status'                 => 'ملغية',
+                            'canceled_at'            => !empty($card['created_at']) ? substr($card['created_at'], 0, 19) : now()->toDateTimeString(),
+                            'cancel_reason'          => 'إلغاء البطاقة من خادم الاتحاد (LIFO)',
+                            'created_at'             => now(),
+                            'updated_at'             => now(),
+                        ]);
+                    } elseif ($agentId) {
+                        DB::table('international_insurance_documents')
+                            ->where('document_number', $num)
+                            ->whereNull('branch_agent_id')
+                            ->update(['branch_agent_id' => $agentId]);
+                    }
+                }
             }
 
             Log::info('UnionSyncService: Fetching reports for all ' . count($officesList) . ' offices...');

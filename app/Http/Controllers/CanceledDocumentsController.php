@@ -36,9 +36,9 @@ class CanceledDocumentsController extends Controller
             'international_insurance_documents' => [
                 'model' => InternationalInsuranceDocument::class,
                 'label' => 'التأمين الدولي',
-                'number_field' => 'insurance_number',
+                'number_field' => 'document_number',
                 'name_field' => 'insured_name',
-                'type_field' => 'insurance_type',
+                'type_field' => 'item_type',
             ],
             'travel_insurance_documents' => [
                 'model' => TravelInsuranceDocument::class,
@@ -431,7 +431,7 @@ class CanceledDocumentsController extends Controller
                         'document_number'        => $num,
                         'external_policy_number' => $card['id'] ?? null,
                         'insured_name'           => 'بطاقة برتقالية ملغية (LIFO)',
-                        'insurance_type'         => 'التأمين الدولي',
+                        'item_type'              => 'سيارات',
                         'total'                  => 0.000,
                         'premium'                => 0.000,
                         'tax'                    => 0.000,

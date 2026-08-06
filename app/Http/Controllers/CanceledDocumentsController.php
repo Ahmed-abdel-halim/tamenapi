@@ -422,7 +422,6 @@ class CanceledDocumentsController extends Controller
                         ->where('id', $existing->id)
                         ->update([
                             'is_canceled' => 1,
-                            'status' => 'ملغية',
                             'canceled_at' => $existing->canceled_at ?? (!empty($card['created_at']) ? substr($card['created_at'], 0, 19) : now()->toDateTimeString()),
                             'cancel_reason' => $existing->cancel_reason ?? 'إلغاء البطاقة من خادم الاتحاد (LIFO)',
                             'branch_agent_id' => $existing->branch_agent_id ?? $agentId,
@@ -442,7 +441,6 @@ class CanceledDocumentsController extends Controller
                         'issue_date'             => !empty($card['created_at']) ? substr($card['created_at'], 0, 19) : now()->toDateTimeString(),
                         'branch_agent_id'        => $agentId,
                         'is_canceled'            => 1,
-                        'status'                 => 'ملغية',
                         'canceled_at'            => !empty($card['created_at']) ? substr($card['created_at'], 0, 19) : now()->toDateTimeString(),
                         'cancel_reason'          => 'إلغاء البطاقة من خادم الاتحاد (LIFO)',
                         'created_at'             => now(),

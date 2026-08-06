@@ -100,7 +100,6 @@ class UnionSyncService
                     ->whereIn('document_number', $cancelledCardNumbers)
                     ->update([
                         'is_canceled' => 1,
-                        'status' => 'ملغية',
                         'canceled_at' => DB::raw('IFNULL(canceled_at, NOW())'),
                         'cancel_reason' => DB::raw("IFNULL(cancel_reason, 'إلغاء البطاقة من خادم الاتحاد (LIFO)')"),
                     ]);
@@ -144,7 +143,6 @@ class UnionSyncService
                             'issue_date'             => !empty($card['created_at']) ? substr($card['created_at'], 0, 19) : now()->toDateTimeString(),
                             'branch_agent_id'        => $agentId,
                             'is_canceled'            => 1,
-                            'status'                 => 'ملغية',
                             'canceled_at'            => !empty($card['created_at']) ? substr($card['created_at'], 0, 19) : now()->toDateTimeString(),
                             'cancel_reason'          => 'إلغاء البطاقة من خادم الاتحاد (LIFO)',
                             'created_at'             => now(),

@@ -315,6 +315,9 @@ class FinancialStatisticsController extends Controller
                     'from_date'      => $cursor->format('Y-m-01'),
                     'to_date'        => $cursor->copy()->endOfMonth()->format('Y-m-d'),
                     'document_count' => 0,
+                    'active_count'   => 0,
+                    'expired_count'  => 0,
+                    'canceled_count' => 0,
                     'total_sales'    => 0.0,
                     'agent_share'    => 0.0,
                     'company_share'  => 0.0,
@@ -323,6 +326,7 @@ class FinancialStatisticsController extends Controller
                 $cursor->addMonth();
             }
 
+            $todayStr = \Carbon\Carbon::today()->format('Y-m-d');
 
             // Fetch all docs for this agent across all tables
             foreach ($documentTables as $dt) {
@@ -385,10 +389,40 @@ class FinancialStatisticsController extends Controller
                     $agentAmount  = $premium * ($pct / 100);
                     $companyAmount = $total - $agentAmount;
 
+                    // Check cancellation status
+                    $isCanceled = false;
+                    if (isset($doc->is_canceled) && $doc->is_canceled) {
+                        $isCanceled = true;
+                    } elseif (isset($doc->canceled_at) && $doc->canceled_at !== null) {
+                        $isCanceled = true;
+                    } elseif (isset($doc->status) && in_array(mb_strtolower(trim($doc->status)), ['ملغية', 'ملغيه', 'canceled', 'cancelled'])) {
+                        $isCanceled = true;
+                    }
+
                     $months[$monthKey]['document_count']++;
-                    $months[$monthKey]['total_sales']   += $total;
-                    $months[$monthKey]['agent_share']   += $agentAmount;
-                    $months[$monthKey]['company_share'] += $companyAmount;
+
+                    if ($isCanceled) {
+                        $months[$monthKey]['canceled_count']++;
+                        // Canceled documents DO NOT contribute to sales or agent/company shares!
+                    } else {
+                        $isExpired = false;
+                        if (!empty($doc->end_date) && \Carbon\Carbon::parse($doc->end_date)->format('Y-m-d') < $todayStr) {
+                            $isExpired = true;
+                        } elseif (isset($doc->status) && in_array(mb_strtolower(trim($doc->status)), ['منتهية', 'منتهيه', 'expired'])) {
+                            $isExpired = true;
+                        }
+
+                        if ($isExpired) {
+                            $months[$monthKey]['expired_count']++;
+                        } else {
+                            $months[$monthKey]['active_count']++;
+                        }
+
+                        $months[$monthKey]['total_sales']   += $total;
+                        $months[$monthKey]['agent_share']   += $agentAmount;
+                        $months[$monthKey]['company_share'] += $companyAmount;
+                    }
+
                     // Store last resolved percentage for display
                     if ($months[$monthKey]['document_count'] === 1) {
                         $months[$monthKey]['percentage'] = $pct;
@@ -423,6 +457,9 @@ class FinancialStatisticsController extends Controller
             $rows = [];
             $grandTotalSales        = 0.0;
             $grandTotalDocs         = 0;
+            $grandTotalActiveDocs   = 0;
+            $grandTotalExpiredDocs  = 0;
+            $grandTotalCanceledDocs = 0;
             $grandTotalAgentShare   = 0.0;
             $grandTotalCompanyShare = 0.0;
             $grandTotalPaid         = 0.0;
@@ -453,6 +490,9 @@ class FinancialStatisticsController extends Controller
                     'to_date'         => $m['to_date'],
                     'percentage'      => round($m['percentage'], 2),
                     'document_count'  => $m['document_count'],
+                    'active_count'    => $m['active_count'],
+                    'expired_count'   => $m['expired_count'],
+                    'canceled_count'  => $m['canceled_count'],
                     'total_sales'     => round($m['total_sales'], 2),
                     'agent_share'     => $dueAmount,
                     'company_share'   => round($m['company_share'], 2),
@@ -466,6 +506,9 @@ class FinancialStatisticsController extends Controller
 
                 $grandTotalSales        += $m['total_sales'];
                 $grandTotalDocs         += $m['document_count'];
+                $grandTotalActiveDocs   += $m['active_count'];
+                $grandTotalExpiredDocs  += $m['expired_count'];
+                $grandTotalCanceledDocs += $m['canceled_count'];
                 $grandTotalAgentShare   += $dueAmount;
                 $grandTotalCompanyShare += $m['company_share'];
                 $grandTotalPaid         += $paidAmount;
@@ -485,6 +528,9 @@ class FinancialStatisticsController extends Controller
                 'summary' => [
                     'total_months'        => count($rows),
                     'total_documents'     => $grandTotalDocs,
+                    'active_documents'    => $grandTotalActiveDocs,
+                    'expired_documents'   => $grandTotalExpiredDocs,
+                    'canceled_documents'  => $grandTotalCanceledDocs,
                     'total_sales'         => round($grandTotalSales, 2),
                     'total_agent_share'   => round($grandTotalAgentShare, 2),
                     'total_company_share' => round($grandTotalCompanyShare, 2),
@@ -877,6 +923,10 @@ class FinancialStatisticsController extends Controller
             $totalSales = 0.0;
             $totalAgentShare = 0.0;
             $totalCompanyShare = 0.0;
+            $activeCount = 0;
+            $expiredCount = 0;
+            $canceledCount = 0;
+            $todayStr = \Carbon\Carbon::today()->format('Y-m-d');
 
             foreach ($documentTables as $typeKey => $config) {
                 if ($docTypeFilter && $docTypeFilter !== 'all' && $docTypeFilter !== $typeKey) {
@@ -927,9 +977,38 @@ class FinancialStatisticsController extends Controller
                     $agentAmount   = round($premium * ($pct / 100), 2);
                     $companyAmount = round($total - $agentAmount, 2);
 
-                    $totalSales        += $total;
-                    $totalAgentShare   += $agentAmount;
-                    $totalCompanyShare += $companyAmount;
+                    // Check cancellation & expiration status
+                    $isCanceled = false;
+                    if ((isset($doc->is_canceled) && $doc->is_canceled) || (isset($doc->canceled_at) && $doc->canceled_at !== null) || (isset($doc->status) && in_array(mb_strtolower(trim($doc->status)), ['ملغية', 'ملغيه', 'canceled', 'cancelled']))) {
+                        $isCanceled = true;
+                    }
+
+                    $isExpired = false;
+                    if (!$isCanceled) {
+                        if (!empty($doc->end_date) && \Carbon\Carbon::parse($doc->end_date)->format('Y-m-d') < $todayStr) {
+                            $isExpired = true;
+                        } elseif (isset($doc->status) && in_array(mb_strtolower(trim($doc->status)), ['منتهية', 'منتهيه', 'expired'])) {
+                            $isExpired = true;
+                        }
+                    }
+
+                    if ($isCanceled) {
+                        $statusStr = 'ملغية';
+                        $canceledCount++;
+                    } elseif ($isExpired) {
+                        $statusStr = 'منتهية';
+                        $expiredCount++;
+                    } else {
+                        $statusStr = 'نشطة';
+                        $activeCount++;
+                    }
+
+                    // Canceled documents DO NOT add to revenue or company/agent shares!
+                    if (!$isCanceled) {
+                        $totalSales        += $total;
+                        $totalAgentShare   += $agentAmount;
+                        $totalCompanyShare += $companyAmount;
+                    }
 
                     $documentsList[] = [
                         'id'              => $doc->id,
@@ -947,7 +1026,7 @@ class FinancialStatisticsController extends Controller
                         'agent_share'     => $agentAmount,
                         'company_share'   => $companyAmount,
                         'is_old_document' => (bool)($doc->is_old_document ?? false),
-                        'status'          => $doc->status ?? 'فعالة',
+                        'status'          => $statusStr,
                         'notes'           => $doc->notes ?? null,
                     ];
                 }
@@ -957,6 +1036,20 @@ class FinancialStatisticsController extends Controller
             usort($documentsList, function ($a, $b) {
                 return strcmp((string)$b['issue_date'], (string)$a['issue_date']);
             });
+
+            return response()->json([
+                'success'   => true,
+                'documents' => $documentsList,
+                'summary'   => [
+                    'total_documents'     => count($documentsList),
+                    'active_documents'    => $activeCount,
+                    'expired_documents'   => $expiredCount,
+                    'canceled_documents'  => $canceledCount,
+                    'total_sales'         => round($totalSales, 2),
+                    'total_agent_share'   => round($totalAgentShare, 2),
+                    'total_company_share' => round($totalCompanyShare, 2),
+                ],
+            ]);
 
             return response()->json([
                 'success'   => true,

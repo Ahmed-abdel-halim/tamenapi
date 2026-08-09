@@ -523,6 +523,7 @@ class FinancialStatisticsController extends Controller
                     'agency_name'   => $agent->agency_name,
                     'agent_name'    => $agent->agent_name,
                     'contract_date' => $agent->contract_date,
+                    'notes'         => $agent->notes ?? null,
                 ],
                 'months' => array_values($rows),
                 'summary' => [

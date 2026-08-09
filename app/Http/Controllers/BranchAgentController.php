@@ -673,6 +673,7 @@ class BranchAgentController extends Controller
             'office_facade_photo' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf|max:10240',
             'office_phone' => 'nullable|string|max:191',
             'office_location' => 'nullable|string',
+            'is_audited' => 'nullable|boolean',
             'eidc_password' => 'nullable|string|max:191',
             'lifo_username' => 'nullable|string|max:191',
             'lifo_password' => 'nullable|string|max:191',
@@ -795,7 +796,7 @@ class BranchAgentController extends Controller
                 'stamp_number', 'contract_date', 'renewal_date', 'contract_end_date', 'contract_duration',
                 'city', 'address', 'phone', 'nationality', 'national_id',
                 'identity_number', 'notes', 'status', 'contract_conditions',
-                'office_phone', 'office_location'
+                'office_phone', 'office_location', 'is_audited'
             ]);
 
             if ($request->has('consumed_custodies') && $request->consumed_custodies) {

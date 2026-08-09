@@ -58,6 +58,7 @@ class BranchAgent extends Model
         'office_facade_photo',
         'office_phone',
         'office_location',
+        'is_audited',
     ];
 
     protected $casts = [
@@ -72,6 +73,7 @@ class BranchAgent extends Model
         'points_balance' => 'integer',
         'wallet_balance' => 'decimal:2',
         'show_on_landing' => 'boolean',
+        'is_audited' => 'boolean',
     ];
 
     public function user()

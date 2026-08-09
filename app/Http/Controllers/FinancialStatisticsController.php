@@ -524,6 +524,7 @@ class FinancialStatisticsController extends Controller
                     'agent_name'    => $agent->agent_name,
                     'contract_date' => $agent->contract_date,
                     'notes'         => $agent->notes ?? null,
+                    'is_audited'    => (bool)($agent->is_audited ?? false),
                 ],
                 'months' => array_values($rows),
                 'summary' => [

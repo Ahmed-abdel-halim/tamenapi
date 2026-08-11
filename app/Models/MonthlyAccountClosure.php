@@ -20,6 +20,7 @@ class MonthlyAccountClosure extends Model
         'remaining_amount',
         'documents_data',
         'notes',
+        'is_audited',
     ];
 
     protected $casts = [
@@ -31,6 +32,7 @@ class MonthlyAccountClosure extends Model
         'paid_amount' => 'decimal:2',
         'remaining_amount' => 'decimal:2',
         'documents_data' => 'array',
+        'is_audited' => 'boolean',
     ];
 
     public function branchAgent()

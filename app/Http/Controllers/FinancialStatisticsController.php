@@ -500,6 +500,7 @@ class FinancialStatisticsController extends Controller
                     'paid_amount'     => round($paidAmount, 2),
                     'remaining'       => $remaining,
                     'notes'           => $closure->notes ?? null,
+                    'is_audited'      => $closure ? (bool)($closure->is_audited ?? false) : false,
                 ];
 
                 $carriedBalance = $remaining > 0 ? $remaining : 0.0;
@@ -545,6 +546,61 @@ class FinancialStatisticsController extends Controller
                 'success' => false,
                 'message' => 'حدث خطأ أثناء جلب كشف الحساب الشهري',
                 'error'   => config('app.debug') ? $e->getMessage() : 'خطأ غير معروف'
+            ], 500);
+        }
+    }
+
+    /**
+     * Toggle monthly audit status for a specific month of an agent
+     */
+    public function toggleMonthlyAudit(Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                'branch_agent_id' => 'required|integer|exists:branches_agents,id',
+                'year'            => 'required|integer',
+                'month'           => 'required|integer|min:1|max:12',
+                'is_audited'      => 'nullable|boolean',
+            ]);
+
+            $fromDate = \Carbon\Carbon::create($validated['year'], $validated['month'], 1)->format('Y-m-d');
+            $toDate   = \Carbon\Carbon::create($validated['year'], $validated['month'], 1)->endOfMonth()->format('Y-m-d');
+
+            $closure = \App\Models\MonthlyAccountClosure::firstOrCreate(
+                [
+                    'branch_agent_id' => $validated['branch_agent_id'],
+                    'year'            => $validated['year'],
+                    'month'           => $validated['month'],
+                ],
+                [
+                    'from_date'        => $fromDate,
+                    'to_date'          => $toDate,
+                    'due_amount'       => 0,
+                    'paid_amount'      => 0,
+                    'remaining_amount' => 0,
+                    'is_audited'       => false,
+                ]
+            );
+
+            $newState = isset($validated['is_audited'])
+                ? (bool)$validated['is_audited']
+                : !$closure->is_audited;
+
+            $closure->is_audited = $newState;
+            $closure->save();
+
+            return response()->json([
+                'success'    => true,
+                'message'    => $newState ? 'تم تدقيق حساب هذا الشهر بنجاح' : 'تم تغيير حالة هذا الشهر إلى لم يتم التدقيق',
+                'is_audited' => $newState,
+                'year'       => $validated['year'],
+                'month'      => $validated['month'],
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'حدث خطأ أثناء تحديث حالة التدقيق للشهر',
+                'error'   => config('app.debug') ? $e->getMessage() : null
             ], 500);
         }
     }

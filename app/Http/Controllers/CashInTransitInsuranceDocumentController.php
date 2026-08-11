@@ -31,7 +31,7 @@ class CashInTransitInsuranceDocumentController extends Controller
                 }
             }
 
-            $query = CashInTransitInsuranceDocument::with('branchAgent');
+            $query = CashInTransitInsuranceDocument::with(['branchAgent', 'user']);
             
             if (!$isAdmin) {
                 if ($branchAgentId) {
@@ -80,9 +80,20 @@ class CashInTransitInsuranceDocumentController extends Controller
 
             $documents->getCollection()->transform(function ($document) use ($isAdmin) {
                 if ($isAdmin) {
-                    $document->agency_name = $document->branchAgent ? ($document->branchAgent->agency_name ?? null) : null;
+                    if ($document->branchAgent && !empty($document->branchAgent->agency_name)) {
+                        $document->agency_name = $document->branchAgent->agency_name;
+                        $document->user_name = null;
+                        $document->is_agency = true;
+                    } else {
+                        $userName = $document->user ? ($document->user->name ?? $document->user->username) : null;
+                        $document->agency_name = $userName;
+                        $document->user_name = $userName;
+                        $document->is_agency = false;
+                    }
                 } else {
                     $document->agency_name = null;
+                    $document->user_name = null;
+                    $document->is_agency = false;
                 }
                 return $document;
             });

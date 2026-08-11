@@ -36,7 +36,6 @@ class PersonalAccidentInsuranceDocument extends Model
         'total',
         'whatsapp_number',
         'branch_agent_id',
-    
         'user_id',
     ];
 
@@ -58,6 +57,11 @@ class PersonalAccidentInsuranceDocument extends Model
         return $this->belongsTo(BranchAgent::class);
     }
 
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
+
     public function scopeActive($query)
     {
         return $query->where(function($q) {
@@ -72,4 +76,3 @@ class PersonalAccidentInsuranceDocument extends Model
                      ->whereDate('end_date', '<', \Carbon\Carbon::now()->toDateString());
     }
 }
-

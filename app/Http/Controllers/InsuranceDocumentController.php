@@ -46,7 +46,7 @@ class InsuranceDocumentController extends Controller
             }
 
             // بناء الاستعلام
-            $query = InsuranceDocument::with(['plate.city', 'vehicleType', 'branchAgent']);
+            $query = InsuranceDocument::with(['plate.city', 'vehicleType', 'branchAgent', 'user']);
             
             $hasFilterOrSearch = $request->filled('search') || 
                                  $request->filled('year') || 
@@ -111,11 +111,22 @@ class InsuranceDocumentController extends Controller
                 $document->ownership_transfer_count = $transferCount;
                 $document->has_ownership_transfer = $transferCount > 0;
 
-                // إضافة اسم الوكالة للادمن فقط
+                // إضافة اسم الوكالة أو اسم الموظف المصدر للادمن
                 if ($isAdmin) {
-                    $document->agency_name = $document->branchAgent ? ($document->branchAgent->agency_name ?? null) : null;
+                    if ($document->branchAgent && !empty($document->branchAgent->agency_name)) {
+                        $document->agency_name = $document->branchAgent->agency_name;
+                        $document->user_name = null;
+                        $document->is_agency = true;
+                    } else {
+                        $userName = $document->user ? ($document->user->name ?? $document->user->username) : null;
+                        $document->agency_name = $userName;
+                        $document->user_name = $userName;
+                        $document->is_agency = false;
+                    }
                 } else {
                     $document->agency_name = null;
+                    $document->user_name = null;
+                    $document->is_agency = false;
                 }
 
                 return $document;

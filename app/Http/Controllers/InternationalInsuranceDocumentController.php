@@ -45,8 +45,8 @@ class InternationalInsuranceDocumentController extends Controller
             }
 
             // بناء الاستعلام
-            $query = InternationalInsuranceDocument::with(['vehicleType', 'branchAgent']);
-            
+            $query = InternationalInsuranceDocument::with(['vehicleType', 'branchAgent', 'user']);
+
             $hasFilterOrSearch = $request->filled('search') || 
                                  $request->filled('year') || 
                                  $request->filled('month') || 
@@ -105,11 +105,22 @@ class InternationalInsuranceDocumentController extends Controller
                 ->paginate($perPage);
 
             $documents->getCollection()->transform(function ($document) use ($isAdmin) {
-                // إضافة اسم الوكالة للادمن فقط
+                // إضافة اسم الوكالة أو اسم الموظف للادمن
                 if ($isAdmin) {
-                    $document->agency_name = $document->branchAgent ? ($document->branchAgent->agency_name ?? null) : null;
+                    if ($document->branchAgent && !empty($document->branchAgent->agency_name)) {
+                        $document->agency_name = $document->branchAgent->agency_name;
+                        $document->user_name = null;
+                        $document->is_agency = true;
+                    } else {
+                        $userName = $document->user ? ($document->user->name ?? $document->user->username) : null;
+                        $document->agency_name = $userName;
+                        $document->user_name = $userName;
+                        $document->is_agency = false;
+                    }
                 } else {
                     $document->agency_name = null;
+                    $document->user_name = null;
+                    $document->is_agency = false;
                 }
                 return $document;
             });

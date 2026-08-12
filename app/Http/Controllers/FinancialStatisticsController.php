@@ -267,10 +267,69 @@ class FinancialStatisticsController extends Controller
                 return response()->json(['success' => false, 'message' => 'الوكيل غير موجود'], 404);
             }
 
+            // Check for agency cancellation or contract end date
+            $cancellation = DB::table('agency_cancellations')
+                ->where('branch_agent_id', $agentId)
+                ->whereIn('status', ['approved', 'pending'])
+                ->orderBy('cancellation_date', 'desc')
+                ->first();
+
+            if (!$cancellation) {
+                $cancellation = DB::table('agency_cancellations')
+                    ->where('branch_agent_id', $agentId)
+                    ->orderBy('cancellation_date', 'desc')
+                    ->first();
+            }
+
+            $cancellationDate = null;
+            if ($cancellation && !empty($cancellation->cancellation_date)) {
+                $cancellationDate = $cancellation->cancellation_date;
+            } elseif (!empty($agent->contract_end_date)) {
+                $cancellationDate = $agent->contract_end_date;
+            }
+
             // Determine start month (from contract_date or created_at)
             $startDateRaw = $agent->contract_date ?? $agent->created_at;
             $startDate = \Carbon\Carbon::parse($startDateRaw)->startOfMonth();
             $endDate   = \Carbon\Carbon::now()->startOfMonth();
+
+            if ($cancellationDate) {
+                try {
+                    $cancelMonth = \Carbon\Carbon::parse($cancellationDate)->startOfMonth();
+                    if ($cancelMonth < $endDate) {
+                        $endDate = $cancelMonth;
+                    }
+                } catch (\Exception $e) {
+                }
+            } elseif (isset($agent->status) && in_array($agent->status, ['غير نشط', 'inactive', 'موقوف'])) {
+                // If agent is inactive without an explicit cancellation_date, limit to latest document date or start date
+                $schemaTemp = DB::getSchemaBuilder();
+                $maxDocDate = null;
+                $tempTablesList = [
+                    'insurance_documents', 'international_insurance_documents', 'travel_insurance_documents',
+                    'resident_insurance_documents', 'marine_structure_insurance_documents', 'professional_liability_insurance_documents',
+                    'personal_accident_insurance_documents', 'school_student_insurance_documents', 'cargo_insurance_documents',
+                    'cash_in_transit_insurance_documents'
+                ];
+                foreach ($tempTablesList as $tName) {
+                    if (!$schemaTemp->hasTable($tName) || !$schemaTemp->hasColumn($tName, 'branch_agent_id')) continue;
+                    $dateCol = $schemaTemp->hasColumn($tName, 'issue_date') ? 'issue_date' :
+                              ($schemaTemp->hasColumn($tName, 'start_date') ? 'start_date' : 'created_at');
+                    $maxD = DB::table($tName)->where('branch_agent_id', $agentId)->max($dateCol);
+                    if ($maxD && (!$maxDocDate || $maxD > $maxDocDate)) {
+                        $maxDocDate = $maxD;
+                    }
+                }
+                if ($maxDocDate) {
+                    try {
+                        $lastDocMonth = \Carbon\Carbon::parse($maxDocDate)->startOfMonth();
+                        if ($lastDocMonth < $endDate) {
+                            $endDate = $lastDocMonth;
+                        }
+                    } catch (\Exception $e) {
+                    }
+                }
+            }
 
             $percentages = is_string($agent->document_percentages)
                 ? json_decode($agent->document_percentages, true) ?? []
@@ -379,7 +438,31 @@ class FinancialStatisticsController extends Controller
                     }
 
                     $monthKey = $docDate->format('Y-m');
-                    if (!isset($months[$monthKey])) continue;
+                    if (!isset($months[$monthKey])) {
+                        if ($docDate->copy()->startOfMonth() <= \Carbon\Carbon::now()->startOfMonth() && $docDate->copy()->startOfMonth() >= $startDate) {
+                            $mNum = (int)$docDate->month;
+                            $yNum = (int)$docDate->year;
+                            $months[$monthKey] = [
+                                'year'           => $yNum,
+                                'month'          => $mNum,
+                                'month_label'    => "شهر {$mNum} - {$yNum}",
+                                'month_key'      => $monthKey,
+                                'from_date'      => $docDate->copy()->startOfMonth()->format('Y-m-d'),
+                                'to_date'        => $docDate->copy()->endOfMonth()->format('Y-m-d'),
+                                'document_count' => 0,
+                                'active_count'   => 0,
+                                'expired_count'  => 0,
+                                'canceled_count' => 0,
+                                'total_sales'    => 0.0,
+                                'agent_share'    => 0.0,
+                                'company_share'  => 0.0,
+                                'percentage'     => 0.0,
+                            ];
+                            ksort($months);
+                        } else {
+                            continue;
+                        }
+                    }
 
                     $premium  = (float)($doc->premium ?? 0);
                     $total    = (float)($doc->total ?? 0);
@@ -519,13 +602,15 @@ class FinancialStatisticsController extends Controller
             return response()->json([
                 'success' => true,
                 'agent' => [
-                    'id'            => $agent->id,
-                    'code'          => $agent->code,
-                    'agency_name'   => $agent->agency_name,
-                    'agent_name'    => $agent->agent_name,
-                    'contract_date' => $agent->contract_date,
-                    'notes'         => $agent->notes ?? null,
-                    'is_audited'    => (bool)($agent->is_audited ?? false),
+                    'id'                => $agent->id,
+                    'code'              => $agent->code,
+                    'agency_name'       => $agent->agency_name,
+                    'agent_name'        => $agent->agent_name,
+                    'contract_date'     => $agent->contract_date,
+                    'contract_end_date' => $cancellationDate ?? $agent->contract_end_date ?? null,
+                    'status'            => $agent->status ?? null,
+                    'notes'             => $agent->notes ?? null,
+                    'is_audited'        => (bool)($agent->is_audited ?? false),
                 ],
                 'months' => array_values($rows),
                 'summary' => [

@@ -126,6 +126,15 @@ class AgencyCancellationController extends Controller
 
             $cancellation->update($validated);
 
+            if (isset($validated['status']) && $validated['status'] === 'approved') {
+                DB::table('branches_agents')
+                    ->where('id', $cancellation->branch_agent_id)
+                    ->update([
+                        'status'            => 'غير نشط',
+                        'contract_end_date' => $cancellation->cancellation_date,
+                    ]);
+            }
+
             return response()->json($cancellation->load(['branchAgent', 'creator']));
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json(['errors' => $e->errors()], 422);

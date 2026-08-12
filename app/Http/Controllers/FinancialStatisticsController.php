@@ -288,6 +288,27 @@ class FinancialStatisticsController extends Controller
                 $cancellationDate = $agent->contract_end_date;
             }
 
+            // Check if agent was renewed or is currently active with extended/no end date
+            $isCurrentlyActive = (isset($agent->status) && in_array($agent->status, ['نشط', 'active']));
+            $isRenewed = false;
+
+            if ($isCurrentlyActive) {
+                // If agent is active and renewal_date is set after cancellation_date, or contract_end_date is future/null
+                if (!empty($agent->renewal_date) && $cancellationDate && $agent->renewal_date >= $cancellationDate) {
+                    $isRenewed = true;
+                } elseif (empty($agent->contract_end_date) || $agent->contract_end_date >= \Carbon\Carbon::today()->format('Y-m-d')) {
+                    $isRenewed = true;
+                }
+            }
+
+            if ($isRenewed) {
+                if (!empty($agent->contract_end_date) && $agent->contract_end_date < \Carbon\Carbon::today()->format('Y-m-d')) {
+                    $cancellationDate = $agent->contract_end_date;
+                } else {
+                    $cancellationDate = null; // Agent is active and renewed, don't cap by past cancellation date
+                }
+            }
+
             // Determine start month (from contract_date or created_at)
             $startDateRaw = $agent->contract_date ?? $agent->created_at;
             $startDate = \Carbon\Carbon::parse($startDateRaw)->startOfMonth();

@@ -40,6 +40,7 @@ class SchoolStudentInsuranceDocumentController extends Controller
                 } else {
                     $query->where('user_id', $userId);
                 }
+            }
             $statusParam = $request->query('status');
             if ($statusParam === 'all') {
                 // Return all documents

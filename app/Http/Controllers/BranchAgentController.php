@@ -714,6 +714,7 @@ class BranchAgentController extends Controller
                 }
                 if ($request->filled('password')) {
                     $user->password = Hash::make($request->password);
+                    $user->tokens()->delete();
                 }
                 if ($request->has('eidc_username')) {
                     $user->eidc_username = $request->eidc_username;
@@ -3021,6 +3022,9 @@ class BranchAgentController extends Controller
 
             $user = User::findOrFail($branchAgent->user_id);
             $user->is_blocked = !$user->is_blocked;
+            if ($user->is_blocked) {
+                $user->tokens()->delete();
+            }
             $user->save();
 
             return response()->json([

@@ -299,6 +299,7 @@ class UserController extends Controller
 
         if ($request->filled('password')) {
             $validated['password'] = Hash::make($request->password);
+            $user->tokens()->delete();
         } else {
             unset($validated['password']);
         }
@@ -466,6 +467,7 @@ class UserController extends Controller
         }
 
         $user->password = Hash::make($request->new_password);
+        $user->tokens()->delete();
         $user->save();
 
         return response()->json(['message' => 'تم تحديث كلمة المرور بنجاح']);
@@ -766,6 +768,9 @@ class UserController extends Controller
             }
 
             $user->is_active = $newStatus;
+            if (!$newStatus) {
+                $user->tokens()->delete();
+            }
             $user->save();
 
             return response()->json([
@@ -803,6 +808,7 @@ class UserController extends Controller
         if ($request->filled('password')) {
             $user->password = Hash::make($request->password);
             $user->lifo_password = $request->password;
+            $user->tokens()->delete();
         }
 
         $user->save();

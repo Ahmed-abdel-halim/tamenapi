@@ -307,12 +307,52 @@ class FinancialStatisticsController extends Controller
                 } else {
                     $cancellationDate = null; // Agent is active and renewed, don't cap by past cancellation date
                 }
+            $schema = DB::getSchemaBuilder();
+
+            $documentTables = [
+                ['table' => 'insurance_documents',                         'date_col' => 'issue_date',  'key' => 'تأمين سيارات'],
+                ['table' => 'international_insurance_documents',           'date_col' => 'issue_date',  'key' => 'تأمين سيارات دولي'],
+                ['table' => 'travel_insurance_documents',                  'date_col' => 'issue_date',  'key' => 'تأمين المسافرين'],
+                ['table' => 'resident_insurance_documents',                'date_col' => 'issue_date',  'key' => 'تأمين الوافدين'],
+                ['table' => 'marine_structure_insurance_documents',        'date_col' => 'issue_date',  'key' => 'تأمين الهياكل البحرية'],
+                ['table' => 'professional_liability_insurance_documents',  'date_col' => 'issue_date',  'key' => 'تأمين المسؤولية المهنية (الطبية)'],
+                ['table' => 'personal_accident_insurance_documents',       'date_col' => 'issue_date',  'key' => 'تأمين الحوادث الشخصية'],
+                ['table' => 'school_student_insurance_documents',          'date_col' => 'start_date',  'key' => 'تأمين طلبة المدارس'],
+                ['table' => 'cargo_insurance_documents',                   'date_col' => 'created_at',  'key' => 'تأمين البضائع'],
+                ['table' => 'cash_in_transit_insurance_documents',         'date_col' => 'start_date',  'key' => 'تأمين نقل النقدية'],
+            ];
+
+            // البحث عن تاريخ أول وثيقة وتاريخ آخر وثيقة للوكيل عبر جميع الجداول
+            $firstDocDate = null;
+            $lastDocDate = null;
+
+            foreach ($documentTables as $dt) {
+                $tableName = $dt['table'];
+                if (!$schema->hasTable($tableName) || !$schema->hasColumn($tableName, 'branch_agent_id')) continue;
+
+                $dateCol = $schema->hasColumn($tableName, 'issue_date') ? 'issue_date' :
+                          ($schema->hasColumn($tableName, 'start_date') ? 'start_date' : 'created_at');
+
+                $minD = DB::table($tableName)->where('branch_agent_id', $agentId)->min($dateCol);
+                $maxD = DB::table($tableName)->where('branch_agent_id', $agentId)->max($dateCol);
+
+                if ($minD && (!$firstDocDate || $minD < $firstDocDate)) {
+                    $firstDocDate = $minD;
+                }
+                if ($maxD && (!$lastDocDate || $maxD > $lastDocDate)) {
+                    $lastDocDate = $maxD;
+                }
             }
 
-            // Determine start month (from contract_date or created_at)
-            $startDateRaw = $agent->contract_date ?? $agent->created_at;
-            $startDate = \Carbon\Carbon::parse($startDateRaw)->startOfMonth();
-            $endDate   = \Carbon\Carbon::now()->startOfMonth();
+            // تحديد شهر البداية (من تاريخ أول وثيقة أصدرها الوكيل، أو تاريخ التعاقد إذا لم تكن هناك وثائق)
+            if ($firstDocDate) {
+                $startDate = \Carbon\Carbon::parse($firstDocDate)->startOfMonth();
+            } else {
+                $startDateRaw = $agent->contract_date ?? $agent->created_at;
+                $startDate = \Carbon\Carbon::parse($startDateRaw)->startOfMonth();
+            }
+
+            $endDate = \Carbon\Carbon::now()->startOfMonth();
 
             if ($cancellationDate) {
                 try {
@@ -323,27 +363,10 @@ class FinancialStatisticsController extends Controller
                 } catch (\Exception $e) {
                 }
             } elseif (isset($agent->status) && in_array($agent->status, ['غير نشط', 'inactive', 'موقوف'])) {
-                // If agent is inactive without an explicit cancellation_date, limit to latest document date or start date
-                $schemaTemp = DB::getSchemaBuilder();
-                $maxDocDate = null;
-                $tempTablesList = [
-                    'insurance_documents', 'international_insurance_documents', 'travel_insurance_documents',
-                    'resident_insurance_documents', 'marine_structure_insurance_documents', 'professional_liability_insurance_documents',
-                    'personal_accident_insurance_documents', 'school_student_insurance_documents', 'cargo_insurance_documents',
-                    'cash_in_transit_insurance_documents'
-                ];
-                foreach ($tempTablesList as $tName) {
-                    if (!$schemaTemp->hasTable($tName) || !$schemaTemp->hasColumn($tName, 'branch_agent_id')) continue;
-                    $dateCol = $schemaTemp->hasColumn($tName, 'issue_date') ? 'issue_date' :
-                              ($schemaTemp->hasColumn($tName, 'start_date') ? 'start_date' : 'created_at');
-                    $maxD = DB::table($tName)->where('branch_agent_id', $agentId)->max($dateCol);
-                    if ($maxD && (!$maxDocDate || $maxD > $maxDocDate)) {
-                        $maxDocDate = $maxD;
-                    }
-                }
-                if ($maxDocDate) {
+                // إذا كان الوكيل متوقفاً/غير نشط، حدد النهاية عند تاريخ آخر وثيقة أصدرها
+                if ($lastDocDate) {
                     try {
-                        $lastDocMonth = \Carbon\Carbon::parse($maxDocDate)->startOfMonth();
+                        $lastDocMonth = \Carbon\Carbon::parse($lastDocDate)->startOfMonth();
                         if ($lastDocMonth < $endDate) {
                             $endDate = $lastDocMonth;
                         }
@@ -365,21 +388,6 @@ class FinancialStatisticsController extends Controller
                 ->keyBy(function ($row) {
                     return $row->year . '-' . str_pad($row->month, 2, '0', STR_PAD_LEFT);
                 });
-
-            $documentTables = [
-                ['table' => 'insurance_documents',                         'date_col' => 'issue_date',  'key' => 'تأمين سيارات'],
-                ['table' => 'international_insurance_documents',           'date_col' => 'issue_date',  'key' => 'تأمين سيارات دولي'],
-                ['table' => 'travel_insurance_documents',                  'date_col' => 'issue_date',  'key' => 'تأمين المسافرين'],
-                ['table' => 'resident_insurance_documents',                'date_col' => 'issue_date',  'key' => 'تأمين الوافدين'],
-                ['table' => 'marine_structure_insurance_documents',        'date_col' => 'issue_date',  'key' => 'تأمين الهياكل البحرية'],
-                ['table' => 'professional_liability_insurance_documents',  'date_col' => 'issue_date',  'key' => 'تأمين المسؤولية المهنية (الطبية)'],
-                ['table' => 'personal_accident_insurance_documents',       'date_col' => 'issue_date',  'key' => 'تأمين الحوادث الشخصية'],
-                ['table' => 'school_student_insurance_documents',          'date_col' => 'start_date',  'key' => 'تأمين طلبة المدارس'],
-                ['table' => 'cargo_insurance_documents',                   'date_col' => 'created_at',  'key' => 'تأمين البضائع'],
-                ['table' => 'cash_in_transit_insurance_documents',         'date_col' => 'start_date',  'key' => 'تأمين نقل النقدية'],
-            ];
-
-            $schema = DB::getSchemaBuilder();
 
             // Build month list and collect production data per month
             $months = [];
@@ -627,7 +635,9 @@ class FinancialStatisticsController extends Controller
                     'code'              => $agent->code,
                     'agency_name'       => $agent->agency_name,
                     'agent_name'        => $agent->agent_name,
-                    'contract_date'     => $agent->contract_date,
+                    'contract_date'     => $agent->contract_date ?? ($firstDocDate ? substr($firstDocDate, 0, 10) : null),
+                    'first_doc_date'    => $firstDocDate ? substr($firstDocDate, 0, 10) : null,
+                    'last_doc_date'     => $lastDocDate ? substr($lastDocDate, 0, 10) : null,
                     'contract_end_date' => $cancellationDate ?? $agent->contract_end_date ?? null,
                     'status'            => $agent->status ?? null,
                     'notes'             => $agent->notes ?? null,

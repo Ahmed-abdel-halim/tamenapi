@@ -307,6 +307,7 @@ class FinancialStatisticsController extends Controller
                 } else {
                     $cancellationDate = null; // Agent is active and renewed, don't cap by past cancellation date
                 }
+            }
             $schema = DB::getSchemaBuilder();
 
             $documentTables = [
@@ -352,27 +353,24 @@ class FinancialStatisticsController extends Controller
                 $startDate = \Carbon\Carbon::parse($startDateRaw)->startOfMonth();
             }
 
-            $endDate = \Carbon\Carbon::now()->startOfMonth();
-
+            // تحديد شهر النهاية (لغاية ما وقف شغل الوكيل - تاريخ آخر وثيقة أو تاريخ الإلغاء)
+            $showAllMonths = $request->boolean('show_all_months', false);
             if ($cancellationDate) {
                 try {
-                    $cancelMonth = \Carbon\Carbon::parse($cancellationDate)->startOfMonth();
-                    if ($cancelMonth < $endDate) {
-                        $endDate = $cancelMonth;
-                    }
+                    $endDate = \Carbon\Carbon::parse($cancellationDate)->startOfMonth();
                 } catch (\Exception $e) {
+                    $endDate = \Carbon\Carbon::now()->startOfMonth();
                 }
-            } elseif (isset($agent->status) && in_array($agent->status, ['غير نشط', 'inactive', 'موقوف'])) {
-                // إذا كان الوكيل متوقفاً/غير نشط، حدد النهاية عند تاريخ آخر وثيقة أصدرها
-                if ($lastDocDate) {
-                    try {
-                        $lastDocMonth = \Carbon\Carbon::parse($lastDocDate)->startOfMonth();
-                        if ($lastDocMonth < $endDate) {
-                            $endDate = $lastDocMonth;
-                        }
-                    } catch (\Exception $e) {
-                    }
-                }
+            } elseif ($lastDocDate && !$showAllMonths) {
+                // التوقف عند آخر شهر أصدر فيه الوكيل وثائق
+                $endDate = \Carbon\Carbon::parse($lastDocDate)->startOfMonth();
+            } else {
+                $endDate = \Carbon\Carbon::now()->startOfMonth();
+            }
+
+            // التأكد من أن شهر البداية لا يتجاوز شهر النهاية
+            if ($startDate > $endDate) {
+                $endDate = $startDate->copy();
             }
 
             $percentages = is_string($agent->document_percentages)

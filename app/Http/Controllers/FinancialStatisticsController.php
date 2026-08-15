@@ -831,6 +831,7 @@ class FinancialStatisticsController extends Controller
         try {
             $fromDate = $request->get('from_date');
             $toDate = $request->get('to_date');
+            $docTypeFilter = $request->get('doc_type') ?: $request->get('document_type');
 
             // Get all active agents with their percentages
             $agents = DB::table('branches_agents')
@@ -857,21 +858,22 @@ class FinancialStatisticsController extends Controller
                     'total_sales' => 0.0,
                     'agent_share' => 0.0,
                     'company_share' => 0.0,
+                    'by_type' => [],
                 ];
             }
 
             // Define document tables with their date columns and percentage keys
             $documentTables = [
-                ['table' => 'insurance_documents', 'date_col' => 'issue_date', 'fallback_date' => 'created_at', 'key' => 'تأمين سيارات'],
-                ['table' => 'international_insurance_documents', 'date_col' => 'issue_date', 'fallback_date' => 'created_at', 'key' => 'تأمين سيارات دولي'],
-                ['table' => 'travel_insurance_documents', 'date_col' => 'issue_date', 'fallback_date' => 'created_at', 'key' => 'تأمين المسافرين'],
-                ['table' => 'resident_insurance_documents', 'date_col' => 'issue_date', 'fallback_date' => 'created_at', 'key' => 'تأمين الوافدين'],
-                ['table' => 'marine_structure_insurance_documents', 'date_col' => 'issue_date', 'fallback_date' => 'created_at', 'key' => 'تأمين الهياكل البحرية'],
-                ['table' => 'professional_liability_insurance_documents', 'date_col' => 'issue_date', 'fallback_date' => 'created_at', 'key' => 'تأمين المسؤولية المهنية (الطبية)'],
-                ['table' => 'personal_accident_insurance_documents', 'date_col' => 'issue_date', 'fallback_date' => 'created_at', 'key' => 'تأمين الحوادث الشخصية'],
-                ['table' => 'school_student_insurance_documents', 'date_col' => 'start_date', 'fallback_date' => 'created_at', 'key' => 'تأمين طلبة المدارس'],
-                ['table' => 'cargo_insurance_documents', 'date_col' => 'created_at', 'fallback_date' => 'created_at', 'key' => 'تأمين البضائع'],
-                ['table' => 'cash_in_transit_insurance_documents', 'date_col' => 'start_date', 'fallback_date' => 'created_at', 'key' => 'تأمين نقل النقدية'],
+                ['table' => 'insurance_documents', 'date_col' => 'issue_date', 'fallback_date' => 'created_at', 'key' => 'تأمين سيارات', 'label' => 'تأمين سيارات (إجباري وشامل)'],
+                ['table' => 'international_insurance_documents', 'date_col' => 'issue_date', 'fallback_date' => 'created_at', 'key' => 'تأمين سيارات دولي', 'label' => 'تأمين سيارات دولي (البطاقة البرتقالية)'],
+                ['table' => 'travel_insurance_documents', 'date_col' => 'issue_date', 'fallback_date' => 'created_at', 'key' => 'تأمين المسافرين', 'label' => 'تأمين المسافرين'],
+                ['table' => 'resident_insurance_documents', 'date_col' => 'issue_date', 'fallback_date' => 'created_at', 'key' => 'تأمين الوافدين', 'label' => 'تأمين الوافدين (الإقامة)'],
+                ['table' => 'marine_structure_insurance_documents', 'date_col' => 'issue_date', 'fallback_date' => 'created_at', 'key' => 'تأمين الهياكل البحرية', 'label' => 'تأمين الهياكل البحرية'],
+                ['table' => 'professional_liability_insurance_documents', 'date_col' => 'issue_date', 'fallback_date' => 'created_at', 'key' => 'تأمين المسؤولية المهنية (الطبية)', 'label' => 'تأمين المسؤولية المهنية (الطبية)'],
+                ['table' => 'personal_accident_insurance_documents', 'date_col' => 'issue_date', 'fallback_date' => 'created_at', 'key' => 'تأمين الحوادث الشخصية', 'label' => 'تأمين الحوادث الشخصية'],
+                ['table' => 'school_student_insurance_documents', 'date_col' => 'start_date', 'fallback_date' => 'created_at', 'key' => 'تأمين طلبة المدارس', 'label' => 'تأمين طلبة المدارس'],
+                ['table' => 'cargo_insurance_documents', 'date_col' => 'created_at', 'fallback_date' => 'created_at', 'key' => 'تأمين شحن البضائع', 'label' => 'تأمين شحن البضائع'],
+                ['table' => 'cash_in_transit_insurance_documents', 'date_col' => 'start_date', 'fallback_date' => 'created_at', 'key' => 'تأمين نقل النقدية', 'label' => 'تأمين نقل النقدية'],
             ];
 
             $grandTotalSales = 0;
@@ -879,15 +881,35 @@ class FinancialStatisticsController extends Controller
             $grandTotalAgentShare = 0;
             $grandTotalCompanyShare = 0;
 
+            $typesSummary = [];
+            foreach ($documentTables as $dt) {
+                $typesSummary[$dt['key']] = [
+                    'key' => $dt['key'],
+                    'label' => $dt['label'] ?? $dt['key'],
+                    'document_count' => 0,
+                    'total_sales' => 0.0,
+                    'agent_share' => 0.0,
+                    'company_share' => 0.0,
+                ];
+            }
+
             $schema = DB::getSchemaBuilder();
 
             foreach ($documentTables as $dt) {
                 $tableName = $dt['table'];
                 $dateCol = $dt['date_col'];
+                $typeKey = $dt['key'];
 
                 // Check if table exists and has needed columns
                 if (!$schema->hasTable($tableName)) continue;
                 if (!$schema->hasColumn($tableName, 'branch_agent_id')) continue;
+
+                // Apply doc_type filter if specified
+                if ($docTypeFilter && $docTypeFilter !== 'all' && $docTypeFilter !== 'الكل') {
+                    if ($docTypeFilter !== $typeKey && $docTypeFilter !== $tableName) {
+                        continue;
+                    }
+                }
 
                 $query = DB::table($tableName)
                     ->whereIn('branch_agent_id', $agentIds);
@@ -940,6 +962,30 @@ class FinancialStatisticsController extends Controller
                     $agentStats[$agentId]['agent_share'] += $agentAmount;
                     $agentStats[$agentId]['company_share'] += $companyAmount;
 
+                    // Breakdown per agent by doc type
+                    if (!isset($agentStats[$agentId]['by_type'][$typeKey])) {
+                        $agentStats[$agentId]['by_type'][$typeKey] = [
+                            'key' => $typeKey,
+                            'label' => $dt['label'] ?? $typeKey,
+                            'document_count' => 0,
+                            'total_sales' => 0.0,
+                            'agent_share' => 0.0,
+                            'company_share' => 0.0,
+                        ];
+                    }
+                    $agentStats[$agentId]['by_type'][$typeKey]['document_count']++;
+                    $agentStats[$agentId]['by_type'][$typeKey]['total_sales'] += $total;
+                    $agentStats[$agentId]['by_type'][$typeKey]['agent_share'] += $agentAmount;
+                    $agentStats[$agentId]['by_type'][$typeKey]['company_share'] += $companyAmount;
+
+                    // Aggregate into global types summary
+                    if (isset($typesSummary[$typeKey])) {
+                        $typesSummary[$typeKey]['document_count']++;
+                        $typesSummary[$typeKey]['total_sales'] += $total;
+                        $typesSummary[$typeKey]['agent_share'] += $agentAmount;
+                        $typesSummary[$typeKey]['company_share'] += $companyAmount;
+                    }
+
                     $grandTotalSales += $total;
                     $grandTotalDocs++;
                     $grandTotalAgentShare += $agentAmount;
@@ -951,6 +997,22 @@ class FinancialStatisticsController extends Controller
             $agentResults = [];
             foreach ($agentStats as $stat) {
                 if ($stat['document_count'] > 0) {
+                    $byTypeFormatted = [];
+                    foreach ($stat['by_type'] as $k => $v) {
+                        $byTypeFormatted[] = [
+                            'key' => $v['key'],
+                            'label' => $v['label'],
+                            'document_count' => $v['document_count'],
+                            'total_sales' => round($v['total_sales'], 2),
+                            'agent_share' => round($v['agent_share'], 2),
+                            'company_share' => round($v['company_share'], 2),
+                        ];
+                    }
+                    // Sort agent's by_type by document_count desc
+                    usort($byTypeFormatted, function ($a, $b) {
+                        return $b['document_count'] <=> $a['document_count'];
+                    });
+
                     $agentResults[] = [
                         'id' => $stat['id'],
                         'code' => $stat['code'],
@@ -960,6 +1022,7 @@ class FinancialStatisticsController extends Controller
                         'total_sales' => round($stat['total_sales'], 2),
                         'agent_share' => round($stat['agent_share'], 2),
                         'company_share' => round($stat['company_share'], 2),
+                        'by_type' => $byTypeFormatted,
                     ];
                 }
             }
@@ -968,6 +1031,19 @@ class FinancialStatisticsController extends Controller
             usort($agentResults, function ($a, $b) {
                 return $b['total_sales'] <=> $a['total_sales'];
             });
+
+            // Format types summary
+            $formattedTypesSummary = [];
+            foreach ($typesSummary as $k => $v) {
+                $formattedTypesSummary[] = [
+                    'key' => $v['key'],
+                    'label' => $v['label'],
+                    'document_count' => $v['document_count'],
+                    'total_sales' => round($v['total_sales'], 2),
+                    'agent_share' => round($v['agent_share'], 2),
+                    'company_share' => round($v['company_share'], 2),
+                ];
+            }
 
             return response()->json([
                 'success' => true,
@@ -978,6 +1054,7 @@ class FinancialStatisticsController extends Controller
                     'total_company_share' => round($grandTotalCompanyShare, 2),
                     'agents_count' => count($agentResults),
                 ],
+                'types_summary' => $formattedTypesSummary,
                 'agents' => $agentResults,
             ]);
         } catch (\Exception $e) {

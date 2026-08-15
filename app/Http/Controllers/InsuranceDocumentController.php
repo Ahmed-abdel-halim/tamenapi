@@ -322,6 +322,16 @@ class InsuranceDocumentController extends Controller
                 $branchAgentId = $request->input('branch_agent_id');
             }
 
+            // Check if agent is cancelled / inactive and block issuance
+            if ($branchAgentId) {
+                $agentModel = BranchAgent::find($branchAgentId);
+                if ($agentModel && $agentModel->status === 'غير نشط' && !($isAdmin ?? false)) {
+                    return response()->json([
+                        'message' => 'تم إلغاء هذه الوكالة وتجميد صلاحية إصدار وثائق جديدة.'
+                    ], 403);
+                }
+            }
+
             Log::info('Final branch_agent_id to save:', ['branch_agent_id' => $branchAgentId]);
 
             $document = InsuranceDocument::create([

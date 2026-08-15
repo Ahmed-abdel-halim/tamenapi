@@ -470,7 +470,12 @@ class UserController extends Controller
         $user->tokens()->delete();
         $user->save();
 
-        return response()->json(['message' => 'تم تحديث كلمة المرور بنجاح']);
+        $token = $user->createToken('auth_token')->plainTextToken;
+
+        return response()->json([
+            'message' => 'تم تحديث كلمة المرور بنجاح وتسجيل الخروج من جميع الأجهزة الأخرى',
+            'token' => $token,
+        ]);
     }
 
     public function updateEidcCredentials(Request $request, User $user)

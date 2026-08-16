@@ -1,4 +1,4 @@
-﻿@php
+@php
     $customInsuranceCond = \App\Models\InsuranceCondition::where('insurance_type', 'travel')->first();
 @endphp
 <!DOCTYPE html>

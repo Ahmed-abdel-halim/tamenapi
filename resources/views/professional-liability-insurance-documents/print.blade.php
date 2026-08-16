@@ -11,485 +11,382 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <style>
-            @page {
-            size: A4;
-            margin: 12mm;
+        @page {
+            size: A4 portrait;
+            margin: 6mm 8mm;
         }
-        
+
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
         }
-        
+
+        html, body {
+            height: 100%;
+            background: #fff;
+        }
+
         body {
             font-family: 'Tajawal', 'Arial', 'Tahoma', sans-serif;
             font-size: 12px;
-            color: #000;
-            background: #fff;
-            padding: 0;
-            line-height: 1.5;
+            color: #0f172a;
+            line-height: 1.4;
         }
-        
+
         .document-container {
-            max-width: 100%;
-            margin: 0 auto;
+            width: 100%;
+            min-height: 278mm;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
             background: #fff;
-            padding: 10px;
+            padding: 4px 6px;
         }
-        
+
+        /* ─── Header ─── */
         .header {
             display: flex;
             justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 12px;
+            align-items: center;
             padding-bottom: 10px;
-            border-bottom: 2px solid #000;
+            border-bottom: 3px double #0f172a;
+            margin-bottom: 12px;
         }
-        
-        .qr-code {
-            width: 85px;
-            height: 85px;
-            background: #000;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #fff;
-            font-size: 8px;
-            text-align: center;
-            flex-shrink: 0;
-        }
-        
-        .company-info {
-            text-align: center;
-            flex: 1;
-            padding: 0 12px;
-        }
-        
-        .company-name {
-            font-size: 19px;
-            font-weight: bold;
-            color: #000;
-            margin-bottom: 4px;
-        }
-        
-        .document-title {
-            font-size: 17px;
-            color: #000;
-            font-weight: 700;
-            margin-bottom: 6px;
-        }
-        
-        .legal-text {
-            font-size: 10px;
-            color: #000;
-            line-height: 1.4;
-            margin-top: 4px;
-        }
-        
+
         .logo {
-            width: 95px;
-            height: 95px;
+            width: 90px;
+            height: 90px;
             display: flex;
             align-items: center;
             justify-content: center;
             flex-shrink: 0;
         }
-        
+
         .logo img {
             width: 100%;
             height: 100%;
             object-fit: contain;
         }
-        
-        .section {
+
+        .company-info {
+            text-align: center;
+            flex: 1;
+            padding: 0 15px;
+        }
+
+        .company-name {
+            font-size: 20px;
+            font-weight: 900;
+            color: #0f172a;
+            margin-bottom: 2px;
+        }
+
+        .document-title {
+            font-size: 17px;
+            font-weight: 800;
+            color: #1e40af;
+            margin-bottom: 4px;
+        }
+
+        .legal-text {
+            font-size: 10.5px;
+            font-weight: 700;
+            color: #334155;
+            background: #f8fafc;
+            padding: 4px 10px;
+            border-radius: 4px;
+            border: 1px solid #e2e8f0;
+            display: inline-block;
+        }
+
+        .qr-code {
+            width: 90px;
+            height: 90px;
+            background: #ffffff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid #cbd5e1;
+            flex-shrink: 0;
+            border-radius: 6px;
+        }
+
+        /* ─── Table Sections ─── */
+        .section-header {
+            background: #1e293b;
+            color: #ffffff;
+            font-weight: 800;
+            font-size: 13px;
+            padding: 6px 12px;
+            border-radius: 4px 4px 0 0;
+            margin-top: 10px;
+        }
+
+        .doc-table {
+            width: 100%;
+            border-collapse: collapse;
             margin-bottom: 10px;
         }
-        
-        .section-title {
-            font-size: 15px;
-            font-weight: bold;
-            color: #000;
-            margin-bottom: 12px;
-            padding-bottom: 5px;
-            border-bottom: 1px solid #000;
+
+        .doc-table th, .doc-table td {
+            border: 1px solid #64748b;
+            padding: 7px 10px;
+            font-size: 12px;
+            vertical-align: middle;
         }
-        
-        .info-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 15px;
-            font-size: 13px;
+
+        .doc-table th {
+            background: #f1f5f9;
+            font-weight: 800;
+            color: #0f172a;
+            text-align: center;
         }
-        
-        .info-table td {
-            padding: 8px 10px;
-            border: 1px solid #000;
+
+        .doc-table td.label {
+            background: #f8fafc;
+            font-weight: 800;
+            color: #334155;
             text-align: right;
-            font-size: 13px;
-            color: #000;
+            width: 16%;
         }
-        
-        .info-table td:first-child {
-            font-weight: bold;
-            width: 40%;
-            background: #fff;
-        }
-        
-        .info-table td:last-child {
-            width: 60%;
-        }
-        
-        .two-column-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 8px;
-            font-size: 11px;
-        }
-        
-        .two-column-table td {
-            padding: 4px 6px;
-            border: 1px solid #000;
+
+        .doc-table td.value {
+            font-weight: 700;
+            color: #0f172a;
             text-align: right;
+        }
+
+        .total-box {
+            background: #eff6ff;
+            border: 2px solid #2563eb;
+            padding: 8px 12px;
+            font-size: 13.5px;
+            font-weight: 800;
+            color: #1e40af;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-radius: 6px;
+            margin-bottom: 10px;
+        }
+
+        .terms-box {
+            border: 1px solid #94a3b8;
+            border-radius: 6px;
+            padding: 10px 12px;
+            background: #fafafa;
+            margin-bottom: 10px;
             font-size: 11px;
-            color: #000;
+            line-height: 1.55;
+            color: #1e293b;
         }
-        
-        .two-column-table tr:first-child td,
-        .two-column-table tr:nth-child(2) td {
-            width: 25%;
+
+        .terms-title {
+            font-weight: 800;
+            font-size: 12.5px;
+            color: #0f172a;
+            margin-bottom: 6px;
+            border-bottom: 1px solid #cbd5e1;
+            padding-bottom: 4px;
+            text-align: center;
         }
-        
-        .two-column-table tr:last-child td:first-child {
-            width: 25%;
+
+        .footer-signatures {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            padding-top: 15px;
+            margin-top: 10px;
+            border-top: 1px dashed #cbd5e1;
         }
-        
-        .two-column-table tr:last-child td[colspan="3"] {
-            width: 75%;
+
+        .sig-block {
+            text-align: center;
+            width: 45%;
         }
-        
-        .two-column-table td:nth-child(odd) {
-            font-weight: bold;
-            background: #fff;
+
+        .sig-line {
+            margin-top: 35px;
+            border-top: 1px solid #0f172a;
+            padding-top: 4px;
+            font-weight: 800;
+            font-size: 12px;
+            color: #0f172a;
         }
-        
-        @media print {
-            body {
-                padding: 0;
-                margin: 0;
-            }
-            
-            .document-container {
-                max-width: 100%;
-                padding: 0;
-            }
-            
-            .no-print {
-                display: none;
-            }
-            
-            @page {
-                margin: 12mm;
-            }
+
+        .footer-note {
+            text-align: center;
+            font-size: 10px;
+            color: #64748b;
+            margin-top: 8px;
+            font-weight: 600;
         }
     </style>
 </head>
 <body>
     <div class="document-container">
-        <!-- Header -->
-        <div class="header">
-            <div class="logo">
-                <img src="/img/logo.png" alt="شعار الشركة" onerror="this.style.display='none'; this.parentElement.innerHTML='<div style=\'width:85px;height:85px;background:#000;color:#fff;display:flex;align-items:center;justify-content:center;font-size:8px;text-align:center;\'>LOGO</div>';" />
+        <div>
+            <!-- Header -->
+            <div class="header">
+                <div class="logo">
+                    <img src="/img/logo.png" alt="المدار الليبي للتأمين" onerror="this.src='/img/logo3.png'" />
+                </div>
+                <div class="company-info">
+                    <div class="company-name">شركة المدار الليبي للتأمين</div>
+                    <div class="document-title">وثيقة تأمين المسؤولية المهنية (الطبية)</div>
+                    <div class="legal-text">الوثيقة متوافقة مع أحكام القانون رقم (17) لسنة 1986 م بشأن المسؤولية الطبية</div>
+                </div>
+                <div class="qr-code" id="qrcode"></div>
             </div>
-            <div class="company-info">
-                <div class="company-name">شركة المدار الليبي للتأمين Al Madar Libyan Insurance </div>
-                <div class="document-title">وثيقة تأمين المسؤولية المهنية (الطبية) Professional Liability Insurance (Medical) Document</div>
-                <div class="legal-text">
-                الوثيقه مطابقه للقانون رقم(17) للعام 1986 م The document complies with Law No. (17) of the year 1986               </div>
+
+            <!-- Section 1: بيانات الوثيقة -->
+            <div class="section-header">بيانات الوثيقة Document Data</div>
+            <table class="doc-table">
+                <tr>
+                    <td class="label">رقم الوثيقة:</td>
+                    <td class="value" style="font-size: 14px; font-weight: 900; color: #1e40af;">{{ $printData['insurance_number'] }}</td>
+                    <td class="label">تاريخ الإصدار:</td>
+                    <td class="value">{{ $printData['issue_date'] }}</td>
+                </tr>
+                <tr>
+                    <td class="label">تاريخ الابتداء:</td>
+                    <td class="value">{{ $printData['start_date'] }} (12:00 ظهرًا)</td>
+                    <td class="label">تاريخ الانتهاء:</td>
+                    <td class="value">{{ $printData['end_date'] }} (12:00 ظهرًا)</td>
+                </tr>
+                <tr>
+                    <td class="label">مدة التأمين:</td>
+                    <td class="value" colspan="3">{{ $printData['duration'] }}</td>
+                </tr>
+            </table>
+
+            <!-- Section 2: بيانات المؤمن له -->
+            <div class="section-header">بيانات المؤمن له Insured Data</div>
+            <table class="doc-table">
+                <tr>
+                    <td class="label">اسم المؤمن له:</td>
+                    <td class="value" colspan="3" style="font-size: 13.5px; font-weight: 800;">{{ $printData['insured_name'] }}</td>
+                </tr>
+                <tr>
+                    <td class="label">رقم الهاتف:</td>
+                    <td class="value">{{ $printData['phone'] }}</td>
+                    <td class="label">مكان العمل:</td>
+                    <td class="value">{{ $printData['workplace'] }}</td>
+                </tr>
+                <tr>
+                    <td class="label">الصفة بالعقد:</td>
+                    <td class="value">{{ $printData['contract_relation'] }}</td>
+                    <td class="label">الجنس:</td>
+                    <td class="value">{{ $printData['gender'] }}</td>
+                </tr>
+                <tr>
+                    <td class="label">الحالة الاجتماعية:</td>
+                    <td class="value">{{ $printData['marital_status'] }}</td>
+                    <td class="label">الجنسية:</td>
+                    <td class="value">{{ $printData['nationality'] }}</td>
+                </tr>
+                <tr>
+                    <td class="label">تاريخ الميلاد:</td>
+                    <td class="value">{{ $printData['birth_date'] }}</td>
+                    <td class="label">المهنة / التخصص:</td>
+                    <td class="value" style="font-weight: 800; color: #0369a1;">{{ $printData['profession'] }}</td>
+                </tr>
+            </table>
+
+            <!-- Section 3: بيان الحساب والرسوم المالية -->
+            <div class="section-header">تفاصيل القسط والرسوم المالية Financial Details</div>
+            <table class="doc-table">
+                <tr>
+                    <td class="label">القسط الصافي:</td>
+                    <td class="value">{{ $printData['premium'] }} د.ل</td>
+                    <td class="label">الفرع / الوكالة:</td>
+                    <td class="value">{{ $printData['agency_name'] }} (كود: {{ $printData['agency_code'] }})</td>
+                </tr>
+                <tr>
+                    <td class="label">الضريبة:</td>
+                    <td class="value">{{ $printData['tax'] }} د.ل</td>
+                    <td class="label">الموظف المحرر:</td>
+                    <td class="value">{{ $printData['agent_name'] }}</td>
+                </tr>
+                <tr>
+                    <td class="label">رسم الدمغة:</td>
+                    <td class="value">{{ $printData['stamp'] }} د.ل</td>
+                    <td class="label">تاريخ / وقت التحرير:</td>
+                    <td class="value">{{ $printData['prepared_at'] }}</td>
+                </tr>
+                <tr>
+                    <td class="label">مصاريف الإصدار:</td>
+                    <td class="value">{{ $printData['issue_fees'] }} د.ل</td>
+                    <td class="label" rowspan="2" style="vertical-align: middle;">ملاحظات:</td>
+                    <td class="value" rowspan="2" style="vertical-align: middle;">لا تمثل هذه الوثيقة إيصال مالي إلا بعد سداد المبلغ الموضح.</td>
+                </tr>
+                <tr>
+                    <td class="label">رسوم الإشراف:</td>
+                    <td class="value">{{ $printData['supervision_fees'] }} د.ل</td>
+                </tr>
+            </table>
+
+            <div class="total-box">
+                <div>إجمالي المبلغ المستحق (Total Premium): <span style="font-size: 16px; color: #dc2626; font-weight: 900; margin-right: 8px;">{{ $printData['total'] }} د.ل</span></div>
+                <div style="font-size: 12px; color: #334155; font-weight: 700;">المبلغ تفقيطاً: {{ $printData['total_in_words'] }}</div>
             </div>
-            <div class="qr-code" id="qrcode"></div>
+
+            <!-- Section 4: شروط وإقرارات الوثيقة -->
+            <div class="terms-box">
+                <div class="terms-title">شروط وإقرارات الوثيقة (تأمين المسؤولية الطبية)</div>
+                <div style="margin-bottom: 6px; text-align: justify;">
+                    تُصدر الإدارة وثائق تأمين المسؤولية الطبية وفق أحكام القانون رقم (17) لسنة 1986م، والذي يمنح العناصر الطبية والطبية المساعدة الطمأنينة في ممارسة مهامهم حيث توفر التغطية التأمينية عن الأخطاء الطبية الصادرة عنهم.
+                </div>
+                <div style="margin-bottom: 6px; text-align: justify;">
+                    تغطي هذه الوثيقة المسؤولية المدنية الناجمة عن الوفاة أو أي إصابة بدنية أو أي ضرر مادي أو معنوي لأي شخص بسبب خطأ ناتج عن ممارسة المهن الطبية والمهن المرتبطة بها.
+                </div>
+                @if($customInsuranceCond && !empty(trim($customInsuranceCond->conditions)))
+                    <div style="white-space: pre-line; margin-top: 8px; padding-top: 8px; border-top: 1px dashed #cbd5e1; font-weight: 600; color: #0f172a;">
+                        {!! nl2br(e($customInsuranceCond->conditions)) !!}
+                    </div>
+                @endif
+            </div>
         </div>
 
-        <!-- Document Details -->
-        <div class="section">
-            <table class="two-column-table">
-                <tr style="vertical-align:top;">
-                    <td colspan="15" style="width:480px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>بيـانــــات الوثيـقــــــة Document data</nobr>
-                    </td>
-                </tr>
-                <tr style="vertical-align:top;">
-                    <td colspan="2" style="width:79px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>رقـــــم الوثيـقــــــــــة Document number</nobr>
-                    </td>
-                    <td colspan="4" style="width:158px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>{{ $printData['insurance_number'] }}</nobr>
-                    </td>
-                    <td colspan="2" style="width:79px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>تـــاريــــخ الإصـــدار Issue date</nobr>
-                    </td>
-                    <td colspan="7" style="width:158px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>{{ $printData['issue_date'] }}</nobr>
-                    </td>
-                </tr>
-                <tr style="vertical-align:top;">
-                    <td colspan="2" style="width:79px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>مـن (12:00) ظهرا It starts noon</nobr>
-                    </td>
-                    <td colspan="4" style="width:158px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>{{ $printData['start_date'] }}</nobr>
-                    </td>
-                    <td colspan="2" style="width:79px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>إلى (12:00) ظهرا End of noon</nobr>
-                    </td>
-                    <td colspan="7" style="width:158px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>{{ $printData['end_date'] }}</nobr>
-                    </td>
-                </tr>
-                <tr style="vertical-align:top;">
-                    <td colspan="6" style="width:239px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>مــدة التأمـــين Document duration</nobr>
-                    </td>
-                    <td colspan="9" style="width:239px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        {{ $printData['duration'] }}
-                    </td>
-                </tr>
-            </table>
-        </div>
+        <!-- Footer & Signatures -->
+        <div>
+            <div class="footer-signatures">
+                <div class="sig-block">
+                    <div class="sig-line">توقيع وإقرار المؤمن له (الطبيب / الممارس)</div>
+                </div>
+                <div class="sig-block">
+                    <div class="sig-line">توقيع وختم شركة المدار الليبي للتأمين</div>
+                </div>
+            </div>
 
-        <!-- Insured Details -->
-        <div class="section">
-            <table class="two-column-table">
-                <tr style="vertical-align:top;">
-                    <td colspan="15" style="width:480px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>بيانات المؤمن Insured data</nobr>
-                    </td>
-                </tr>
-                <tr style="vertical-align:top;">
-                    <td colspan="2" style="width:79px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>اسم المؤمن له Insured name</nobr>
-                    </td>
-                    <td colspan="7" style="width:237px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>{{ $printData['insured_name'] }}</nobr>
-                    </td>
-                    <td colspan="2" style="width:79px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>هاتف/واتساب Phone/WA</nobr>
-                    </td>
-                    <td colspan="4" style="width:85px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>{{ $printData['phone'] }} / {{ $document->whatsapp_number ?? '-' }}</nobr>
-                    </td>
-                </tr>
-                <tr style="vertical-align:top;">
-                    <td colspan="2" style="width:79px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>مكان العمل Workplace</nobr>
-                    </td>
-                    <td colspan="7" style="width:158px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>{{ $printData['workplace'] }}</nobr>
-                    </td>
-                    <td colspan="2" style="width:79px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>اسم المتعاقد Contractor name</nobr>
-                    </td>
-                    <td colspan="4" style="width:158px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>{{ $printData['contractor_name'] }}</nobr>
-                    </td>
-                </tr>
-                <tr style="vertical-align:top;">
-                    <td colspan="2" style="width:79px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>صلة المتعاقد بالمؤمن Contract relation</nobr>
-                    </td>
-                    <td colspan="7" style="width:158px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>{{ $printData['contract_relation'] }}</nobr>
-                    </td>
-                    <td colspan="2" style="width:79px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>الجنس Gender</nobr>
-                    </td>
-                    <td colspan="4" style="width:158px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>{{ $printData['gender'] }}</nobr>
-                    </td>
-                </tr>
-                <tr style="vertical-align:top;">
-                    <td colspan="2" style="width:79px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>تاريخ الميلاد Date of birth</nobr>
-                    </td>
-                    <td colspan="7" style="width:158px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>{{ $printData['birth_date'] }}</nobr>
-                    </td>
-                    <td colspan="2" style="width:79px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>الجنسية Nationality</nobr>
-                    </td>
-                    <td colspan="4" style="width:158px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>{{ $printData['nationality'] }}</nobr>
-                    </td>
-                </tr>
-                <tr style="vertical-align:top;">
-                    <td colspan="2" style="width:79px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>المهنة Profession</nobr>
-                    </td>
-                    <td colspan="7" style="width:158px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>{{ $printData['profession'] }}</nobr>
-                    </td>
-                    <td colspan="2" style="width:79px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>الحالة الإجتماعية Marital status</nobr>
-                    </td>
-                    <td colspan="4" style="width:158px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>{{ $printData['marital_status'] }}</nobr>
-                    </td>
-                </tr>
-                <tr style="vertical-align:top;">
-                    <td colspan="6" style="width:239px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>احتساب القسط - البيانات المالية</nobr>
-                    </td>
-                    <td colspan="9" style="width:239px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;font-weight:bold;">
-                        <nobr>الشركة الصــادرة - معد الوثيقة</nobr>
-                    </td>
-                </tr>
-                <tr style="vertical-align:top;">
-                    <td colspan="3" style="width:125px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>تفاصيل الرسوم</nobr>
-                    </td>
-                    <td colspan="3" style="width:112px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>&nbsp;القيــمة</nobr>
-                    </td>
-                    <td colspan="3" style="width:90px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>&nbsp;اسم الوكيل</nobr>
-                    </td>
-                    <td colspan="4" style="width:78px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;font-weight:bold;">
-                        <nobr>&nbsp;رقم الوكالة</nobr>
-                    </td>
-                    <td colspan="2" style="width:67px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>اسم الموظف</nobr>
-                    </td>
-                </tr>
-                <tr style="vertical-align:top;">
-                    <td colspan="3" style="width:125px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>قيمة القسط المقرر</nobr>
-                    </td>
-                    <td colspan="3" style="width:112px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>{{ $printData['premium'] }}</nobr>
-                    </td>
-                    <td colspan="3" style="width:90px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>{{ $printData['agency_name'] ?? 'المدار الليبي للتأمين' }}</nobr>
-                    </td>
-                    <td colspan="4" style="width:78px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;font-weight:bold;">
-                        <nobr>{{ $printData['agency_code'] ?? 'ML0001' }}</nobr>
-                    </td>
-                    <td colspan="2" style="width:67px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>{{ $printData['agent_name'] ?? 'محمد علي' }}</nobr>
-                    </td>
-                </tr>
-                <tr style="vertical-align:top;">
-                    <td colspan="3" style="width:125px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>الضريبــــــــــــــــــــــــة</nobr>
-                    </td>
-                    <td colspan="3" style="width:112px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>{{ $printData['tax'] }}</nobr>
-                    </td>
-                    <td colspan="5" style="width:121px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>وقت الاعداد</nobr>
-                    </td>
-                    <td colspan="4" style="width:116px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>{{ $printData['prepared_at'] }}</nobr>
-                    </td>
-                </tr>
-                <tr style="vertical-align:top;">
-                    <td colspan="3" style="width:125px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>الدمـغــــــــــــــــــــــــة</nobr>
-                    </td>
-                    <td colspan="3" style="width:112px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>{{ $printData['stamp'] }}</nobr>
-                    </td>
-                    <td colspan="5" style="width:121px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>التوقــيــع والخـــتـــم:</nobr>
-                    </td>
-                    <td colspan="4" style="width:116px;height:12px;"></td>
-                </tr>
-                <tr style="vertical-align:top;">
-                    <td colspan="3" style="width:125px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>مصاريف الاصـدار</nobr>
-                    </td>
-                    <td colspan="3" style="width:112px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>{{ $printData['issue_fees'] }}</nobr>
-                    </td>
-                    <td colspan="9" style="width:239px;height:12px;"></td>
-                </tr>
-                <tr style="vertical-align:top;">
-                    <td colspan="3" style="width:125px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>رســـوم الاشــــــــراف</nobr>
-                    </td>
-                    <td colspan="3" style="width:112px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>{{ $printData['supervision_fees'] }}</nobr>
-                    </td>
-                    <td colspan="9" style="width:239px;height:12px;"></td>
-                </tr>
-                <tr style="vertical-align:top;">
-                    <td colspan="3" style="width:125px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>الاجمـــ رقــم ــــالي</nobr>
-                    </td>
-                    <td colspan="3" style="width:112px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>{{ $printData['total'] }}</nobr>
-                    </td>
-                    <td colspan="9" style="width:239px;height:12px;"></td>
-                </tr>
-                <tr style="vertical-align:top;">
-                    <td colspan="3" style="width:125px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>الاجمــ حروف ـالي</nobr>
-                    </td>
-                    <td colspan="12" style="width:353px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        {{ $printData['total_in_words'] }}
-                    </td>
-                </tr>
-                <tr style="vertical-align:top;">
-                    <td colspan="3" style="width:125px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>الملاحظة Note</nobr>
-                    </td>
-                    <td colspan="12" style="width:353px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;">
-                        <nobr>لا يتم تغطية أي حالة طارئة إلا عن طريق المعيد ( دار الصحة)</nobr>
-                    </td>
-                </tr>
-            </table>
+            <div class="footer-note">
+                إدارة التأمينات العامة &mdash; شركة المدار الليبي للتأمين &mdash; هاتف الخدمة: 0910094100
+            </div>
         </div>
-
-        <!-- Terms and Conditions -->
-        <div class="section">
-        <table class="two-column-table" style="width: 100%; border-collapse: collapse; margin-bottom: 8px; font-size:10px;">
-        <tr style="vertical-align:top;">
-        <td colspan="15" style="width:481px;height:auto;line-height:13px;direction:rtl;text-align:center;vertical-align:top;font-size:12px;font-weight:normal;padding:6px;">
-        تقوم الإدارة بإصدار وثائق تأمين المسئولية الطبية وفق قانون المسئولية الطبية رقم 17 لسنة 1986 والذي يمنح العناصر الطبية والطبية المساعدة الطمأنينة في مزاولة أعمالهم حيث توفير الغطاء التأميني لأي خطأ طبي يصدر عنهم .<br>
-        The administration issues medical liability insurance documents in accordance with Medical Liability Law No. 17 of 1986, which provides medical and allied health personnel with reassurance in performing their duties by offering insurance coverage for any medical errors they may commit.<br><br>
-        تغطي هذه الوثيقة المسئولية المدنية الناجمة عن الوفاة أو أية إصابة بدنية أو إلحاق أي ضرر مادي أو معنوي بأي شخص بسبب خطأ من الأخطاء المهنية الناشئة عن ممارسة المهن الطبية و المهن المرتبطة بها.<br>
-        This document covers civil liability arising from death, any bodily injury, or any material or moral damage to any person due to errors resulting from the practice of medical professions and related professions.
-                    </td>
-                </tr>
-            </table>
-        </div>
-
-   
-     
     </div>
 
     @php
         $qrDataJson = json_encode($printData['qr_data']);
     @endphp
     <script>
-        // إنشاء QR code يحتوي على بيانات الوثيقة - محسّن للأداء
         (function() {
             const qrData = {!! $qrDataJson !!};
             const qrText = JSON.stringify(qrData);
-            const qrApiUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=85x85&data=' + encodeURIComponent(qrText);
+            const qrApiUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=' + encodeURIComponent(qrText);
             const qrContainer = document.getElementById('qrcode');
             if (qrContainer) {
-                qrContainer.innerHTML = '<img src="' + qrApiUrl + '" alt="QR Code" style="width: 85px; height: 85px; display: block;" />';
+                qrContainer.innerHTML = '<img src="' + qrApiUrl + '" alt="QR Code" style="width: 90px; height: 90px; display: block;" />';
             }
         })();
 
-        // التفعيل التلقائي للطباعة عند التحميل
         window.onload = function() {
-            // انتظار بسيط للتأكد من تحميل الـ QR code
             setTimeout(function() {
                 window.print();
-            }, 500);
+            }, 400);
         };
     </script>
 </body>
 </html>
-

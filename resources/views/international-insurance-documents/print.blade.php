@@ -1,3 +1,6 @@
+﻿@php
+    $customInsuranceCond = \App\Models\InsuranceCondition::where('insurance_type', 'international')->first();
+@endphp
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -260,6 +263,14 @@ foreach ($allBureaus as $country => $info) {
 </table>
 
 {{-- ============ GENERAL TERMS ============ --}}
+@if(isset($customInsuranceCond) && $customInsuranceCond && !empty(trim($customInsuranceCond->conditions)))
+<table style="width:100%;margin-top:6px;border-collapse:collapse;">
+<tr><td class="hdr-blk" style="font-weight:bold;font-size:12px;background:#f1f5f9;padding:4px 8px;">الشروط العامة والأحكام (شروط الوثيقة)</td></tr>
+<tr>
+    <td style="font-size:10px;line-height:1.5;padding:6px 8px;white-space:pre-line;background:#ffffff;">{!! nl2br(e($customInsuranceCond->conditions)) !!}</td>
+</tr>
+</table>
+@else
 <table>
 <tr><td class="hdr-blk">إرشادات وشروط عامة</td></tr>
 <tr>
@@ -276,6 +287,7 @@ foreach ($allBureaus as $country => $info) {
 </tr>
 </table>
 
+@endif
 {{-- ============ FINANCIAL TOTAL ============ --}}
 <table>
 <tr>

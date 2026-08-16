@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -107,7 +107,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/office-users/{id}/toggle-status', [UserController::class, 'toggleOfficeUserStatus']);
     Route::delete('/office-users/{id}', [UserController::class, 'destroyOfficeUser']);
     
-    // إدارة الوثائق القديمة
+    // ط¥ط¯ط§ط±ط© ط§ظ„ظˆط«ط§ط¦ظ‚ ط§ظ„ظ‚ط¯ظٹظ…ط©
     Route::get('/old-documents', [OldDocumentController::class, 'index']);
     Route::post('/old-documents', [OldDocumentController::class, 'store']);
 });
@@ -140,32 +140,32 @@ Route::delete('/expense-subcategories/{id}', [ExpenseSubCategoryController::clas
 Route::get('/reset-categories', function () {
     \Illuminate\Support\Facades\DB::table('expense_categories')->delete();
     $cats = [
-        'قرطاسية',
-        'صيانة',
-        'خدمات',
-        'إيجار',
-        'ضيافة',
-        'التعويضات',
-        'قرطاسيه مكتبيه مستهلكه',
-        'مصاريف (رصيد واشتراكات حكوميه (كهرباء -انترنت -رصيد اتصالات-ماء -صرف صحي ))',
-        'مصاريف مواد تنظيف',
-        'عهده ماليه خاصه بالموظفين',
-        'صيانة (الكترونيات - المبنى - الاثاث -الخ )',
-        'صيانه السيارات الخاصه بالموظفين والخدمات',
-        'الكترونيات ثابته',
-        'دعايه واعلان وهدايا مستهلكه (( خاص بالوكلاء ))',
-        'رسوم ومصاريف اشتراكات المعارض والاجتماعات الخاصه بالشركه',
-        'رسوم اصدار وتجديد غرفه التجاره والصناعه والزراعه',
-        'قرطاسيه مكتبيه ثابته',
-        'رسوم اشتراكات اعاده التامين',
-        'مصلحة الضرائب والميزانيات'
+        'ظ‚ط±ط·ط§ط³ظٹط©',
+        'طµظٹط§ظ†ط©',
+        'ط®ط¯ظ…ط§طھ',
+        'ط¥ظٹط¬ط§ط±',
+        'ط¶ظٹط§ظپط©',
+        'ط§ظ„طھط¹ظˆظٹط¶ط§طھ',
+        'ظ‚ط±ط·ط§ط³ظٹظ‡ ظ…ظƒطھط¨ظٹظ‡ ظ…ط³طھظ‡ظ„ظƒظ‡',
+        'ظ…طµط§ط±ظٹظپ (ط±طµظٹط¯ ظˆط§ط´طھط±ط§ظƒط§طھ ط­ظƒظˆظ…ظٹظ‡ (ظƒظ‡ط±ط¨ط§ط، -ط§ظ†طھط±ظ†طھ -ط±طµظٹط¯ ط§طھطµط§ظ„ط§طھ-ظ…ط§ط، -طµط±ظپ طµط­ظٹ ))',
+        'ظ…طµط§ط±ظٹظپ ظ…ظˆط§ط¯ طھظ†ط¸ظٹظپ',
+        'ط¹ظ‡ط¯ظ‡ ظ…ط§ظ„ظٹظ‡ ط®ط§طµظ‡ ط¨ط§ظ„ظ…ظˆط¸ظپظٹظ†',
+        'طµظٹط§ظ†ط© (ط§ظ„ظƒطھط±ظˆظ†ظٹط§طھ - ط§ظ„ظ…ط¨ظ†ظ‰ - ط§ظ„ط§ط«ط§ط« -ط§ظ„ط® )',
+        'طµظٹط§ظ†ظ‡ ط§ظ„ط³ظٹط§ط±ط§طھ ط§ظ„ط®ط§طµظ‡ ط¨ط§ظ„ظ…ظˆط¸ظپظٹظ† ظˆط§ظ„ط®ط¯ظ…ط§طھ',
+        'ط§ظ„ظƒطھط±ظˆظ†ظٹط§طھ ط«ط§ط¨طھظ‡',
+        'ط¯ط¹ط§ظٹظ‡ ظˆط§ط¹ظ„ط§ظ† ظˆظ‡ط¯ط§ظٹط§ ظ…ط³طھظ‡ظ„ظƒظ‡ (( ط®ط§طµ ط¨ط§ظ„ظˆظƒظ„ط§ط، ))',
+        'ط±ط³ظˆظ… ظˆظ…طµط§ط±ظٹظپ ط§ط´طھط±ط§ظƒط§طھ ط§ظ„ظ…ط¹ط§ط±ط¶ ظˆط§ظ„ط§ط¬طھظ…ط§ط¹ط§طھ ط§ظ„ط®ط§طµظ‡ ط¨ط§ظ„ط´ط±ظƒظ‡',
+        'ط±ط³ظˆظ… ط§طµط¯ط§ط± ظˆطھط¬ط¯ظٹط¯ ط؛ط±ظپظ‡ ط§ظ„طھط¬ط§ط±ظ‡ ظˆط§ظ„طµظ†ط§ط¹ظ‡ ظˆط§ظ„ط²ط±ط§ط¹ظ‡',
+        'ظ‚ط±ط·ط§ط³ظٹظ‡ ظ…ظƒطھط¨ظٹظ‡ ط«ط§ط¨طھظ‡',
+        'ط±ط³ظˆظ… ط§ط´طھط±ط§ظƒط§طھ ط§ط¹ط§ط¯ظ‡ ط§ظ„طھط§ظ…ظٹظ†',
+        'ظ…طµظ„ط­ط© ط§ظ„ط¶ط±ط§ط¦ط¨ ظˆط§ظ„ظ…ظٹط²ط§ظ†ظٹط§طھ'
     ];
     $insertData = [];
     foreach ($cats as $cat) {
         $insertData[] = ['name' => $cat, 'created_at' => now(), 'updated_at' => now()];
     }
     \Illuminate\Support\Facades\DB::table('expense_categories')->insert($insertData);
-    return 'تم تنظيف الفئات بنجاح! جميع الفئات الوهمية تم مسحها، وتمت إضافة الفئات الرسمية فقط. يمكنك العودة للنظام الآن وتحديث الصفحة.';
+    return 'طھظ… طھظ†ط¸ظٹظپ ط§ظ„ظپط¦ط§طھ ط¨ظ†ط¬ط§ط­! ط¬ظ…ظٹط¹ ط§ظ„ظپط¦ط§طھ ط§ظ„ظˆظ‡ظ…ظٹط© طھظ… ظ…ط³ط­ظ‡ط§طŒ ظˆطھظ…طھ ط¥ط¶ط§ظپط© ط§ظ„ظپط¦ط§طھ ط§ظ„ط±ط³ظ…ظٹط© ظپظ‚ط·. ظٹظ…ظƒظ†ظƒ ط§ظ„ط¹ظˆط¯ط© ظ„ظ„ظ†ط¸ط§ظ… ط§ظ„ط¢ظ† ظˆطھط­ط¯ظٹط« ط§ظ„طµظپط­ط©.';
 });
 
 Route::apiResource('school-student-insurance', 'App\Http\Controllers\SchoolStudentInsuranceDocumentController');
@@ -222,7 +222,7 @@ Route::get('/insurance-documents/{id}/print', [InsuranceDocumentController::clas
 Route::post('/insurance-documents/{id}/transfer-ownership', [InsuranceDocumentController::class, 'transferOwnership']);
 Route::get('/insurance-documents/{id}/ownership-transfer-history', [InsuranceDocumentController::class, 'getOwnershipTransferHistory']);
 
-// ─── EIDC Authority Integration Routes (تأمين إجباري سيارات) ─────────────────
+// â”€â”€â”€ EIDC Authority Integration Routes (طھط£ظ…ظٹظ† ط¥ط¬ط¨ط§ط±ظٹ ط³ظٹط§ط±ط§طھ) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 Route::get('/insurance-documents/eidc/vehicle-types', [InsuranceDocumentController::class, 'eidcVehicleTypes']);
 Route::get('/insurance-documents/eidc/vehicle-specs', [InsuranceDocumentController::class, 'eidcVehicleSpecs']);
 Route::get('/insurance-documents/eidc/vehicle-details', [InsuranceDocumentController::class, 'eidcVehicleDetails']);
@@ -297,7 +297,7 @@ Route::apiResource('cargo-insurance-documents', CargoInsuranceDocumentController
 Route::post('/cargo-insurance-documents/{id}/cancel', [CargoInsuranceDocumentController::class, 'cancel']);
 
 
-// ─── Canceled Documents Management (إدارة الوثائق الملغية) ───────────────────
+// â”€â”€â”€ Canceled Documents Management (ط¥ط¯ط§ط±ط© ط§ظ„ظˆط«ط§ط¦ظ‚ ط§ظ„ظ…ظ„ط؛ظٹط©) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 Route::get('/canceled-documents', [CanceledDocumentsController::class, 'index']);
 Route::get('/canceled-documents/stats', [CanceledDocumentsController::class, 'stats']);
 
@@ -335,7 +335,7 @@ Route::post('/claims/{id}/submit-compensation', [ClaimController::class, 'submit
 Route::post('/claims/{id}/approve-payment', [ClaimController::class, 'approvePayment']);
 Route::post('/claims/{id}/reject-payment', [ClaimController::class, 'rejectPayment']);
 
-// ─── Excel Import Routes (استيراد ملفات Excel) ──────────────────────────────
+// â”€â”€â”€ Excel Import Routes (ط§ط³طھظٹط±ط§ط¯ ظ…ظ„ظپط§طھ Excel) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 Route::post('/excel-import/analyze', [\App\Http\Controllers\ExcelImportController::class, 'analyzeFile']);
 Route::post('/excel-import/confirm', [\App\Http\Controllers\ExcelImportController::class, 'confirmImport']);
 Route::get('/excel-import/agents', [\App\Http\Controllers\ExcelImportController::class, 'getAgents']);
@@ -357,7 +357,7 @@ Route::prefix('inventory')->group(function () {
     Route::post('/return-custody/{id}', [InventoryController::class, 'returnCustody']);
 });
 
-// ─── Treasury Routes (الخزنة) ─────────────────────────────────────────────────
+// â”€â”€â”€ Treasury Routes (ط§ظ„ط®ط²ظ†ط©) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 Route::get('/treasury', [\App\Http\Controllers\TreasuryController::class, 'index']);
 Route::post('/treasury', [\App\Http\Controllers\TreasuryController::class, 'store']);
 Route::get('/treasury/balance', [\App\Http\Controllers\TreasuryController::class, 'balance']);
@@ -366,7 +366,7 @@ Route::get('/treasury/{id}', [\App\Http\Controllers\TreasuryController::class, '
 Route::post('/treasury/{id}', [\App\Http\Controllers\TreasuryController::class, 'update']);
 Route::delete('/treasury/{id}', [\App\Http\Controllers\TreasuryController::class, 'destroy']);
 
-// ─── POS Machines Routes (ماكينات البطاقة) ───────────────────────────────────
+// â”€â”€â”€ POS Machines Routes (ظ…ط§ظƒظٹظ†ط§طھ ط§ظ„ط¨ط·ط§ظ‚ط©) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 Route::get('/pos-machines', [\App\Http\Controllers\PosMachineController::class, 'index']);
 Route::post('/pos-machines', [\App\Http\Controllers\PosMachineController::class, 'store']);
 Route::put('/pos-machines/{id}', [\App\Http\Controllers\PosMachineController::class, 'update']);
@@ -374,14 +374,14 @@ Route::delete('/pos-machines/{id}', [\App\Http\Controllers\PosMachineController:
 Route::post('/pos-machines/{id}/toggle-active', [\App\Http\Controllers\PosMachineController::class, 'toggleActive']);
 Route::get('/pos-machines/dashboard', [\App\Http\Controllers\PosMachineController::class, 'dashboard']);
 
-// ─── POS Transactions Routes ──────────────────────────────────────────────────
+// â”€â”€â”€ POS Transactions Routes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 Route::get('/pos-transactions', [\App\Http\Controllers\PosMachineController::class, 'transactions']);
 Route::post('/pos-transactions', [\App\Http\Controllers\PosMachineController::class, 'storeTransaction']);
 Route::post('/pos-transactions/{id}', [\App\Http\Controllers\PosMachineController::class, 'updateTransaction']);
 Route::delete('/pos-transactions/{id}', [\App\Http\Controllers\PosMachineController::class, 'destroyTransaction']);
 Route::post('/pos-transactions/{id}/reconcile', [\App\Http\Controllers\PosMachineController::class, 'toggleReconcile']);
 
-// ─── Agent Wallet & Loyalty Routes (المحفظة والتحفيز) ─────────────────────────
+// â”€â”€â”€ Agent Wallet & Loyalty Routes (ط§ظ„ظ…ط­ظپط¸ط© ظˆط§ظ„طھط­ظپظٹط²) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 Route::prefix('agent-wallet')->group(function () {
     Route::get('/settings/loyalty', [\App\Http\Controllers\AgentWalletController::class, 'getLoyaltySettings']);
     Route::post('/settings/loyalty', [\App\Http\Controllers\AgentWalletController::class, 'saveLoyaltySettings']);
@@ -395,7 +395,7 @@ Route::prefix('agent-wallet')->group(function () {
     Route::get('/{id}/referrals', [\App\Http\Controllers\AgentWalletController::class, 'getReferrals']);
 });
 
-// ─── LIFO API Routes ─────────────────────────────────────────────────────────
+// â”€â”€â”€ LIFO API Routes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 Route::any('/lifo-prod/{any}', [LifoReportController::class, 'lifoProxy'])->where('any', '.*');
 Route::post('/lifo-reports/cards-paginated', [LifoReportController::class, 'cardsPaginated']);
 Route::post('/lifo-reports/reports-paginated', [LifoReportController::class, 'reportsPaginated']);
@@ -405,44 +405,49 @@ Route::post('/lifo-reports/requests-list', [LifoReportController::class, 'reques
 Route::post('/lifo-reports/dashboard-summary', [LifoReportController::class, 'dashboardSummary']);
 Route::get('/test-lifo-connection', [LifoReportController::class, 'testLifoConnection']);
 
-// ─── Website Settings & Management Routes ─────────────────────────────────────
+// â”€â”€â”€ Website Settings & Management Routes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 Route::get('/public/website-settings', [\App\Http\Controllers\WebsiteSettingsController::class, 'getPublicSettings']);
 Route::get('/public/media-posts', [\App\Http\Controllers\WebsiteSettingsController::class, 'getPublicMediaPosts']);
 Route::post('/public/insurance-requests', [\App\Http\Controllers\PublicInsuranceRequestController::class, 'store']);
 
 Route::middleware('auth:sanctum')->group(function () {
-    // إعدادات الموقع
+    // ط¥ط¹ط¯ط§ط¯ط§طھ ط§ظ„ظ…ظˆظ‚ط¹
     Route::get('/website-settings', [\App\Http\Controllers\WebsiteSettingsController::class, 'getSettings']);
     Route::post('/website-settings', [\App\Http\Controllers\WebsiteSettingsController::class, 'saveSettings']);
 
-    // المركز الإعلامي
+    // ط§ظ„ظ…ط±ظƒط² ط§ظ„ط¥ط¹ظ„ط§ظ…ظٹ
     Route::get('/website-settings/media-posts', [\App\Http\Controllers\WebsiteSettingsController::class, 'mediaPostsIndex']);
     Route::post('/website-settings/media-posts', [\App\Http\Controllers\WebsiteSettingsController::class, 'mediaPostsStore']);
     Route::post('/website-settings/media-posts/{id}', [\App\Http\Controllers\WebsiteSettingsController::class, 'mediaPostsUpdate']);
     Route::delete('/website-settings/media-posts/{id}', [\App\Http\Controllers\WebsiteSettingsController::class, 'mediaPostsDestroy']);
 
-    // بنرات الصفحة الرئيسية
+    // ط¨ظ†ط±ط§طھ ط§ظ„طµظپط­ط© ط§ظ„ط±ط¦ظٹط³ظٹط©
     Route::get('/website-settings/sliders', [\App\Http\Controllers\WebsiteSettingsController::class, 'slidersIndex']);
     Route::post('/website-settings/sliders', [\App\Http\Controllers\WebsiteSettingsController::class, 'slidersStore']);
     Route::post('/website-settings/sliders/{id}', [\App\Http\Controllers\WebsiteSettingsController::class, 'slidersUpdate']);
     Route::delete('/website-settings/sliders/{id}', [\App\Http\Controllers\WebsiteSettingsController::class, 'slidersDestroy']);
 
-    // خدمات الصفحة الرئيسية
+    // ط®ط¯ظ…ط§طھ ط§ظ„طµظپط­ط© ط§ظ„ط±ط¦ظٹط³ظٹط©
     Route::get('/website-settings/services', [\App\Http\Controllers\WebsiteSettingsController::class, 'servicesIndex']);
     Route::post('/website-settings/services', [\App\Http\Controllers\WebsiteSettingsController::class, 'servicesStore']);
     Route::post('/website-settings/services/{id}', [\App\Http\Controllers\WebsiteSettingsController::class, 'servicesUpdate']);
     Route::delete('/website-settings/services/{id}', [\App\Http\Controllers\WebsiteSettingsController::class, 'servicesDestroy']);
 
-    // أنواع التأمين (صفحة التأمينات)
+    // ط£ظ†ظˆط§ط¹ ط§ظ„طھط£ظ…ظٹظ† (طµظپط­ط© ط§ظ„طھط£ظ…ظٹظ†ط§طھ)
     Route::get('/website-settings/insurance-types', [\App\Http\Controllers\WebsiteSettingsController::class, 'insuranceTypesIndex']);
     Route::post('/website-settings/insurance-types', [\App\Http\Controllers\WebsiteSettingsController::class, 'insuranceTypesStore']);
     Route::post('/website-settings/insurance-types/{id}', [\App\Http\Controllers\WebsiteSettingsController::class, 'insuranceTypesUpdate']);
     Route::delete('/website-settings/insurance-types/{id}', [\App\Http\Controllers\WebsiteSettingsController::class, 'insuranceTypesDestroy']);
 
-    // طلبات التأمين العامة
+    // ط·ظ„ط¨ط§طھ ط§ظ„طھط£ظ…ظٹظ† ط§ظ„ط¹ط§ظ…ط©
     Route::get('/public-insurance-requests', [\App\Http\Controllers\PublicInsuranceRequestController::class, 'index']);
     Route::get('/public-insurance-requests/{id}', [\App\Http\Controllers\PublicInsuranceRequestController::class, 'show']);
     Route::put('/public-insurance-requests/{id}', [\App\Http\Controllers\PublicInsuranceRequestController::class, 'update']);
     Route::delete('/public-insurance-requests/{id}', [\App\Http\Controllers\PublicInsuranceRequestController::class, 'destroy']);
 });
 
+
+// Insurance Conditions API (شروط الوثيقة لكل التأمينات)
+Route::get('/insurance-conditions', [\App\Http\Controllers\InsuranceConditionController::class, 'index']);
+Route::get('/insurance-conditions/{type}', [\App\Http\Controllers\InsuranceConditionController::class, 'show']);
+Route::post('/insurance-conditions', [\App\Http\Controllers\InsuranceConditionController::class, 'store']);

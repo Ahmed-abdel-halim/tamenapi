@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 
 namespace App\Http\Controllers;
 
@@ -68,6 +68,14 @@ class AgencyCancellationController extends Controller
             'user_id' => Auth::id(),
         ]);
 
+        // Deactivate branch_agent upon cancellation request creation
+        DB::table('branches_agents')
+            ->where('id', $cancellation->branch_agent_id)
+            ->update([
+                'status'            => 'غير نشط',
+                'contract_end_date' => $cancellation->cancellation_date,
+            ]);
+
         return response()->json($cancellation->load(['branchAgent', 'creator']), 201);
     }
 
@@ -126,7 +134,13 @@ class AgencyCancellationController extends Controller
 
             $cancellation->update($validated);
 
-            if (isset($validated['status']) && $validated['status'] === 'approved') {
+            if (isset($validated['status']) && $validated['status'] === 'rejected') {
+                DB::table('branches_agents')
+                    ->where('id', $cancellation->branch_agent_id)
+                    ->update([
+                        'status' => 'نشط',
+                    ]);
+            } else {
                 DB::table('branches_agents')
                     ->where('id', $cancellation->branch_agent_id)
                     ->update([
@@ -163,6 +177,11 @@ class AgencyCancellationController extends Controller
             if ($cancellation->finance_signature) {
                 Storage::disk('public')->delete($cancellation->finance_signature);
             }
+
+            // Restore agent status to نشط upon deletion of cancellation request
+            DB::table('branches_agents')
+                ->where('id', $cancellation->branch_agent_id)
+                ->update(['status' => 'نشط']);
 
             $cancellation->delete();
             return response()->json(['message' => 'Deleted successfully'], 204);

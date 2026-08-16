@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
@@ -376,7 +376,15 @@
         </table>
 
         <!-- ═══════════ 5. الشروط العامة ═══════════ -->
+                @php
+            $customCond = \App\Models\InsuranceCondition::where('insurance_type', 'motor')->first();
+        @endphp
         <div class="terms-box">
+            <div class="terms-title">شروط وإقرارات الوثيقة</div>
+            @if($customCond && !empty(trim($customCond->conditions)))
+                <div style="white-space: pre-line; line-height: 1.6; font-size: 10px; padding: 6px; background: #ffffff; border-radius: 4px; color: #000000;">{!! nl2br(e($customCond->conditions)) !!}</div>
+            </div>
+            @else
             <div class="terms-title">الشروط العامة</div>
 1- يلتزم المؤمن بموجب هذه الوثيقة بتغطية المسؤولية المدنية الناشئة عن الوفاة أو أية إصابة بدنية تلحق بأي شخص من حوادث المركبات الآلية التي في ليبيا المثبتة بياناتها في هذه الوثيقة وذلك عن مدة سريانها.
 ويسري هذا الالتزام لصالح الغير دون الركاب من حوادث المركبات الآلية والدراجات النارية أيا كان نوعها ولصالح الركاب أيضا دون أعمالها من حوادث المركبات الآلية التالية:

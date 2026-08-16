@@ -1,3 +1,6 @@
+﻿@php
+    $customInsuranceCond = \App\Models\InsuranceCondition::where('insurance_type', 'cargo')->first();
+@endphp
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>

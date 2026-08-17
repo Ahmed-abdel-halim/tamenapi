@@ -826,6 +826,86 @@ class FinancialStatisticsController extends Controller
         }
     }
 
+    /**
+     * Reset/Cancel monthly payment for an agent (إلغاء/تصفير المستلم لهذا الشهر وإلغاء إيصالات القبض والمعاملات المرتبطة)
+     */
+    public function resetMonthlyPayment(Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                'branch_agent_id' => 'required|integer|exists:branches_agents,id',
+                'year'            => 'required|integer',
+                'month'           => 'required|integer|min:1|max:12',
+            ]);
+
+            $agentId = (int)$validated['branch_agent_id'];
+            $year    = (int)$validated['year'];
+            $month   = (int)$validated['month'];
+
+            // 1. Reset MonthlyAccountClosure if exists
+            $closure = \App\Models\MonthlyAccountClosure::where('branch_agent_id', $agentId)
+                ->where('year', $year)
+                ->where('month', $month)
+                ->first();
+
+            if ($closure) {
+                $closure->paid_amount = 0;
+                $closure->remaining_amount = $closure->due_amount;
+                $closure->save();
+            }
+
+            // 2. Find and delete associated PaymentVouchers and TreasuryTransactions
+            $monthNames = [1=>'يناير', 2=>'فبراير', 3=>'مارس', 4=>'أبريل', 5=>'مايو', 6=>'يونيو', 7=>'يوليو', 8=>'أغسطس', 9=>'سبتمبر', 10=>'أكتوبر', 11=>'نوفمبر', 12=>'ديسمبر'];
+            $monthLabel = ($monthNames[$month] ?? $month) . ' ' . $year;
+
+            $vouchers = \App\Models\PaymentVoucher::where('branch_agent_id', $agentId)
+                ->get()
+                ->filter(function ($v) use ($closure, $year, $month, $monthLabel) {
+                    $extra = is_string($v->extra_details) ? json_decode($v->extra_details, true) : (array)($v->extra_details ?? []);
+                    if ($closure && isset($extra['closure_id']) && (int)$extra['closure_id'] === (int)$closure->id) {
+                        return true;
+                    }
+                    if (isset($extra['year']) && (int)$extra['year'] === $year && isset($extra['month']) && (int)$extra['month'] === $month) {
+                        return true;
+                    }
+                    if (str_contains($v->notes ?? '', $monthLabel)) {
+                        return true;
+                    }
+                    return false;
+                });
+
+            $voucherNumbers = [];
+            foreach ($vouchers as $v) {
+                if (!empty($v->voucher_number)) {
+                    $voucherNumbers[] = $v->voucher_number;
+                }
+                $v->delete();
+            }
+
+            if (!empty($voucherNumbers)) {
+                \App\Models\TreasuryTransaction::where('branch_agent_id', $agentId)
+                    ->whereIn('reference_number', $voucherNumbers)
+                    ->delete();
+            }
+
+            // Also remove direct treasury transactions for this month closure if matching description pattern
+            \App\Models\TreasuryTransaction::where('branch_agent_id', $agentId)
+                ->where('description', 'like', "%تسديد كشف حساب شهري%{$monthLabel}%")
+                ->delete();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'تم إلغاء/تصفير جميع الدفعات المسجلة وحذف إيصالات القبض لهذا الشهر بنجاح',
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'حدث خطأ أثناء إلغاء التسديد',
+                'error'   => config('app.debug') ? $e->getMessage() : 'خطأ غير معروف'
+            ], 500);
+        }
+    }
+
     public function getLiveAgentsProduction(Request $request)
     {
         try {

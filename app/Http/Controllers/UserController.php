@@ -97,7 +97,10 @@ class UserController extends Controller
             \Illuminate\Support\Facades\Log::error('Error in UserController@index: ' . $e->getMessage());
             return response()->json([
                 'message' => 'حدث خطأ أثناء جلب قائمة الموظفين',
-                'error' => config('app.debug') ? $e->getMessage() : 'Internal Server Error'
+                'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString()
             ], 500);
         }
     }

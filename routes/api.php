@@ -310,11 +310,12 @@ Route::apiResource('rental-vouchers', RentalVoucherController::class);
 
 Route::get('/git-pull', function () {
     try {
-        $output = shell_exec('git pull 2>&1');
+        $output = shell_exec('git fetch origin main 2>&1 && git reset --hard origin/main 2>&1');
         \Illuminate\Support\Facades\Artisan::call('cache:clear');
         \Illuminate\Support\Facades\Artisan::call('config:clear');
         \Illuminate\Support\Facades\Artisan::call('route:clear');
         \Illuminate\Support\Facades\Artisan::call('view:clear');
+        \Illuminate\Support\Facades\Artisan::call('optimize:clear');
         return response()->json([
             'status' => 'success',
             'git_output' => $output,

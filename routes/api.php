@@ -107,10 +107,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/office-users/{id}/toggle-status', [UserController::class, 'toggleOfficeUserStatus']);
     Route::delete('/office-users/{id}', [UserController::class, 'destroyOfficeUser']);
     
-    // ط¥ط¯ط§ط±ط© ط§ظ„ظˆط«ط§ط¦ظ‚ ط§ظ„ظ‚ط¯ظٹظ…ط©
-    Route::get('/old-documents', [OldDocumentController::class, 'index']);
-    Route::post('/old-documents', [OldDocumentController::class, 'store']);
 });
+
+// إدارة الوثائق القديمة
+Route::get('/old-documents', [OldDocumentController::class, 'index']);
+Route::post('/old-documents', [OldDocumentController::class, 'store']);
 
 Route::post('/sync-user-permissions', [AuthController::class, 'syncUserPermissions']);
 Route::get('/public/employees', [UserController::class, 'publicEmployees']);

@@ -577,13 +577,6 @@ class FinancialStatisticsController extends Controller
 
             foreach ($allPayments as $p) {
                 $mk = $p['month_key'];
-                if (!isset($months[$mk])) {
-                    if ($firstMonthKey && $mk < $firstMonthKey) {
-                        $mk = $firstMonthKey;
-                    } elseif ($lastMonthKey && $mk > $lastMonthKey) {
-                        $mk = $lastMonthKey;
-                    }
-                }
                 if ($mk && isset($months[$mk])) {
                     $paymentsByMonth[$mk] = ($paymentsByMonth[$mk] ?? 0.0) + $p['amount'];
                 }
@@ -884,16 +877,29 @@ class FinancialStatisticsController extends Controller
             $year    = (int)$validated['year'];
             $month   = (int)$validated['month'];
 
-            // 1. Reset MonthlyAccountClosure if exists
-            $closure = \App\Models\MonthlyAccountClosure::where('branch_agent_id', $agentId)
-                ->where('year', $year)
-                ->where('month', $month)
-                ->first();
+            // 1. Find and reset all matching MonthlyAccountClosure records
+            $fromDate = \Carbon\Carbon::create($year, $month, 1)->format('Y-m-d');
+            $monthPrefix = sprintf('%04d-%02d', $year, $month);
 
-            if ($closure) {
-                $closure->paid_amount = 0;
-                $closure->remaining_amount = $closure->due_amount;
-                $closure->save();
+            $closures = \App\Models\MonthlyAccountClosure::where('branch_agent_id', $agentId)
+                ->where(function ($q) use ($year, $month, $fromDate, $monthPrefix) {
+                    $q->where(function ($q2) use ($year, $month) {
+                        $q2->where('year', $year)
+                           ->where('month', $month);
+                    })
+                    ->orWhere('from_date', $fromDate)
+                    ->orWhere('from_date', 'like', "{$monthPrefix}-%");
+                })
+                ->get();
+
+            $closure = $closures->first();
+
+            foreach ($closures as $c) {
+                $c->year = $year;
+                $c->month = $month;
+                $c->paid_amount = 0;
+                $c->remaining_amount = $c->due_amount;
+                $c->save();
             }
 
             // 2. Find and delete associated PaymentVouchers and TreasuryTransactions

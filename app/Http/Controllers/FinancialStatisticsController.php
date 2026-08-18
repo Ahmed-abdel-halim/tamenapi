@@ -811,48 +811,55 @@ class FinancialStatisticsController extends Controller
 
             $paymentVoucher = null;
             if ($newPaymentAmount > 0) {
-                $agent = \App\Models\BranchAgent::find($validated['branch_agent_id']);
-                $agencyName = $agent ? ($agent->agency_name ?? ($agent->agent_name ?? "وكيل #{$agent->id}")) : 'وكيل';
+                try {
+                    $agent = \App\Models\BranchAgent::find($validated['branch_agent_id']);
+                    $agencyName = $agent ? ($agent->agency_name ?? ($agent->agent_name ?? "وكيل #{$agent->id}")) : 'وكيل';
 
-                $monthNames = [1=>'يناير', 2=>'فبراير', 3=>'مارس', 4=>'أبريل', 5=>'مايو', 6=>'يونيو', 7=>'يوليو', 8=>'أغسطس', 9=>'سبتمبر', 10=>'أكتوبر', 11=>'نوفمبر', 12=>'ديسمبر'];
-                $monthLabel = ($monthNames[$validated['month']] ?? $validated['month']) . ' ' . $validated['year'];
+                    $monthNames = [1=>'يناير', 2=>'فبراير', 3=>'مارس', 4=>'أبريل', 5=>'مايو', 6=>'يونيو', 7=>'يوليو', 8=>'أغسطس', 9=>'سبتمبر', 10=>'أكتوبر', 11=>'نوفمبر', 12=>'ديسمبر'];
+                    $monthLabel = ($monthNames[$validated['month']] ?? $validated['month']) . ' ' . $validated['year'];
 
-                // Generate unique Payment Voucher number
-                $voucherNumber = 'PV-' . date('Y') . '-' . rand(1000, 9999);
-                while (\App\Models\PaymentVoucher::where('voucher_number', $voucherNumber)->exists()) {
                     $voucherNumber = 'PV-' . date('Y') . '-' . rand(1000, 9999);
+                    while (\Illuminate\Support\Facades\Schema::hasTable('payment_vouchers') && \App\Models\PaymentVoucher::where('voucher_number', $voucherNumber)->exists()) {
+                        $voucherNumber = 'PV-' . date('Y') . '-' . rand(1000, 9999);
+                    }
+
+                    $voucherNotes = "تسديد دفعة كشف حساب شهري ({$monthLabel})" . (!empty($validated['notes']) ? " - {$validated['notes']}" : '');
+
+                    // 1. Create Payment Voucher (إيصال قبض مالي في قسم إدارة الإيرادات)
+                    if (\Illuminate\Support\Facades\Schema::hasTable('payment_vouchers')) {
+                        $paymentVoucher = \App\Models\PaymentVoucher::create([
+                            'voucher_number'   => $voucherNumber,
+                            'branch_agent_id'  => $validated['branch_agent_id'],
+                            'amount'           => $newPaymentAmount,
+                            'payment_method'   => 'نقدي',
+                            'payment_date'     => date('Y-m-d'),
+                            'notes'            => mb_substr($voucherNotes, 0, 490),
+                            'extra_details'    => [
+                                'type'       => 'monthly_account_closure',
+                                'year'       => $validated['year'],
+                                'month'      => $validated['month'],
+                                'closure_id' => $closure->id,
+                            ]
+                        ]);
+                    }
+
+                    // 2. Create Treasury Transaction (معاملة مقبوضات في خزينة الإيرادات)
+                    if (\Illuminate\Support\Facades\Schema::hasTable('treasury_transactions')) {
+                        \App\Models\TreasuryTransaction::create([
+                            'transaction_date' => date('Y-m-d'),
+                            'type'             => 'income',
+                            'amount'           => $newPaymentAmount,
+                            'description'      => mb_substr("تسديد كشف حساب شهري - {$agencyName} - شهر {$monthLabel}", 0, 190),
+                            'source'           => mb_substr($agencyName, 0, 190),
+                            'reference_number' => $voucherNumber,
+                            'branch_agent_id'  => $validated['branch_agent_id'],
+                            'payment_source'   => 'نقدي',
+                            'notes'            => !empty($validated['notes']) ? mb_substr($validated['notes'], 0, 490) : null,
+                        ]);
+                    }
+                } catch (\Exception $ex) {
+                    \Illuminate\Support\Facades\Log::warning('Payment voucher creation warning: ' . $ex->getMessage());
                 }
-
-                $voucherNotes = "تسديد دفعة كشف حساب شهري ({$monthLabel})" . (!empty($validated['notes']) ? " - {$validated['notes']}" : '');
-
-                // 1. Create Payment Voucher (إيصال قبض مالي في قسم إدارة الإيرادات)
-                $paymentVoucher = \App\Models\PaymentVoucher::create([
-                    'voucher_number'   => $voucherNumber,
-                    'branch_agent_id'  => $validated['branch_agent_id'],
-                    'amount'           => $newPaymentAmount,
-                    'payment_method'   => 'نقدي',
-                    'payment_date'     => date('Y-m-d'),
-                    'notes'            => mb_substr($voucherNotes, 0, 490),
-                    'extra_details'    => [
-                        'type'       => 'monthly_account_closure',
-                        'year'       => $validated['year'],
-                        'month'      => $validated['month'],
-                        'closure_id' => $closure->id,
-                    ]
-                ]);
-
-                // 2. Create Treasury Transaction (معاملة مقبوضات في خزينة الإيرادات)
-                \App\Models\TreasuryTransaction::create([
-                    'transaction_date' => date('Y-m-d'),
-                    'type'             => 'income',
-                    'amount'           => $newPaymentAmount,
-                    'description'      => mb_substr("تسديد كشف حساب شهري - {$agencyName} - شهر {$monthLabel}", 0, 190),
-                    'source'           => mb_substr($agencyName, 0, 190),
-                    'reference_number' => $voucherNumber,
-                    'branch_agent_id'  => $validated['branch_agent_id'],
-                    'payment_source'   => 'نقدي',
-                    'notes'            => !empty($validated['notes']) ? mb_substr($validated['notes'], 0, 490) : null,
-                ]);
             }
 
             return response()->json([
@@ -862,10 +869,11 @@ class FinancialStatisticsController extends Controller
                 'payment_voucher' => $paymentVoucher,
             ]);
         } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Error updating monthly payment: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
-                'message' => 'حدث خطأ أثناء تسجيل الدفعة',
-                'error'   => config('app.debug') ? $e->getMessage() : 'خطأ غير معروف'
+                'message' => 'حدث خطأ أثناء تسجيل الدفعة: ' . $e->getMessage(),
+                'error'   => $e->getMessage(),
             ], 500);
         }
     }

@@ -19,14 +19,14 @@ class UserController extends Controller
 
             // استبعاد أي مستخدم مرتبط ببيانات وكيل أو فرع من قائمة الموظفين
             $query->whereNull('branch_agent_id')
-                  ->whereNotIn('id', function ($sub) {
-                      $sub->select('user_id')->from('branches_agents')->whereNotNull('user_id');
-                  });
+                ->whereNotIn('id', function ($sub) {
+                    $sub->select('user_id')->from('branches_agents')->whereNotNull('user_id');
+                });
 
             // الفرز حسب الأقدمية (تاريخ مباشرة العمل)
             $query->orderByRaw('CASE WHEN start_date IS NULL THEN 1 ELSE 0 END')
-                  ->orderBy('start_date', 'asc')
-                  ->orderBy('id', 'asc');
+                ->orderBy('start_date', 'asc')
+                ->orderBy('id', 'asc');
 
             // الفلترة حسب درجة الوصول (الكل، مدير، موظف عادي)
             if ($request->filled('role') && $request->role !== 'all') {
@@ -93,8 +93,6 @@ class UserController extends Controller
                 'from' => $users->firstItem(),
                 'to' => $users->lastItem(),
             ]);
-        } catch (\Illuminate\Auth\AuthenticationException $e) {
-            throw $e;
         } catch (\Throwable $e) {
             \Illuminate\Support\Facades\Log::error('Error in UserController@index: ' . $e->getMessage());
             return response()->json([
@@ -206,17 +204,17 @@ class UserController extends Controller
     public function show(User $user)
     {
         $userData = $user->load('branchAgent');
-        
+
         // جلب العهد من نظام المخازن الجديد
         $inventoryCustodies = \App\Models\FixedCustody::with('item')
             ->where('recipient_id', $user->id)
             ->where('recipient_type', User::class)
             ->where('status', 'active')
             ->get();
-        
+
         $newFixed = [];
         $newConsumed = [];
-        
+
         foreach ($inventoryCustodies as $c) {
             $item = $c->item;
             $formatted = [
@@ -224,24 +222,24 @@ class UserController extends Controller
                 'quantity' => $c->quantity,
                 'is_inventory' => true
             ];
-            
+
             if ($item && $item->inventory_type === 'fixed') {
                 $newFixed[] = $formatted;
             } else {
                 $newConsumed[] = $formatted;
             }
         }
-        
+
         // تحويل الموديل إلى array لتمكين التعديل على البيانات المرسلة
         $response = $userData->toArray();
-        
+
         // دمج العهد القديمة مع العهد الجديدة
         $currentFixed = isset($response['fixed_custodies']) && is_array($response['fixed_custodies']) ? $response['fixed_custodies'] : [];
         $currentConsumed = isset($response['consumed_custodies']) && is_array($response['consumed_custodies']) ? $response['consumed_custodies'] : [];
-        
+
         $response['fixed_custodies'] = array_merge($currentFixed, $newFixed);
         $response['consumed_custodies'] = array_merge($currentConsumed, $newConsumed);
-        
+
         return response()->json($response);
     }
 
@@ -707,7 +705,7 @@ class UserController extends Controller
                 if (isset($lifoResponseData['id'])) {
                     $lifoUserId = $lifoResponseData['id'];
                 } else {
-                    $matched = collect($lifoResponseData)->first(function($u) use ($request) {
+                    $matched = collect($lifoResponseData)->first(function ($u) use ($request) {
                         return strtolower($u['username'] ?? '') === strtolower($request->username);
                     });
                     if ($matched) {
@@ -726,7 +724,7 @@ class UserController extends Controller
                 'lifo_password' => $request->password,
                 'lifo_office_id' => $lifoOfficeId,
                 'lifo_permissions' => $request->permissions,
-                'lifo_user_id' => $lifoUserId ? (string)$lifoUserId : null,
+                'lifo_user_id' => $lifoUserId ? (string) $lifoUserId : null,
                 'authorized_documents' => ['تأمين سيارات دولي'],
                 'is_active' => true,
             ]);
@@ -748,7 +746,7 @@ class UserController extends Controller
         }
 
         $user = User::where('branch_agent_id', $branchAgent->id)->findOrFail($id);
-        
+
         $lifoUsername = $agentUser->lifo_username;
         $lifoPassword = $agentUser->lifo_password;
         $lifoUserId = $user->lifo_user_id;
@@ -764,8 +762,8 @@ class UserController extends Controller
         }
 
         $newStatus = !$user->is_active;
-        $endpoint = $newStatus 
-            ? "https://prodapi.lifo.ly/api/offices/activationAccount/{$lifoUserId}" 
+        $endpoint = $newStatus
+            ? "https://prodapi.lifo.ly/api/offices/activationAccount/{$lifoUserId}"
             : "https://prodapi.lifo.ly/api/offices/disableAccount/{$lifoUserId}";
 
         try {
@@ -880,7 +878,7 @@ class UserController extends Controller
         }
 
         $user = User::where('branch_agent_id', $branchAgent->id)->findOrFail($id);
-        
+
         $lifoUsername = $agentUser->lifo_username;
         $lifoPassword = $agentUser->lifo_password;
         $lifoUserId = $user->lifo_user_id;
@@ -921,14 +919,14 @@ class UserController extends Controller
 
         $cookieJar = new \GuzzleHttp\Cookie\CookieJar();
         $client = new \GuzzleHttp\Client([
-            'verify'          => false,
-            'timeout'         => 25.0,
+            'verify' => false,
+            'timeout' => 25.0,
             'connect_timeout' => 5.0,
-            'cookies'         => $cookieJar,
+            'cookies' => $cookieJar,
             'allow_redirects' => [
-                'max'             => 5,
-                'strict'          => false,
-                'referer'         => true,
+                'max' => 5,
+                'strict' => false,
+                'referer' => true,
                 'track_redirects' => true
             ]
         ]);
@@ -936,14 +934,14 @@ class UserController extends Controller
         // 1. GET login page to obtain CSRF token
         $response = $client->request('GET', 'https://prod.lifo.ly/office/login');
         $html = $response->getBody()->getContents();
-        
+
         preg_match('/name="_token"\s+value="([^"]+)"/', $html, $matches);
         $token = $matches[1] ?? null;
         if (!$token) {
             preg_match('/csrf-token"\s+content="([^"]+)"/', $html, $matches);
             $token = $matches[1] ?? null;
         }
-        
+
         if (!$token) {
             throw new \Exception('فشل الحصول على توكن التحقق (CSRF) من الاتحاد.');
         }
@@ -970,10 +968,10 @@ class UserController extends Controller
                 'Referer' => 'https://prod.lifo.ly/office/offices_users',
             ]
         ]);
-        
+
         $body = $response->getBody()->getContents();
         $data = json_decode($body, true);
-        
+
         $matchedUser = null;
         if (isset($data['data'])) {
             foreach ($data['data'] as $u) {
@@ -983,7 +981,7 @@ class UserController extends Controller
                 }
             }
         }
-        
+
         if (!$matchedUser) {
             throw new \Exception("المستخدم '$subUserUsername' غير موجود في حساب الاتحاد الخاص بكم.");
         }
@@ -993,14 +991,14 @@ class UserController extends Controller
             $permUrl = $permMatches[1];
             $permResponse = $client->request('GET', $permUrl);
             $permHtml = $permResponse->getBody()->getContents();
-            
+
             // Find all permission rows in showpermission page
             preg_match_all('/<tr>\s*<td>\s*(.*?)\s*<\/td>\s*<td>.*?<form[^>]+action="([^"]+deletePermission\/(\d+))"[^>]*>(.*?)<\/form>/is', $permHtml, $rows, PREG_SET_ORDER);
-            
+
             $existingLifoPerms = [];
             $permissionMap = [
                 'صلاحية عرض البطاقات' => 1,
-                'صلاحية اصدار وثيقة'  => 2,
+                'صلاحية اصدار وثيقة' => 2,
                 'صلاحية ادارة التقارير' => 3
             ];
 
@@ -1009,12 +1007,12 @@ class UserController extends Controller
                 $deleteUrl = $row[2];
                 $permUserId = $row[3];
                 $formContent = $row[4];
-                
+
                 $localId = $permissionMap[$permName] ?? null;
                 if ($localId) {
                     preg_match('/name="_token"\s+value="([^"]+)"/', $formContent, $tokenMatches);
                     $formCsrf = $tokenMatches[1] ?? null;
-                    
+
                     $existingLifoPerms[$localId] = [
                         'delete_url' => $deleteUrl,
                         'csrf_token' => $formCsrf,
@@ -1053,7 +1051,7 @@ class UserController extends Controller
                 $editUrl = $editMatches[1];
                 $editResponse = $client->request('GET', $editUrl);
                 $editHtml = $editResponse->getBody()->getContents();
-                
+
                 preg_match('/name="_token"\s+value="([^"]+)"/', $editHtml, $editTokenMatches);
                 $editCsrfToken = $editTokenMatches[1] ?? null;
                 if (!$editCsrfToken) {
@@ -1069,7 +1067,7 @@ class UserController extends Controller
                     foreach ($permsToAdd as $p) {
                         $bodyStr .= '&permisson[]=' . $p;
                     }
-                    
+
                     $client->request('POST', $editUrl, [
                         'body' => $bodyStr,
                         'headers' => [
@@ -1087,7 +1085,7 @@ class UserController extends Controller
             $pwdUrl = $pwdMatches[1];
             $pwdResponse = $client->request('GET', $pwdUrl);
             $pwdHtml = $pwdResponse->getBody()->getContents();
-            
+
             preg_match('/name="_token"\s+value="([^"]+)"/', $pwdHtml, $pwdTokenMatches);
             $pwdCsrfToken = $pwdTokenMatches[1] ?? null;
             if (!$pwdCsrfToken) {

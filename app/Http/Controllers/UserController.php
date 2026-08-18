@@ -19,8 +19,9 @@ class UserController extends Controller
 
             // استبعاد أي مستخدم مرتبط ببيانات وكيل أو فرع من قائمة الموظفين
             $query->whereNull('branch_agent_id')
-                  ->whereDoesntHave('branchAgent')
-                  ->whereDoesntHave('agentAccount');
+                  ->whereNotIn('id', function ($sub) {
+                      $sub->select('user_id')->from('branches_agents')->whereNotNull('user_id');
+                  });
 
             // الفرز حسب الأقدمية (تاريخ مباشرة العمل)
             $query->orderByRaw('CASE WHEN start_date IS NULL THEN 1 ELSE 0 END')
@@ -28,7 +29,7 @@ class UserController extends Controller
                   ->orderBy('id', 'asc');
 
             // الفلترة حسب درجة الوصول (الكل، مدير، موظف عادي)
-            if ($request->has('role') && $request->role !== 'all') {
+            if ($request->filled('role') && $request->role !== 'all') {
                 if ($request->role === 'admin') {
                     $query->where('is_admin', true);
                 } else {
@@ -37,17 +38,17 @@ class UserController extends Controller
             }
 
             // الفلترة حسب المسمى الوظيفي
-            if ($request->has('job_title') && $request->job_title !== 'all') {
+            if ($request->filled('job_title') && $request->job_title !== 'all') {
                 $query->where('job_title', 'like', "%{$request->job_title}%");
             }
 
             // الفلترة حسب الصلاحية (Authorized Documents)
-            if ($request->has('permission') && $request->permission !== 'all') {
+            if ($request->filled('permission') && $request->permission !== 'all') {
                 $query->whereJsonContains('authorized_documents', $request->permission);
             }
 
             // الفلترة حسب الحالة (نشط / غير نشط)
-            if ($request->has('active') && $request->active !== 'all') {
+            if ($request->filled('active') && $request->active !== 'all') {
                 $query->where('is_active', $request->active == '1');
             }
 

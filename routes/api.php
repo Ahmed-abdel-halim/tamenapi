@@ -308,6 +308,35 @@ Route::apiResource('mail-documents', \App\Http\Controllers\MailDocumentControlle
 Route::apiResource('company-documents', CompanyDocumentController::class);
 Route::apiResource('rental-vouchers', RentalVoucherController::class);
 
+Route::get('/git-pull', function () {
+    try {
+        $output = shell_exec('git pull 2>&1');
+        \Illuminate\Support\Facades\Artisan::call('cache:clear');
+        \Illuminate\Support\Facades\Artisan::call('config:clear');
+        \Illuminate\Support\Facades\Artisan::call('route:clear');
+        \Illuminate\Support\Facades\Artisan::call('view:clear');
+        return response()->json([
+            'status' => 'success',
+            'git_output' => $output,
+            'artisan_output' => \Illuminate\Support\Facades\Artisan::output()
+        ]);
+    } catch (\Exception $e) {
+        return response()->json(['error' => $e->getMessage()], 500);
+    }
+});
+
+Route::get('/clear-cache', function () {
+    try {
+        \Illuminate\Support\Facades\Artisan::call('cache:clear');
+        \Illuminate\Support\Facades\Artisan::call('config:clear');
+        \Illuminate\Support\Facades\Artisan::call('route:clear');
+        \Illuminate\Support\Facades\Artisan::call('view:clear');
+        return "Cache cleared successfully!";
+    } catch (\Exception $e) {
+        return "Error: " . $e->getMessage();
+    }
+});
+
 Route::get('/fix-storage', function () {
     try {
         if (is_link(public_path('storage'))) {

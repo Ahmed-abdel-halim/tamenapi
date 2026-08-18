@@ -2447,6 +2447,16 @@ class BranchAgentController extends Controller
                 'notes' => 'nullable|string',
             ]);
 
+            $year = $request->year;
+            $month = $request->month;
+            if ((!$year || !$month) && $request->from_date) {
+                try {
+                    $dt = \Carbon\Carbon::parse($request->from_date);
+                    $year = $dt->year;
+                    $month = $dt->month;
+                } catch (\Exception $e) {}
+            }
+
             if ($request->from_date && $request->to_date) {
                 $closure = MonthlyAccountClosure::updateOrCreate(
                     [
@@ -2455,8 +2465,8 @@ class BranchAgentController extends Controller
                         'to_date' => $request->to_date,
                     ],
                     [
-                        'year' => null,
-                        'month' => null,
+                        'year' => $year,
+                        'month' => $month,
                         'due_amount' => $request->due_amount,
                         'paid_amount' => $request->paid_amount,
                         'remaining_amount' => $request->remaining_amount,

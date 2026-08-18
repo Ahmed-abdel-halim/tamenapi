@@ -377,14 +377,41 @@ class FinancialStatisticsController extends Controller
                 ? json_decode($agent->document_percentages, true) ?? []
                 : (is_array($agent->document_percentages) ? $agent->document_percentages : []);
 
+            // Self-heal: populate missing year/month in monthly_account_closures from from_date
+            DB::table('monthly_account_closures')
+                ->where('branch_agent_id', $agentId)
+                ->where(function ($q) {
+                    $q->whereNull('year')->orWhereNull('month');
+                })
+                ->whereNotNull('from_date')
+                ->get()
+                ->each(function ($c) {
+                    try {
+                        $d = \Carbon\Carbon::parse($c->from_date);
+                        DB::table('monthly_account_closures')
+                            ->where('id', $c->id)
+                            ->update(['year' => $d->year, 'month' => $d->month]);
+                    } catch (\Exception $e) {}
+                });
+
             // Load existing closures for this agent (keyed by YYYY-MM)
             $existingClosures = DB::table('monthly_account_closures')
                 ->where('branch_agent_id', $agentId)
-                ->whereNotNull('year')
-                ->whereNotNull('month')
                 ->get()
                 ->keyBy(function ($row) {
-                    return $row->year . '-' . str_pad($row->month, 2, '0', STR_PAD_LEFT);
+                    $y = $row->year;
+                    $m = $row->month;
+                    if ((!$y || !$m) && !empty($row->from_date)) {
+                        try {
+                            $dt = \Carbon\Carbon::parse($row->from_date);
+                            $y = $dt->year;
+                            $m = $dt->month;
+                        } catch (\Exception $e) {}
+                    }
+                    if ($y && $m) {
+                        return $y . '-' . str_pad($m, 2, '0', STR_PAD_LEFT);
+                    }
+                    return null;
                 });
 
             // Build month list and collect production data per month
@@ -679,22 +706,30 @@ class FinancialStatisticsController extends Controller
 
             $fromDate = \Carbon\Carbon::create($validated['year'], $validated['month'], 1)->format('Y-m-d');
             $toDate   = \Carbon\Carbon::create($validated['year'], $validated['month'], 1)->endOfMonth()->format('Y-m-d');
+            $monthPrefix = $validated['year'] . '-' . sprintf('%02d', $validated['month']);
 
-            $closure = \App\Models\MonthlyAccountClosure::firstOrCreate(
-                [
-                    'branch_agent_id' => $validated['branch_agent_id'],
-                    'year'            => $validated['year'],
-                    'month'           => $validated['month'],
-                ],
-                [
-                    'from_date'        => $fromDate,
-                    'to_date'          => $toDate,
-                    'due_amount'       => 0,
-                    'paid_amount'      => 0,
-                    'remaining_amount' => 0,
-                    'is_audited'       => false,
-                ]
-            );
+            $closure = \App\Models\MonthlyAccountClosure::where('branch_agent_id', $validated['branch_agent_id'])
+                ->where(function ($q) use ($validated, $fromDate, $monthPrefix) {
+                    $q->where(function ($q2) use ($validated) {
+                        $q2->where('year', $validated['year'])
+                           ->where('month', $validated['month']);
+                    })->orWhere('from_date', $fromDate)
+                      ->orWhere('from_date', 'like', "{$monthPrefix}-%");
+                })
+                ->first();
+
+            if (!$closure) {
+                $closure = new \App\Models\MonthlyAccountClosure();
+                $closure->branch_agent_id = $validated['branch_agent_id'];
+                $closure->due_amount       = 0;
+                $closure->paid_amount      = 0;
+                $closure->remaining_amount = 0;
+            }
+
+            $closure->year       = $validated['year'];
+            $closure->month      = $validated['month'];
+            $closure->from_date  = $fromDate;
+            $closure->to_date    = $toDate;
 
             $newState = isset($validated['is_audited'])
                 ? (bool)$validated['is_audited']
@@ -737,30 +772,37 @@ class FinancialStatisticsController extends Controller
 
             $fromDate = \Carbon\Carbon::create($validated['year'], $validated['month'], 1)->format('Y-m-d');
             $toDate   = \Carbon\Carbon::create($validated['year'], $validated['month'], 1)->endOfMonth()->format('Y-m-d');
+            $monthPrefix = $validated['year'] . '-' . sprintf('%02d', $validated['month']);
             $remaining = round((float)$validated['due_amount'] - (float)$validated['paid_amount'], 2);
 
             $existingClosure = \App\Models\MonthlyAccountClosure::where('branch_agent_id', $validated['branch_agent_id'])
-                ->where('year', $validated['year'])
-                ->where('month', $validated['month'])
+                ->where(function ($q) use ($validated, $fromDate, $monthPrefix) {
+                    $q->where(function ($q2) use ($validated) {
+                        $q2->where('year', $validated['year'])
+                           ->where('month', $validated['month']);
+                    })->orWhere('from_date', $fromDate)
+                      ->orWhere('from_date', 'like', "{$monthPrefix}-%");
+                })
                 ->first();
 
             $previousPaidAmount = $existingClosure ? (float)$existingClosure->paid_amount : 0;
 
-            $closure = \App\Models\MonthlyAccountClosure::updateOrCreate(
-                [
-                    'branch_agent_id' => $validated['branch_agent_id'],
-                    'year'            => $validated['year'],
-                    'month'           => $validated['month'],
-                ],
-                [
-                    'from_date'        => $fromDate,
-                    'to_date'          => $toDate,
-                    'due_amount'       => $validated['due_amount'],
-                    'paid_amount'      => $validated['paid_amount'],
-                    'remaining_amount' => max(0, $remaining),
-                    'notes'            => $validated['notes'] ?? null,
-                ]
-            );
+            if (!$existingClosure) {
+                $closure = new \App\Models\MonthlyAccountClosure();
+                $closure->branch_agent_id = $validated['branch_agent_id'];
+            } else {
+                $closure = $existingClosure;
+            }
+
+            $closure->year             = $validated['year'];
+            $closure->month            = $validated['month'];
+            $closure->from_date        = $fromDate;
+            $closure->to_date          = $toDate;
+            $closure->due_amount       = $validated['due_amount'];
+            $closure->paid_amount      = $validated['paid_amount'];
+            $closure->remaining_amount = max(0, $remaining);
+            $closure->notes            = $validated['notes'] ?? $closure->notes;
+            $closure->save();
 
             // Amount paid in this specific action
             $newPaymentAmount = isset($validated['payment_amount']) && (float)$validated['payment_amount'] > 0

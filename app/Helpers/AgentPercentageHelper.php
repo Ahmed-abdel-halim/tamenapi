@@ -59,42 +59,55 @@ class AgentPercentageHelper
         // 2. Check monthly_overrides (YYYY-MM)
         if ($monthKey && isset($documentPercentages['monthly_overrides']) && is_array($documentPercentages['monthly_overrides'])) {
             if (isset($documentPercentages['monthly_overrides'][$monthKey]) && is_array($documentPercentages['monthly_overrides'][$monthKey])) {
-                $monthData = $documentPercentages['monthly_overrides'][$monthKey];
-                foreach ($candidateKeys as $cKey) {
-                    if (isset($monthData[$cKey]) && is_numeric($monthData[$cKey])) {
-                        return (float) $monthData[$cKey];
-                    }
+                $val = self::findPercentageInMap($documentPercentages['monthly_overrides'][$monthKey], $candidateKeys);
+                if ($val !== null) {
+                    return $val;
                 }
             }
         }
 
         // 3. Check default nested structure { default: { ... } }
         if (isset($documentPercentages['default']) && is_array($documentPercentages['default'])) {
-            $def = $documentPercentages['default'];
-            foreach ($candidateKeys as $cKey) {
-                if (isset($def[$cKey]) && is_numeric($def[$cKey])) {
-                    return (float) $def[$cKey];
-                }
+            $val = self::findPercentageInMap($documentPercentages['default'], $candidateKeys);
+            if ($val !== null) {
+                return $val;
             }
         }
 
         // 4. Check flat format (object: { "تأمين سيارات دولي": 50 })
-        foreach ($candidateKeys as $cKey) {
-            if (isset($documentPercentages[$cKey]) && is_numeric($documentPercentages[$cKey])) {
-                return (float) $documentPercentages[$cKey];
-            }
+        $val = self::findPercentageInMap($documentPercentages, $candidateKeys);
+        if ($val !== null) {
+            return $val;
         }
 
         // 5. Check indexed array format [{ document_type: '...', percentage: 50 }]
-        foreach ($documentPercentages as $k => $val) {
-            if (is_array($val) && isset($val['document_type'])) {
-                if (in_array($val['document_type'], $candidateKeys)) {
-                    return (float) ($val['percentage'] ?? 0);
+        foreach ($documentPercentages as $k => $valArr) {
+            if (is_array($valArr) && isset($valArr['document_type'])) {
+                if (in_array($valArr['document_type'], $candidateKeys)) {
+                    return (float) ($valArr['percentage'] ?? 0);
                 }
             }
         }
 
         return 0.0;
+    }
+
+    /**
+     * Helper to search for candidate keys in a percentage map, prioritizing non-zero values.
+     */
+    private static function findPercentageInMap(array $map, array $candidateKeys): ?float
+    {
+        $foundZero = false;
+        foreach ($candidateKeys as $cKey) {
+            if (isset($map[$cKey]) && is_numeric($map[$cKey])) {
+                $v = (float)$map[$cKey];
+                if ($v > 0) {
+                    return $v;
+                }
+                $foundZero = true;
+            }
+        }
+        return $foundZero ? 0.0 : null;
     }
 
     /**

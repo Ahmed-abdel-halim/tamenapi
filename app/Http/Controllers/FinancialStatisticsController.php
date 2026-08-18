@@ -377,22 +377,34 @@ class FinancialStatisticsController extends Controller
                 ? json_decode($agent->document_percentages, true) ?? []
                 : (is_array($agent->document_percentages) ? $agent->document_percentages : []);
 
-            // Self-heal: populate missing year/month in monthly_account_closures from from_date
-            DB::table('monthly_account_closures')
+            // Self-heal: populate missing year/month in monthly_account_closures from from_date, avoiding duplicate key errors
+            $legacyClosures = DB::table('monthly_account_closures')
                 ->where('branch_agent_id', $agentId)
                 ->where(function ($q) {
                     $q->whereNull('year')->orWhereNull('month');
                 })
                 ->whereNotNull('from_date')
-                ->get()
-                ->each(function ($c) {
-                    try {
-                        $d = \Carbon\Carbon::parse($c->from_date);
+                ->get();
+
+            foreach ($legacyClosures as $lc) {
+                try {
+                    $d = \Carbon\Carbon::parse($lc->from_date);
+                    $exists = DB::table('monthly_account_closures')
+                        ->where('branch_agent_id', $agentId)
+                        ->where('year', $d->year)
+                        ->where('month', $d->month)
+                        ->where('id', '!=', $lc->id)
+                        ->exists();
+
+                    if ($exists) {
+                        DB::table('monthly_account_closures')->where('id', $lc->id)->delete();
+                    } else {
                         DB::table('monthly_account_closures')
-                            ->where('id', $c->id)
+                            ->where('id', $lc->id)
                             ->update(['year' => $d->year, 'month' => $d->month]);
-                    } catch (\Exception $e) {}
-                });
+                    }
+                } catch (\Exception $e) {}
+            }
 
             // Load existing closures for this agent (keyed by YYYY-MM)
             $existingClosures = DB::table('monthly_account_closures')
@@ -704,14 +716,33 @@ class FinancialStatisticsController extends Controller
             $monthPrefix = $validated['year'] . '-' . sprintf('%02d', $validated['month']);
 
             $closure = \App\Models\MonthlyAccountClosure::where('branch_agent_id', $validated['branch_agent_id'])
-                ->where(function ($q) use ($validated, $fromDate, $monthPrefix) {
-                    $q->where(function ($q2) use ($validated) {
-                        $q2->where('year', $validated['year'])
-                           ->where('month', $validated['month']);
-                    })->orWhere('from_date', $fromDate)
-                      ->orWhere('from_date', 'like', "{$monthPrefix}-%");
-                })
+                ->where('year', $validated['year'])
+                ->where('month', $validated['month'])
                 ->first();
+
+            if (!$closure) {
+                $closure = \App\Models\MonthlyAccountClosure::where('branch_agent_id', $validated['branch_agent_id'])
+                    ->where(function ($q) use ($fromDate, $monthPrefix) {
+                        $q->where('from_date', $fromDate)
+                          ->orWhere('from_date', 'like', "{$monthPrefix}-%");
+                    })
+                    ->first();
+            }
+
+            // Remove any duplicate legacy rows for this month
+            if ($closure) {
+                \App\Models\MonthlyAccountClosure::where('branch_agent_id', $validated['branch_agent_id'])
+                    ->where('id', '!=', $closure->id)
+                    ->where(function ($q) use ($validated, $fromDate, $monthPrefix) {
+                        $q->where(function ($q2) use ($validated) {
+                            $q2->where('year', $validated['year'])
+                               ->where('month', $validated['month']);
+                        })
+                        ->orWhere('from_date', $fromDate)
+                        ->orWhere('from_date', 'like', "{$monthPrefix}-%");
+                    })
+                    ->delete();
+            }
 
             if (!$closure) {
                 $closure = new \App\Models\MonthlyAccountClosure();
@@ -771,14 +802,33 @@ class FinancialStatisticsController extends Controller
             $remaining = round((float)$validated['due_amount'] - (float)$validated['paid_amount'], 2);
 
             $existingClosure = \App\Models\MonthlyAccountClosure::where('branch_agent_id', $validated['branch_agent_id'])
-                ->where(function ($q) use ($validated, $fromDate, $monthPrefix) {
-                    $q->where(function ($q2) use ($validated) {
-                        $q2->where('year', $validated['year'])
-                           ->where('month', $validated['month']);
-                    })->orWhere('from_date', $fromDate)
-                      ->orWhere('from_date', 'like', "{$monthPrefix}-%");
-                })
+                ->where('year', $validated['year'])
+                ->where('month', $validated['month'])
                 ->first();
+
+            if (!$existingClosure) {
+                $existingClosure = \App\Models\MonthlyAccountClosure::where('branch_agent_id', $validated['branch_agent_id'])
+                    ->where(function ($q) use ($fromDate, $monthPrefix) {
+                        $q->where('from_date', $fromDate)
+                          ->orWhere('from_date', 'like', "{$monthPrefix}-%");
+                    })
+                    ->first();
+            }
+
+            // Clean up any remaining duplicate legacy closure rows for this month
+            if ($existingClosure) {
+                \App\Models\MonthlyAccountClosure::where('branch_agent_id', $validated['branch_agent_id'])
+                    ->where('id', '!=', $existingClosure->id)
+                    ->where(function ($q) use ($validated, $fromDate, $monthPrefix) {
+                        $q->where(function ($q2) use ($validated) {
+                            $q2->where('year', $validated['year'])
+                               ->where('month', $validated['month']);
+                        })
+                        ->orWhere('from_date', $fromDate)
+                        ->orWhere('from_date', 'like', "{$monthPrefix}-%");
+                    })
+                    ->delete();
+            }
 
             $previousPaidAmount = $existingClosure ? (float)$existingClosure->paid_amount : 0;
 

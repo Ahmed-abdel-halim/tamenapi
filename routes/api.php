@@ -62,7 +62,7 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();
 });
 
-Route::post('/login', [AuthController::class, 'login']);
+Route::post('/login', [AuthController::class, 'login'])->name('login');
 Route::get('/user/{id}/refresh', [AuthController::class, 'refreshUser']);
 Route::post('/unlock-session', [AuthController::class, 'unlockSession']);
 Route::middleware('auth:sanctum')->post('/logout', [AuthController::class, 'logout']);
@@ -305,24 +305,16 @@ Route::get('/canceled-documents/stats', [CanceledDocumentsController::class, 'st
 
 Route::apiResource('external-entities', \App\Http\Controllers\ExternalEntityController::class);
 Route::apiResource('mail-documents', \App\Http\Controllers\MailDocumentController::class);
-Route::get('/test-env-debug', function () {
-    $userControllerFile = app_path('Http/Controllers/UserController.php');
-    return response()->json([
-        'php_version' => PHP_VERSION,
-        'user_controller_last_modified' => date('Y-m-d H:i:s', filemtime($userControllerFile)),
-        'disabled_functions' => ini_get('disable_functions'),
-        'shell_exec_exists' => function_exists('shell_exec'),
-    ]);
-});
+Route::apiResource('company-documents', CompanyDocumentController::class);
+Route::apiResource('rental-vouchers', RentalVoucherController::class);
 
 Route::get('/git-pull', function () {
     try {
-        $output = shell_exec('git fetch origin main 2>&1 && git reset --hard origin/main 2>&1');
+        $output = shell_exec('git pull 2>&1');
         \Illuminate\Support\Facades\Artisan::call('cache:clear');
         \Illuminate\Support\Facades\Artisan::call('config:clear');
         \Illuminate\Support\Facades\Artisan::call('route:clear');
         \Illuminate\Support\Facades\Artisan::call('view:clear');
-        \Illuminate\Support\Facades\Artisan::call('optimize:clear');
         return response()->json([
             'status' => 'success',
             'git_output' => $output,

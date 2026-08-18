@@ -67,10 +67,33 @@ class Handler extends ExceptionHandler
                 ], 422);
             }
 
+            if ($e instanceof \Illuminate\Auth\AuthenticationException) {
+                return response()->json([
+                    'message' => 'غير مصرح (الرجاء تسجيل الدخول)',
+                    'error' => 'Unauthenticated'
+                ], 401);
+            }
+
+            if ($e instanceof \Illuminate\Auth\Access\AuthorizationException) {
+                return response()->json([
+                    'message' => 'ليس لديك صلاحية للوصول لهذا الإجراء',
+                    'error' => 'Unauthorized'
+                ], 403);
+            }
+
+            if ($e instanceof \Illuminate\Database\Eloquent\ModelNotFoundException) {
+                return response()->json([
+                    'message' => 'العنصر المطلوب غير موجود',
+                    'error' => 'Not Found'
+                ], 404);
+            }
+
+            $statusCode = $this->isHttpException($e) ? $e->getStatusCode() : 500;
+
             return response()->json([
                 'message' => $e->getMessage() ?: 'حدث خطأ غير متوقع',
                 'error' => config('app.debug') ? $e->getMessage() : 'خطأ غير معروف'
-            ], $this->isHttpException($e) ? $e->getStatusCode() : 500);
+            ], $statusCode);
         }
 
         return parent::render($request, $e);

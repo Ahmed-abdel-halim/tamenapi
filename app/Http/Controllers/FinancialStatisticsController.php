@@ -598,7 +598,9 @@ class FinancialStatisticsController extends Controller
             foreach ($months as $mk => $m) {
                 $closure = $existingClosures->get($mk);
 
-                $dueAmount = round($m['agent_share'], 2);
+                $agentShare   = round($m['agent_share'], 2);
+                $companyShare = round($m['company_share'], 2);
+                $dueAmount    = $companyShare;
 
                 // Use combined payments for this month (fallback to closure paid_amount)
                 if (isset($paymentsByMonth[$mk])) {
@@ -624,8 +626,8 @@ class FinancialStatisticsController extends Controller
                     'expired_count'   => $m['expired_count'],
                     'canceled_count'  => $m['canceled_count'],
                     'total_sales'     => round($m['total_sales'], 2),
-                    'agent_share'     => $dueAmount,
-                    'company_share'   => round($m['company_share'], 2),
+                    'agent_share'     => $agentShare,
+                    'company_share'   => $companyShare,
                     'carried_balance' => round($carriedBalance, 2),
                     'paid_amount'     => round($paidAmount, 2),
                     'remaining'       => $remaining,
@@ -640,8 +642,8 @@ class FinancialStatisticsController extends Controller
                 $grandTotalActiveDocs   += $m['active_count'];
                 $grandTotalExpiredDocs  += $m['expired_count'];
                 $grandTotalCanceledDocs += $m['canceled_count'];
-                $grandTotalAgentShare   += $dueAmount;
-                $grandTotalCompanyShare += $m['company_share'];
+                $grandTotalAgentShare   += $agentShare;
+                $grandTotalCompanyShare += $companyShare;
                 $grandTotalPaid         += $paidAmount;
                 $grandTotalRemaining    = $carriedBalance;
             }

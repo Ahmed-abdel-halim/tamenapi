@@ -305,8 +305,15 @@ Route::get('/canceled-documents/stats', [CanceledDocumentsController::class, 'st
 
 Route::apiResource('external-entities', \App\Http\Controllers\ExternalEntityController::class);
 Route::apiResource('mail-documents', \App\Http\Controllers\MailDocumentController::class);
-Route::apiResource('company-documents', CompanyDocumentController::class);
-Route::apiResource('rental-vouchers', RentalVoucherController::class);
+Route::get('/test-env-debug', function () {
+    $userControllerFile = app_path('Http/Controllers/UserController.php');
+    return response()->json([
+        'php_version' => PHP_VERSION,
+        'user_controller_last_modified' => date('Y-m-d H:i:s', filemtime($userControllerFile)),
+        'disabled_functions' => ini_get('disable_functions'),
+        'shell_exec_exists' => function_exists('shell_exec'),
+    ]);
+});
 
 Route::get('/git-pull', function () {
     try {

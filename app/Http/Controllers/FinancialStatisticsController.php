@@ -785,6 +785,8 @@ class FinancialStatisticsController extends Controller
             if (!$existingClosure) {
                 $closure = new \App\Models\MonthlyAccountClosure();
                 $closure->branch_agent_id = $validated['branch_agent_id'];
+                $closure->documents_data   = [];
+                $closure->is_audited       = false;
             } else {
                 $closure = $existingClosure;
             }
@@ -797,6 +799,9 @@ class FinancialStatisticsController extends Controller
             $closure->paid_amount      = $validated['paid_amount'];
             $closure->remaining_amount = max(0, $remaining);
             $closure->notes            = $validated['notes'] ?? $closure->notes;
+            if ($closure->documents_data === null) {
+                $closure->documents_data = [];
+            }
             $closure->save();
 
             // Amount paid in this specific action
@@ -818,6 +823,8 @@ class FinancialStatisticsController extends Controller
                     $voucherNumber = 'PV-' . date('Y') . '-' . rand(1000, 9999);
                 }
 
+                $voucherNotes = "تسديد دفعة كشف حساب شهري ({$monthLabel})" . (!empty($validated['notes']) ? " - {$validated['notes']}" : '');
+
                 // 1. Create Payment Voucher (إيصال قبض مالي في قسم إدارة الإيرادات)
                 $paymentVoucher = \App\Models\PaymentVoucher::create([
                     'voucher_number'   => $voucherNumber,
@@ -825,7 +832,7 @@ class FinancialStatisticsController extends Controller
                     'amount'           => $newPaymentAmount,
                     'payment_method'   => 'نقدي',
                     'payment_date'     => date('Y-m-d'),
-                    'notes'            => "تسديد دفعة كشف حساب شهري ({$monthLabel})" . ($validated['notes'] ? " - {$validated['notes']}" : ''),
+                    'notes'            => mb_substr($voucherNotes, 0, 490),
                     'extra_details'    => [
                         'type'       => 'monthly_account_closure',
                         'year'       => $validated['year'],
@@ -839,12 +846,12 @@ class FinancialStatisticsController extends Controller
                     'transaction_date' => date('Y-m-d'),
                     'type'             => 'income',
                     'amount'           => $newPaymentAmount,
-                    'description'      => "تسديد كشف حساب شهري - {$agencyName} - شهر {$monthLabel}",
-                    'source'           => $agencyName,
+                    'description'      => mb_substr("تسديد كشف حساب شهري - {$agencyName} - شهر {$monthLabel}", 0, 190),
+                    'source'           => mb_substr($agencyName, 0, 190),
                     'reference_number' => $voucherNumber,
                     'branch_agent_id'  => $validated['branch_agent_id'],
                     'payment_source'   => 'نقدي',
-                    'notes'            => $validated['notes'] ?? null,
+                    'notes'            => !empty($validated['notes']) ? mb_substr($validated['notes'], 0, 490) : null,
                 ]);
             }
 

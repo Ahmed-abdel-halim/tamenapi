@@ -11,11 +11,19 @@ class DepartmentController extends Controller
 {
     public function index()
     {
-        $departments = Department::with(['users' => function ($query) {
-            $query->select('id', 'name', 'job_title', 'personal_phone', 'gender', 'profile_photo_path', 'is_active', 'show_on_landing', 'department_id');
-        }])->get();
+        try {
+            $departments = Department::with(['users' => function ($query) {
+                $query->select('id', 'name', 'job_title', 'personal_phone', 'gender', 'profile_photo_path', 'is_active', 'show_on_landing', 'department_id');
+            }])->get();
 
-        return response()->json($departments);
+            return response()->json($departments);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('Error in DepartmentController@index: ' . $e->getMessage());
+            return response()->json([
+                'message' => 'حدث خطأ أثناء جلب قائمة الأقسام',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal Server Error'
+            ], 500);
+        }
     }
 
     public function store(Request $request)

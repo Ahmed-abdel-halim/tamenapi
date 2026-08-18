@@ -20,47 +20,56 @@ class AgentTransferController extends Controller
      */
     public function index(Request $request)
     {
-        $user = auth()->user();
-        
-        // Check if user is an agent
-        $branchAgentId = $user->branchAgent?->id;
-        
-        $query = AgentTransfer::with(['agent', 'posMachine', 'creator', 'approver']);
-        
-        if ($branchAgentId) {
-            // Agent sees only their own transfers
-            $query->where('branch_agent_id', $branchAgentId);
-        } else {
-            // Admin/Accountant can filter by agent
-            if ($request->filled('branch_agent_id')) {
-                $query->where('branch_agent_id', $request->branch_agent_id);
+        try {
+            $user = $request->user() ?? auth('sanctum')->user() ?? auth()->user();
+            
+            // Check if user is an agent
+            $branchAgentId = $user?->branchAgent?->id;
+            
+            $query = AgentTransfer::with(['agent', 'posMachine', 'creator', 'approver']);
+            
+            if ($branchAgentId) {
+                // Agent sees only their own transfers
+                $query->where('branch_agent_id', $branchAgentId);
+            } else {
+                // Admin/Accountant can filter by agent
+                if ($request->filled('branch_agent_id')) {
+                    $query->where('branch_agent_id', $request->branch_agent_id);
+                }
             }
+            
+            if ($request->filled('status')) {
+                $query->where('status', $request->status);
+            }
+            
+            if ($request->filled('payment_method')) {
+                $query->where('payment_method', $request->payment_method);
+            }
+            
+            if ($request->filled('from_date')) {
+                $query->whereDate('transfer_date', '>=', $request->from_date);
+            }
+            
+            if ($request->filled('to_date')) {
+                $query->whereDate('transfer_date', '<=', $request->to_date);
+            }
+            
+            $transfers = $query->orderBy('transfer_date', 'desc')
+                               ->orderBy('created_at', 'desc')
+                               ->get();
+                               
+            return response()->json([
+                'success' => true,
+                'data' => $transfers
+            ]);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('Error in AgentTransferController@index: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'حدث خطأ أثناء جلب التحويلات المالية للوكلاء',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal Server Error'
+            ], 500);
         }
-        
-        if ($request->filled('status')) {
-            $query->where('status', $request->status);
-        }
-        
-        if ($request->filled('payment_method')) {
-            $query->where('payment_method', $request->payment_method);
-        }
-        
-        if ($request->filled('from_date')) {
-            $query->whereDate('transfer_date', '>=', $request->from_date);
-        }
-        
-        if ($request->filled('to_date')) {
-            $query->whereDate('transfer_date', '<=', $request->to_date);
-        }
-        
-        $transfers = $query->orderBy('transfer_date', 'desc')
-                           ->orderBy('created_at', 'desc')
-                           ->get();
-                           
-        return response()->json([
-            'success' => true,
-            'data' => $transfers
-        ]);
     }
 
     /**

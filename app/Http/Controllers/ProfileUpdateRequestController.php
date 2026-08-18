@@ -15,90 +15,100 @@ class ProfileUpdateRequestController extends Controller
      */
     public function index(Request $request)
     {
-        // Only admins can see this list
-        if (!auth()->user()->is_admin) {
-            return response()->json(['message' => 'غير مصرح لك بالوصول لهذا الإجراء'], 403);
-        }
-
-        $status = $request->query('status', 'pending');
-        $type = $request->query('type'); // 'agent' or 'employee'
-        
-        $query = ProfileUpdateRequest::with('user.branchAgent')
-            ->orderBy('created_at', 'desc');
-
-        if ($status !== 'all') {
-            $query->where('status', $status);
-        }
-
-        if ($type === 'agent') {
-            $query->whereHas('user.branchAgent');
-        } elseif ($type === 'employee') {
-            $query->whereDoesntHave('user.branchAgent');
-        }
-
-        $requests = $query->paginate(20);
-
-        // Add additional current details for visual comparison on frontend
-        $requests->getCollection()->transform(function ($req) {
-            $user = $req->user;
-            
-            // Format requested paths into full storage URLs if they exist
-            $changes = $req->requested_changes;
-            $fileFields = [
-                'profile_photo_path' => 'profile_photo_url',
-                'passport_photo_path' => 'passport_photo_url',
-                'identity_proof_path' => 'identity_proof_url',
-                'national_id_photo_path' => 'national_id_photo_url',
-                'contract_photo_path' => 'contract_photo_url',
-                'clearance_certificate_path' => 'clearance_certificate_url',
-                'non_bankruptcy_certificate_path' => 'non_bankruptcy_certificate_url',
-                'experience_certificate_path' => 'experience_certificate_url',
-                'non_employment_certificate_path' => 'non_employment_certificate_url',
-                'tb_health_certificate_path' => 'tb_health_certificate_url',
-                'academic_qualification_path' => 'academic_qualification_url',
-                'activity_license_path' => 'activity_license_url',
-            ];
-            foreach ($fileFields as $pathKey => $urlKey) {
-                if (isset($changes[$pathKey])) {
-                    $changes[$urlKey] = '/storage/' . $changes[$pathKey];
-                }
+        try {
+            $authUser = $request->user() ?? auth('sanctum')->user() ?? auth()->user();
+            // Only admins can see this list
+            if (!$authUser || !$authUser->is_admin) {
+                return response()->json(['message' => 'غير مصرح لك بالوصول لهذا الإجراء'], 403);
             }
 
-            return [
-                'id' => $req->id,
-                'user_id' => $req->user_id,
-                'status' => $req->status,
-                'admin_notes' => $req->admin_notes,
-                'processed_at' => $req->processed_at,
-                'created_at' => $req->created_at,
-                'requested_changes' => $changes,
-                'user' => [
-                    'id' => $user->id,
-                    'name' => $user->name,
-                    'personal_phone' => $user->personal_phone,
-                    'profile_photo_url' => $user->profile_photo_url,
-                    'passport_photo_url' => $user->passport_photo_url,
-                    'identity_proof_url' => $user->identity_proof_url,
-                    'national_id_photo_url' => $user->national_id_photo_url,
-                    'contract_photo_url' => $user->employment_contract_url,
-                    'clearance_certificate_url' => $user->clearance_certificate_url,
-                    'non_bankruptcy_certificate_url' => $user->branchAgent && $user->branchAgent->non_bankruptcy_certificate ? '/storage/' . $user->branchAgent->non_bankruptcy_certificate : null,
-                    'experience_certificate_url' => $user->experience_certificate_url,
-                    'non_employment_certificate_url' => $user->branchAgent && $user->branchAgent->non_employment_certificate ? '/storage/' . $user->branchAgent->non_employment_certificate : null,
-                    'tb_health_certificate_url' => $user->health_certificate_url,
-                    'academic_qualification_url' => $user->educational_certificate_url,
-                    'activity_license_url' => $user->branchAgent && $user->branchAgent->activity_license ? '/storage/' . $user->branchAgent->activity_license : null,
-                    'is_agent' => $user->branchAgent !== null,
-                    'agent_info' => $user->branchAgent ? [
-                        'id' => $user->branchAgent->id,
-                        'agency_name' => $user->branchAgent->agency_name,
-                        'agent_name' => $user->branchAgent->agent_name,
-                    ] : null,
-                ]
-            ];
-        });
+            $status = $request->query('status', 'pending');
+            $type = $request->query('type'); // 'agent' or 'employee'
+            
+            $query = ProfileUpdateRequest::with('user.branchAgent')
+                ->orderBy('created_at', 'desc');
 
-        return response()->json($requests);
+            if ($status !== 'all') {
+                $query->where('status', $status);
+            }
+
+            if ($type === 'agent') {
+                $query->whereHas('user.branchAgent');
+            } elseif ($type === 'employee') {
+                $query->whereDoesntHave('user.branchAgent');
+            }
+
+            $requests = $query->paginate(20);
+
+            // Add additional current details for visual comparison on frontend
+            $requests->getCollection()->transform(function ($req) {
+                $user = $req->user;
+                if (!$user) return null;
+                
+                // Format requested paths into full storage URLs if they exist
+                $changes = $req->requested_changes;
+                $fileFields = [
+                    'profile_photo_path' => 'profile_photo_url',
+                    'passport_photo_path' => 'passport_photo_url',
+                    'identity_proof_path' => 'identity_proof_url',
+                    'national_id_photo_path' => 'national_id_photo_url',
+                    'contract_photo_path' => 'contract_photo_url',
+                    'clearance_certificate_path' => 'clearance_certificate_url',
+                    'non_bankruptcy_certificate_path' => 'non_bankruptcy_certificate_url',
+                    'experience_certificate_path' => 'experience_certificate_url',
+                    'non_employment_certificate_path' => 'non_employment_certificate_url',
+                    'tb_health_certificate_path' => 'tb_health_certificate_url',
+                    'academic_qualification_path' => 'academic_qualification_url',
+                    'activity_license_path' => 'activity_license_url',
+                ];
+                foreach ($fileFields as $pathKey => $urlKey) {
+                    if (isset($changes[$pathKey])) {
+                        $changes[$urlKey] = '/storage/' . $changes[$pathKey];
+                    }
+                }
+
+                return [
+                    'id' => $req->id,
+                    'user_id' => $req->user_id,
+                    'status' => $req->status,
+                    'admin_notes' => $req->admin_notes,
+                    'processed_at' => $req->processed_at,
+                    'created_at' => $req->created_at,
+                    'requested_changes' => $changes,
+                    'user' => [
+                        'id' => $user->id,
+                        'name' => $user->name,
+                        'personal_phone' => $user->personal_phone,
+                        'profile_photo_url' => $user->profile_photo_url,
+                        'passport_photo_url' => $user->passport_photo_url,
+                        'identity_proof_url' => $user->identity_proof_url,
+                        'national_id_photo_url' => $user->national_id_photo_url,
+                        'contract_photo_url' => $user->employment_contract_url,
+                        'clearance_certificate_url' => $user->clearance_certificate_url,
+                        'non_bankruptcy_certificate_url' => $user->branchAgent && $user->branchAgent->non_bankruptcy_certificate ? '/storage/' . $user->branchAgent->non_bankruptcy_certificate : null,
+                        'experience_certificate_url' => $user->experience_certificate_url,
+                        'non_employment_certificate_url' => $user->branchAgent && $user->branchAgent->non_employment_certificate ? '/storage/' . $user->branchAgent->non_employment_certificate : null,
+                        'tb_health_certificate_url' => $user->health_certificate_url,
+                        'academic_qualification_url' => $user->educational_certificate_url,
+                        'activity_license_url' => $user->branchAgent && $user->branchAgent->activity_license ? '/storage/' . $user->branchAgent->activity_license : null,
+                        'is_agent' => $user->branchAgent !== null,
+                        'agent_info' => $user->branchAgent ? [
+                            'id' => $user->branchAgent->id,
+                            'agency_name' => $user->branchAgent->agency_name,
+                            'agent_name' => $user->branchAgent->agent_name,
+                        ] : null,
+                    ]
+                ];
+            });
+
+            return response()->json($requests);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('Error in ProfileUpdateRequestController@index: ' . $e->getMessage());
+            return response()->json([
+                'message' => 'حدث خطأ أثناء جلب طلبات تعديل البيانات',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal Server Error'
+            ], 500);
+        }
     }
 
     /**

@@ -181,6 +181,14 @@ class User extends Authenticatable
     }
 
     /**
+     * Get the branch agent record where this user is the primary account owner.
+     */
+    public function agentAccount()
+    {
+        return $this->hasOne(BranchAgent::class, 'user_id');
+    }
+
+    /**
      * Get the department associated with the user.
      */
     public function department()

@@ -13,23 +13,31 @@ class AgencyCancellationController extends Controller
 {
     public function index(Request $request)
     {
-        $query = AgencyCancellation::with(['branchAgent', 'creator']);
+        try {
+            $query = AgencyCancellation::with(['branchAgent', 'creator']);
 
-        if ($request->has('branch_agent_id')) {
-            $query->where('branch_agent_id', $request->branch_agent_id);
-        }
-
-        $user = Auth::user();
-        if (!$user->is_admin) {
-            $branchAgent = BranchAgent::where('user_id', $user->id)->first();
-            if ($branchAgent) {
-                $query->where('branch_agent_id', $branchAgent->id);
-            } else {
-                return response()->json([]);
+            if ($request->filled('branch_agent_id')) {
+                $query->where('branch_agent_id', $request->branch_agent_id);
             }
-        }
 
-        return $query->latest()->get();
+            $user = $request->user() ?? auth('sanctum')->user() ?? auth()->user();
+            if ($user && !$user->is_admin) {
+                $branchAgent = BranchAgent::where('user_id', $user->id)->first();
+                if ($branchAgent) {
+                    $query->where('branch_agent_id', $branchAgent->id);
+                } else {
+                    return response()->json([]);
+                }
+            }
+
+            return response()->json($query->latest()->get());
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('Error in AgencyCancellationController@index: ' . $e->getMessage());
+            return response()->json([
+                'message' => 'حدث خطأ أثناء جلب إغلاقات الوكالات',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal Server Error'
+            ], 500);
+        }
     }
 
     public function store(Request $request)

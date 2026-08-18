@@ -12,83 +12,93 @@ class UserController extends Controller
 {
     public function index(Request $request)
     {
-        $perPage = $request->get('per_page', 50);
+        try {
+            $perPage = $request->get('per_page', 50);
 
-        $query = User::with('branchAgent:id,user_id,type,agency_name,agent_name');
+            $query = User::with('branchAgent:id,user_id,type,agency_name,agent_name');
 
-        // استبعاد أي مستخدم مرتبط ببيانات وكيل أو فرع من قائمة الموظفين
-        $query->whereDoesntHave('branchAgent');
+            // استبعاد أي مستخدم مرتبط ببيانات وكيل أو فرع من قائمة الموظفين
+            $query->whereNull('branch_agent_id')
+                  ->whereDoesntHave('branchAgent')
+                  ->whereDoesntHave('agentAccount');
 
-        // الفرز حسب الأقدمية (تاريخ مباشرة العمل)
-        $query->orderByRaw('CASE WHEN start_date IS NULL THEN 1 ELSE 0 END')
-              ->orderBy('start_date', 'asc')
-              ->orderBy('id', 'asc');
+            // الفرز حسب الأقدمية (تاريخ مباشرة العمل)
+            $query->orderByRaw('CASE WHEN start_date IS NULL THEN 1 ELSE 0 END')
+                  ->orderBy('start_date', 'asc')
+                  ->orderBy('id', 'asc');
 
-        // الفلترة حسب درجة الوصول (الكل، مدير، موظف عادي)
-        if ($request->has('role') && $request->role !== 'all') {
-            if ($request->role === 'admin') {
-                $query->where('is_admin', true);
-            } else {
-                $query->where('is_admin', false);
+            // الفلترة حسب درجة الوصول (الكل، مدير، موظف عادي)
+            if ($request->has('role') && $request->role !== 'all') {
+                if ($request->role === 'admin') {
+                    $query->where('is_admin', true);
+                } else {
+                    $query->where('is_admin', false);
+                }
             }
-        }
 
-        // الفلترة حسب المسمى الوظيفي
-        if ($request->has('job_title') && $request->job_title !== 'all') {
-            $query->where('job_title', 'like', "%{$request->job_title}%");
-        }
+            // الفلترة حسب المسمى الوظيفي
+            if ($request->has('job_title') && $request->job_title !== 'all') {
+                $query->where('job_title', 'like', "%{$request->job_title}%");
+            }
 
-        // الفلترة حسب الصلاحية (Authorized Documents)
-        if ($request->has('permission') && $request->permission !== 'all') {
-            $query->whereJsonContains('authorized_documents', $request->permission);
-        }
+            // الفلترة حسب الصلاحية (Authorized Documents)
+            if ($request->has('permission') && $request->permission !== 'all') {
+                $query->whereJsonContains('authorized_documents', $request->permission);
+            }
 
-        // الفلترة حسب الحالة (نشط / غير نشط)
-        if ($request->has('active') && $request->active !== 'all') {
-            $query->where('is_active', $request->active == '1');
-        }
+            // الفلترة حسب الحالة (نشط / غير نشط)
+            if ($request->has('active') && $request->active !== 'all') {
+                $query->where('is_active', $request->active == '1');
+            }
 
-        if ($request->has('search')) {
-            $search = $request->get('search');
-            $query->where(function ($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                    ->orWhere('username', 'like', "%{$search}%");
+            if ($request->filled('search')) {
+                $search = $request->get('search');
+                $query->where(function ($q) use ($search) {
+                    $q->where('name', 'like', "%{$search}%")
+                        ->orWhere('username', 'like', "%{$search}%");
+                });
+            }
+
+            $users = $query->paginate($perPage);
+
+            $users->getCollection()->transform(function ($user) {
+                $userData = $user->toArray();
+                $userData['is_admin'] = $user->is_admin ?? false;
+                $userData['authorized_documents'] = $user->authorized_documents ?? [];
+                $userData['user_type'] = 'مستخدم عادي';
+                $userData['branch_agent_info'] = null;
+
+                if ($user->is_admin) {
+                    $userData['user_type'] = 'مدير';
+                } elseif ($user->branchAgent) {
+                    $userData['user_type'] = $user->branchAgent->type;
+                    $userData['branch_agent_info'] = [
+                        'id' => $user->branchAgent->id,
+                        'type' => $user->branchAgent->type,
+                        'agency_name' => $user->branchAgent->agency_name,
+                        'agent_name' => $user->branchAgent->agent_name,
+                    ];
+                }
+
+                return $userData;
             });
+
+            return response()->json([
+                'data' => $users->items(),
+                'current_page' => $users->currentPage(),
+                'per_page' => $users->perPage(),
+                'total' => $users->total(),
+                'last_page' => $users->lastPage(),
+                'from' => $users->firstItem(),
+                'to' => $users->lastItem(),
+            ]);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('Error in UserController@index: ' . $e->getMessage());
+            return response()->json([
+                'message' => 'حدث خطأ أثناء جلب قائمة الموظفين',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal Server Error'
+            ], 500);
         }
-
-        $users = $query->paginate($perPage);
-
-        $users->getCollection()->transform(function ($user) {
-            $userData = $user->toArray();
-            $userData['is_admin'] = $user->is_admin ?? false;
-            $userData['authorized_documents'] = $user->authorized_documents ?? [];
-            $userData['user_type'] = 'مستخدم عادي';
-            $userData['branch_agent_info'] = null;
-
-            if ($user->is_admin) {
-                $userData['user_type'] = 'مدير';
-            } elseif ($user->branchAgent) {
-                $userData['user_type'] = $user->branchAgent->type;
-                $userData['branch_agent_info'] = [
-                    'id' => $user->branchAgent->id,
-                    'type' => $user->branchAgent->type,
-                    'agency_name' => $user->branchAgent->agency_name,
-                    'agent_name' => $user->branchAgent->agent_name,
-                ];
-            }
-
-            return $userData;
-        });
-
-        return response()->json([
-            'data' => $users->items(),
-            'current_page' => $users->currentPage(),
-            'per_page' => $users->perPage(),
-            'total' => $users->total(),
-            'last_page' => $users->lastPage(),
-            'from' => $users->firstItem(),
-            'to' => $users->lastItem(),
-        ]);
     }
 
     public function store(Request $request)

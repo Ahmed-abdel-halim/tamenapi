@@ -10,22 +10,36 @@ class EmployeeRequestController extends Controller
 {
     public function index(Request $request)
     {
-        $query = EmployeeRequest::with(['user', 'approver']);
+        try {
+            $user = $request->user() ?? auth('sanctum')->user() ?? auth()->user();
+            $query = EmployeeRequest::with(['user', 'approver']);
 
-        if ($request->has('user_id')) {
-            $query->where('user_id', $request->user_id);
+            if ($request->filled('user_id')) {
+                $query->where('user_id', $request->user_id);
+            }
+
+            // If user is not admin, only show own requests
+            if ($user && !$user->is_admin) {
+                $query->where('user_id', $user->id);
+            }
+
+            return response()->json($query->latest()->get());
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('Error in EmployeeRequestController@index: ' . $e->getMessage());
+            return response()->json([
+                'message' => 'حدث خطأ أثناء جلب طلبات الموظفين',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal Server Error'
+            ], 500);
         }
-
-        // If not admin, only show own requests
-        if (!$request->user()->is_admin) {
-            $query->where('user_id', $request->user()->id);
-        }
-
-        return $query->latest()->get();
     }
 
     public function store(Request $request)
     {
+        $user = $request->user() ?? auth('sanctum')->user() ?? auth()->user();
+        if (!$user) {
+            return response()->json(['message' => 'غير مصرح'], 401);
+        }
+
         $validated = $request->validate([
             'type' => 'required|in:termination,leave_hourly,leave_daily,salary_advance,allowance,complaint,maintenance,other',
             'reason' => 'required|string',
@@ -34,7 +48,7 @@ class EmployeeRequestController extends Controller
         ]);
 
         $employeeRequest = EmployeeRequest::create([
-            'user_id' => Auth::id(),
+            'user_id' => $user->id,
             'type' => $validated['type'],
             'status' => 'pending',
             'reason' => $validated['reason'],
@@ -70,19 +84,25 @@ class EmployeeRequestController extends Controller
         return response()->json($employeeRequest, 201);
     }
 
-    public function show(EmployeeRequest $employeeRequest)
+    public function show(Request $request, EmployeeRequest $employeeRequest)
     {
+        $user = $request->user() ?? auth('sanctum')->user() ?? auth()->user();
+        if (!$user) {
+            return response()->json(['message' => 'غير مصرح'], 401);
+        }
+
         // Check authorization
-        if (!Auth::user()->is_admin && $employeeRequest->user_id !== Auth::id()) {
+        if (!$user->is_admin && $employeeRequest->user_id !== $user->id) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
-        return $employeeRequest->load(['user', 'approver']);
+        return response()->json($employeeRequest->load(['user', 'approver']));
     }
 
     public function update(Request $request, EmployeeRequest $employeeRequest)
     {
-        if (!Auth::user()->is_admin) {
+        $user = $request->user() ?? auth('sanctum')->user() ?? auth()->user();
+        if (!$user || !$user->is_admin) {
             return response()->json(['message' => 'Only admins can process requests'], 403);
         }
 
@@ -94,7 +114,7 @@ class EmployeeRequestController extends Controller
         $employeeRequest->update([
             'status' => $validated['status'],
             'admin_notes' => $request->get('admin_notes'),
-            'approver_id' => Auth::id(),
+            'approver_id' => $user->id,
             'processed_at' => now(),
         ]);
 
@@ -129,12 +149,17 @@ class EmployeeRequestController extends Controller
             \Illuminate\Support\Facades\Log::error('Notification error in EmployeeRequest update: ' . $ne->getMessage());
         }
 
-        return $employeeRequest;
+        return response()->json($employeeRequest);
     }
 
-    public function destroy(EmployeeRequest $employeeRequest)
+    public function destroy(Request $request, EmployeeRequest $employeeRequest)
     {
-        if ($employeeRequest->user_id !== Auth::id() || $employeeRequest->status !== 'pending') {
+        $user = $request->user() ?? auth('sanctum')->user() ?? auth()->user();
+        if (!$user) {
+            return response()->json(['message' => 'غير مصرح'], 401);
+        }
+
+        if ($employeeRequest->user_id !== $user->id || $employeeRequest->status !== 'pending') {
             return response()->json(['message' => 'Cannot delete this request'], 403);
         }
 

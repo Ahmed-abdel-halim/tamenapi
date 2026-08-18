@@ -10,29 +10,42 @@ class AgentRequestController extends Controller
 {
     public function index(Request $request)
     {
-        $query = AgentRequest::with(['branchAgent', 'user']);
+        try {
+            $query = AgentRequest::with(['branchAgent', 'user']);
 
-        if ($request->has('branch_agent_id')) {
-            $query->where('branch_agent_id', $request->branch_agent_id);
-        }
-
-        // If not admin, only show requests from their branch agent
-        $user = $request->user();
-        if (!$user->is_admin) {
-            // Find the branch agent associated with this user
-            $branchAgent = \App\Models\BranchAgent::where('user_id', $user->id)->first();
-            if ($branchAgent) {
-                $query->where('branch_agent_id', $branchAgent->id);
-            } else {
-                return []; // No agent associated
+            if ($request->filled('branch_agent_id')) {
+                $query->where('branch_agent_id', $request->branch_agent_id);
             }
-        }
 
-        return $query->latest()->get();
+            // If not admin, only show requests from their branch agent
+            $user = $request->user() ?? auth('sanctum')->user() ?? auth()->user();
+            if ($user && !$user->is_admin) {
+                // Find the branch agent associated with this user
+                $branchAgent = \App\Models\BranchAgent::where('user_id', $user->id)->first();
+                if ($branchAgent) {
+                    $query->where('branch_agent_id', $branchAgent->id);
+                } else {
+                    return response()->json([]); // No agent associated
+                }
+            }
+
+            return response()->json($query->latest()->get());
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('Error in AgentRequestController@index: ' . $e->getMessage());
+            return response()->json([
+                'message' => 'حدث خطأ أثناء جلب طلبات الوكلاء',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal Server Error'
+            ], 500);
+        }
     }
 
     public function store(Request $request)
     {
+        $user = $request->user() ?? auth('sanctum')->user() ?? auth()->user();
+        if (!$user) {
+            return response()->json(['message' => 'غير مصرح'], 401);
+        }
+
         $validated = $request->validate([
             'branch_agent_id' => 'required|exists:branches_agents,id',
             'type' => 'required|in:stock,support,financial,commission,maintenance,marketing,training,legal,limit_increase,other',
@@ -44,7 +57,7 @@ class AgentRequestController extends Controller
 
         $agentRequest = AgentRequest::create([
             'branch_agent_id' => $validated['branch_agent_id'],
-            'user_id' => Auth::id(),
+            'user_id' => $user->id,
             'type' => $validated['type'],
             'priority' => $validated['priority'],
             'subject' => $validated['subject'],
@@ -75,9 +88,13 @@ class AgentRequestController extends Controller
         return response()->json($agentRequest, 201);
     }
 
-    public function show(AgentRequest $agentRequest)
+    public function show(Request $request, AgentRequest $agentRequest)
     {
-        $user = Auth::user();
+        $user = $request->user() ?? auth('sanctum')->user() ?? auth()->user();
+        if (!$user) {
+            return response()->json(['message' => 'غير مصرح'], 401);
+        }
+
         if (!$user->is_admin) {
             $branchAgent = \App\Models\BranchAgent::where('user_id', $user->id)->first();
             if (!$branchAgent || $agentRequest->branch_agent_id !== $branchAgent->id) {
@@ -85,12 +102,13 @@ class AgentRequestController extends Controller
             }
         }
 
-        return $agentRequest->load(['branchAgent', 'user']);
+        return response()->json($agentRequest->load(['branchAgent', 'user']));
     }
 
     public function update(Request $request, AgentRequest $agentRequest)
     {
-        if (!Auth::user()->is_admin) {
+        $user = $request->user() ?? auth('sanctum')->user() ?? auth()->user();
+        if (!$user || !$user->is_admin) {
             return response()->json(['message' => 'Only admins can process requests'], 403);
         }
 
@@ -139,12 +157,16 @@ class AgentRequestController extends Controller
             \Illuminate\Support\Facades\Log::error('Notification error in AgentRequest update: ' . $ne->getMessage());
         }
 
-        return $agentRequest;
+        return response()->json($agentRequest);
     }
 
-    public function destroy(AgentRequest $agentRequest)
+    public function destroy(Request $request, AgentRequest $agentRequest)
     {
-        $user = Auth::user();
+        $user = $request->user() ?? auth('sanctum')->user() ?? auth()->user();
+        if (!$user) {
+            return response()->json(['message' => 'غير مصرح'], 401);
+        }
+
         if (!$user->is_admin && $agentRequest->user_id !== $user->id) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }

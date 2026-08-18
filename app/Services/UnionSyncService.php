@@ -228,22 +228,25 @@ class UnionSyncService
                 }
             }
 
-            // 6. Preload existing documents map for the remaining new reports
-            // (Some new reports may match by document_number for updates)
-            $existingDocs = DB::table('international_insurance_documents')
-                ->select('id', 'external_policy_number', 'document_number')
-                ->get();
+            // 6. Preload existing documents map ONLY for the incoming new reports
+            $cardIds = array_filter(array_column($reports, 'Card_Id'));
+            $cardNumbers = array_filter(array_column($reports, 'Card_Number'));
+
             $existingExternalMap = [];
-            $existingDocNumberMap = [];
-            foreach ($existingDocs as $d) {
-                if (!empty($d->external_policy_number)) {
-                    $existingExternalMap[$d->external_policy_number] = $d->id;
-                }
-                if (!empty($d->document_number)) {
-                    $existingDocNumberMap[$d->document_number] = $d->id;
-                }
+            if (!empty($cardIds)) {
+                $existingExternalMap = DB::table('international_insurance_documents')
+                    ->whereIn('external_policy_number', array_chunk($cardIds, 1000)[0] ?? [])
+                    ->pluck('id', 'external_policy_number')
+                    ->toArray();
             }
-            unset($existingDocs);
+
+            $existingDocNumberMap = [];
+            if (!empty($cardNumbers)) {
+                $existingDocNumberMap = DB::table('international_insurance_documents')
+                    ->whereIn('document_number', array_chunk($cardNumbers, 1000)[0] ?? [])
+                    ->pluck('id', 'document_number')
+                    ->toArray();
+            }
 
             // 7. Preload all agents
             $localAgents = BranchAgent::all();

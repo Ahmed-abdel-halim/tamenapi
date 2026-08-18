@@ -34,7 +34,7 @@ class OldDocumentController extends Controller
             $documentType = $request->input('document_type');
             $branchAgentId = $request->input('branch_agent_id');
             $issueDateStr = $request->input('issue_date', now()->format('Y-m-d'));
-            $issueDate = Carbon::parse($issueDateStr);
+            $issueDate = $this->parseSafeDate($issueDateStr);
 
             // 1. تحديد الـ Model واسم حقل الرقم الفريد
             $mapping = [
@@ -148,6 +148,23 @@ class OldDocumentController extends Controller
                 $document->updated_at = $issueDate;
             }
 
+            // تعيين نوع الوثيقة الافتراضي لمنع أي خطأ SQL
+            $defaultTypes = [
+                'compulsory'        => 'تأمين إجباري سيارات',
+                'international'     => 'بطاقة دولية',
+                'travel'            => 'تأمين سفر',
+                'resident'          => 'تأمين وافدين',
+                'marine'            => 'تأمين بحري',
+                'medical'           => 'تأمين المسؤولية الطبية',
+                'personal_accident' => 'تأمين الحوادث الشخصية',
+                'school_student'    => 'تأمين الطلبة والمؤسسات التعليمية',
+                'cash_in_transit'   => 'تأمين نقل النقدية',
+                'cargo'             => 'تأمين نقل البضائع',
+            ];
+            if (in_array('insurance_type', $columns) && empty($document->insurance_type)) {
+                $document->insurance_type = $defaultTypes[$documentType] ?? 'عام';
+            }
+
             // تعيين الوكيل
             if (in_array('branch_agent_id', $columns)) {
                 $document->branch_agent_id = $branchAgentId;
@@ -172,7 +189,9 @@ class OldDocumentController extends Controller
                     continue;
                 }
                 if (in_array($key, $columns) && !in_array($key, ['id', 'created_at', 'updated_at', 'issue_date', $numberField, 'branch_agent_id'])) {
-                    if ($key === 'gender') {
+                    if ($key === 'start_date' || $key === 'end_date') {
+                        $value = $this->parseSafeDate($value, $issueDate->year)->format('Y-m-d');
+                    } else if ($key === 'gender') {
                         if ($value === 'ذكر' || $value === 'ذكر Male') {
                             $value = 'ذكر Male';
                         } elseif ($value === 'أنثى' || $value === 'انثى' || $value === 'انثى Female' || $value === 'أنثى Female') {
@@ -244,7 +263,8 @@ class OldDocumentController extends Controller
             Log::error($e->getTraceAsString());
             return response()->json([
                 'success' => false,
-                'message' => 'حدث خطأ أثناء حفظ الوثيقة القديمة',
+                'message' => 'حدث خطأ أثناء حفظ الوثيقة القديمة: ' . $e->getMessage(),
+                'error'   => $e->getMessage(),
                 'error' => config('app.debug') ? $e->getMessage() : 'خطأ غير معروف'
             ], 500);
         }
@@ -415,6 +435,24 @@ class OldDocumentController extends Controller
                 'message' => 'حدث خطأ أثناء جلب قائمة الوثائق القديمة',
                 'error'   => config('app.debug') ? $e->getMessage() : 'خطأ غير معروف'
             ], 500);
+        }
+    }
+
+    private function parseSafeDate($dateInput, $defaultYear = null)
+    {
+        if (empty($dateInput)) return now();
+        try {
+            $str = (string)$dateInput;
+            if (preg_match('/(20\d{2})[-_\/](\d{1,2})[-_\/](\d{1,2})/', $str, $m)) {
+                return \Carbon\Carbon::create((int)$m[1], (int)$m[2], (int)$m[3]);
+            }
+            $dt = \Carbon\Carbon::parse($str);
+            if ($dt->year < 1990 || $dt->year > 2099) {
+                $dt->year($defaultYear ?? now()->year);
+            }
+            return $dt;
+        } catch (\Exception $e) {
+            return now();
         }
     }
 }

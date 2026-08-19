@@ -18,32 +18,43 @@ class AgentPaymentHelper
 
         // 1. Payment Vouchers (إيصالات القبض في إدارة الإيرادات)
         $vouchersPaid = 0.0;
+        $linkedClosureIds = [];
+        $linkedYearMonths = [];
+
         if ($schema->hasTable('payment_vouchers')) {
-            $vouchersPaid = (float)DB::table('payment_vouchers')
+            $vouchers = DB::table('payment_vouchers')
                 ->where('branch_agent_id', $agentId)
-                ->sum('amount');
+                ->get();
+
+            foreach ($vouchers as $v) {
+                $vouchersPaid += (float)$v->amount;
+
+                $extra = is_string($v->extra_details) ? json_decode($v->extra_details, true) : (array)($v->extra_details ?? []);
+                if (!empty($extra['closure_id'])) {
+                    $linkedClosureIds[$extra['closure_id']] = true;
+                }
+                if (!empty($extra['year']) && !empty($extra['month'])) {
+                    $linkedYearMonths[(int)$extra['year'] . '-' . (int)$extra['month']] = true;
+                }
+            }
         }
 
         // 2. Monthly Account Closures with paid_amount where no Payment Voucher exists
         $closuresPaid = 0.0;
         if ($schema->hasTable('monthly_account_closures')) {
-            $closuresPaid = (float)DB::table('monthly_account_closures')
+            $closures = DB::table('monthly_account_closures')
                 ->where('branch_agent_id', $agentId)
                 ->where('paid_amount', '>', 0)
-                ->get()
-                ->filter(function ($c) use ($agentId) {
-                    return !DB::table('payment_vouchers')
-                        ->where('branch_agent_id', $agentId)
-                        ->where(function ($q) use ($c) {
-                            $q->where('extra_details->closure_id', $c->id)
-                              ->orWhere(function ($q2) use ($c) {
-                                  $q2->where('extra_details->year', $c->year)
-                                     ->where('extra_details->month', $c->month);
-                              });
-                        })
-                        ->exists();
-                })
-                ->sum('paid_amount');
+                ->get();
+
+            foreach ($closures as $c) {
+                $hasClosureId = isset($linkedClosureIds[$c->id]);
+                $hasYearMonth = isset($linkedYearMonths[(int)$c->year . '-' . (int)$c->month]);
+
+                if (!$hasClosureId && !$hasYearMonth) {
+                    $closuresPaid += (float)$c->paid_amount;
+                }
+            }
         }
 
         return round($vouchersPaid + $closuresPaid, 2);
@@ -60,6 +71,8 @@ class AgentPaymentHelper
     {
         $schema = DB::getSchemaBuilder();
         $allPayments = [];
+        $linkedClosureIds = [];
+        $linkedYearMonths = [];
 
         // 1. Payment Vouchers (إدارة الإيرادات)
         if ($schema->hasTable('payment_vouchers')) {
@@ -69,6 +82,13 @@ class AgentPaymentHelper
 
             foreach ($vouchers as $v) {
                 $extra = is_string($v->extra_details) ? json_decode($v->extra_details, true) : (array)($v->extra_details ?? []);
+                if (!empty($extra['closure_id'])) {
+                    $linkedClosureIds[$extra['closure_id']] = true;
+                }
+                if (!empty($extra['year']) && !empty($extra['month'])) {
+                    $linkedYearMonths[(int)$extra['year'] . '-' . (int)$extra['month']] = true;
+                }
+
                 $year = $extra['year'] ?? null;
                 $month = $extra['month'] ?? null;
                 $date = $v->payment_date ?? $v->created_at ?? date('Y-m-d');
@@ -95,19 +115,11 @@ class AgentPaymentHelper
                 ->get();
 
             foreach ($closures as $c) {
-                $mKey = sprintf('%04d-%02d', (int)$c->year, (int)$c->month);
-                $hasVoucher = DB::table('payment_vouchers')
-                    ->where('branch_agent_id', $agentId)
-                    ->where(function ($q) use ($c) {
-                        $q->where('extra_details->closure_id', $c->id)
-                          ->orWhere(function ($q2) use ($c) {
-                              $q2->where('extra_details->year', $c->year)
-                                 ->where('extra_details->month', $c->month);
-                          });
-                    })
-                    ->exists();
+                $hasClosureId = isset($linkedClosureIds[$c->id]);
+                $hasYearMonth = isset($linkedYearMonths[(int)$c->year . '-' . (int)$c->month]);
 
-                if (!$hasVoucher) {
+                if (!$hasClosureId && !$hasYearMonth) {
+                    $mKey = sprintf('%04d-%02d', (int)$c->year, (int)$c->month);
                     $allPayments[] = [
                         'amount'       => (float)$c->paid_amount,
                         'payment_date' => "{$c->year}-" . sprintf('%02d', $c->month) . "-01",

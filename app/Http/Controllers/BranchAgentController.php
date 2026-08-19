@@ -1923,24 +1923,18 @@ class BranchAgentController extends Controller
                     ->first();
             }
 
-            // جلب إيصالات القبض (Payment Vouchers) الصادرة في هذا الشهر
-            $paymentVouchersMonthQuery = DB::table('payment_vouchers')
-                ->where('branch_agent_id', $branchAgentId);
-            if ($type === 'range' && $fromDate && $toDate) {
-                $paymentVouchersMonthQuery
-                    ->whereDate('payment_date', '>=', $fromDate)
-                    ->whereDate('payment_date', '<=', $toDate);
-            } else {
-                $paymentVouchersMonthQuery
-                    ->whereYear('payment_date', $year)
-                    ->whereMonth('payment_date', $month);
-            }
-            $paymentVouchersMonth = $paymentVouchersMonthQuery->sum('amount');
-            
-            // جلب إجمالي إيصالات القبض (Payment Vouchers) للوكيل عبر كل الزمن
-            $paymentVouchersAllTime = DB::table('payment_vouchers')
-                ->where('branch_agent_id', $branchAgentId)
-                ->sum('amount');
+            // جلب إيصالات المقبوضات الصادرة في هذا الشهر/الفترة
+            $paymentVouchersMonth = \App\Helpers\AgentPaymentHelper::getPaidForPeriod(
+                (int)$branchAgentId,
+                $type,
+                $year ? (int)$year : null,
+                $month ? (int)$month : null,
+                $fromDate,
+                $toDate
+            );
+
+            // جلب إجمالي المقبوضات للوكيل عبر كل الزمن
+            $paymentVouchersAllTime = \App\Helpers\AgentPaymentHelper::getTotalPaid((int)$branchAgentId);
 
             return response()->json([
                 'success' => true,
@@ -2881,24 +2875,16 @@ class BranchAgentController extends Controller
             // حساب المبالغ المتبقية والمدفوعة والمستحقة
             $dueAmount = $totalCompanyAmount;
             
-            // جلب إيصالات القبض (Payment Vouchers) لخصمها من الرصيد
-            $paymentVouchersTotalQuery = DB::table('payment_vouchers')
-                ->where('branch_agent_id', $id);
-            
-            if ($type === 'range' && $fromDate && $toDate) {
-                $paymentVouchersTotalQuery
-                    ->whereDate('payment_date', '>=', $fromDate)
-                    ->whereDate('payment_date', '<=', $toDate);
-            } else {
-                $paymentVouchersTotalQuery
-                    ->whereYear('payment_date', $year)
-                    ->whereMonth('payment_date', $month);
-            }
-            
-            $paymentVouchersTotal = $paymentVouchersTotalQuery->sum('amount');
-            $paidAmount = $paymentVouchersTotal;
-            $remainingAmount = max(0, $dueAmount - $paidAmount);
-            
+            // جلب مقبوضات الفترة الرسمية
+            $paymentVouchersTotal = \App\Helpers\AgentPaymentHelper::getPaidForPeriod(
+                (int)$id,
+                $type,
+                $year ? (int)$year : null,
+                $month ? (int)$month : null,
+                $fromDate,
+                $toDate
+            );
+
             // التحقق من وجود إغلاق محفوظ
             $closureQuery = MonthlyAccountClosure::where('branch_agent_id', $id);
             if ($type === 'range' && $fromDate && $toDate) {
@@ -2909,12 +2895,13 @@ class BranchAgentController extends Controller
                     ->where('month', $month);
             }
             $closure = $closureQuery->first();
-            
-            if ($closure) {
-                // نجمع المبالغ المدفوعة في الإغلاق مع الإيصالات
-                $paidAmount += $closure->paid_amount;
-                $remainingAmount = max(0, $dueAmount - $paidAmount);
+
+            if ($closure && (float)$closure->paid_amount > 0) {
+                $paidAmount = (float)$closure->paid_amount;
+            } else {
+                $paidAmount = $paymentVouchersTotal;
             }
+            $remainingAmount = max(0, $dueAmount - $paidAmount);
 
             return view('branches-agents.monthly-account-closure-print', [
                 'branchAgent' => $branchAgent,
@@ -3499,9 +3486,23 @@ class BranchAgentController extends Controller
 
             $totalCompanyShare = $totalRevenue - $totalAgentShare;
 
-            // المدفوع للشركة = مجموع كل الحوالات المعتمدة لكل الوكلاء
-            $paidToCompany = AgentTransfer::where('status', 'approved')
-                ->sum('amount');
+            // المدفوع للشركة = مجموع كافة المقبوضات وإيصالات القبض الرسمية لجميع الوكلاء
+            $paidToCompany = DB::table('payment_vouchers')->sum('amount');
+            if (DB::getSchemaBuilder()->hasTable('monthly_account_closures')) {
+                $linkedClosureIds = [];
+                $vouchers = DB::table('payment_vouchers')->get(['extra_details']);
+                foreach ($vouchers as $v) {
+                    $extra = is_string($v->extra_details) ? json_decode($v->extra_details, true) : (array)($v->extra_details ?? []);
+                    if (!empty($extra['closure_id'])) {
+                        $linkedClosureIds[$extra['closure_id']] = true;
+                    }
+                }
+                $unlinkedClosures = DB::table('monthly_account_closures')
+                    ->where('paid_amount', '>', 0)
+                    ->whereNotIn('id', array_keys($linkedClosureIds))
+                    ->sum('paid_amount');
+                $paidToCompany += (float)$unlinkedClosures;
+            }
 
             // المتبقي = حصة الشركة - المدفوع
             $remainingForCompany = max(0, $totalCompanyShare - $paidToCompany);

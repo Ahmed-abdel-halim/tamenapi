@@ -61,13 +61,18 @@ class DebtReportController extends Controller
                     if ($schema->hasTable($table) && $schema->hasColumn($table, 'branch_agent_id')) {
                         $hasTotal = $schema->hasColumn($table, 'total');
                         $hasPremium = $schema->hasColumn($table, 'premium');
+                        $hasPremiumAmount = $schema->hasColumn($table, 'premium_amount');
+                        $hasSumInsured = $schema->hasColumn($table, 'sum_insured');
                         $hasType = $schema->hasColumn($table, 'insurance_type');
                         $hasIssueDate = $schema->hasColumn($table, 'issue_date');
                         $hasStartDate = $schema->hasColumn($table, 'start_date');
 
+                        $totalCol = $hasTotal ? 'total' : ($hasSumInsured ? 'sum_insured' : null);
+                        $premiumCol = $hasPremium ? 'premium' : ($hasPremiumAmount ? 'premium_amount' : null);
+
                         $selects = ['branch_agent_id'];
-                        if ($hasTotal) $selects[] = 'total';
-                        if ($hasPremium) $selects[] = 'premium';
+                        if ($totalCol) $selects[] = $totalCol;
+                        if ($premiumCol) $selects[] = $premiumCol;
                         if ($hasType) $selects[] = 'insurance_type';
                         if ($hasIssueDate) $selects[] = 'issue_date';
                         elseif ($hasStartDate) $selects[] = 'start_date';
@@ -82,15 +87,15 @@ class DebtReportController extends Controller
                             $agentId = $doc->branch_agent_id;
                             if (!isset($agentReport[$agentId])) continue;
 
-                            $total = (float)($doc->total ?? 0);
-                            $premium = (float)($doc->premium ?? 0);
+                            $premiumVal = $premiumCol ? (float)($doc->$premiumCol ?? 0) : 0;
+                            $totalVal = $totalCol ? (float)($doc->$totalCol ?? 0) : $premiumVal;
 
                             $typeName = $this->mapTableToTypeName($table, $doc);
                             $docDate = $doc->issue_date ?? $doc->start_date ?? $doc->created_at ?? null;
                             $rate = AgentPercentageHelper::resolvePercentage($agentReport[$agentId]['percentages'], $typeName, $docDate);
 
-                            $agentReport[$agentId]['total_sales'] += $total;
-                            $agentReport[$agentId]['total_commissions'] += ($premium * ($rate / 100));
+                            $agentReport[$agentId]['total_sales'] += $totalVal;
+                            $agentReport[$agentId]['total_commissions'] += ($premiumVal * ($rate / 100));
                         }
                     }
                 } catch (\Throwable $te) {
@@ -98,56 +103,30 @@ class DebtReportController extends Controller
                 }
             }
 
-            // 2. Fast Bulk Payments calculation (2 queries total for ALL agents)
-            if ($schema->hasTable('payment_vouchers')) {
+            // 2. Bulk Payments calculation using AgentPaymentHelper
+            foreach ($agentReport as $aid => $data) {
                 try {
-                    $vouchers = DB::table('payment_vouchers')
-                        ->select('branch_agent_id', DB::raw('SUM(amount) as total_vouchers'), DB::raw('MAX(payment_date) as last_v_date'))
-                        ->whereIn('branch_agent_id', $agentIds)
-                        ->groupBy('branch_agent_id')
-                        ->get();
+                    $totalPaid = \App\Helpers\AgentPaymentHelper::getTotalPaid((int)$aid);
+                    $agentReport[$aid]['total_paid'] = $totalPaid;
 
-                    foreach ($vouchers as $v) {
-                        $aid = $v->branch_agent_id;
-                        if (isset($agentReport[$aid])) {
-                            $agentReport[$aid]['total_paid'] += (float)$v->total_vouchers;
-                            if ($v->last_v_date) {
-                                $agentReport[$aid]['last_payment_date'] = $v->last_v_date;
-                            }
+                    if ($schema->hasTable('payment_vouchers')) {
+                        $lastVDate = DB::table('payment_vouchers')
+                            ->where('branch_agent_id', $aid)
+                            ->max('payment_date');
+                        if ($lastVDate) {
+                            $agentReport[$aid]['last_payment_date'] = $lastVDate;
                         }
                     }
                 } catch (\Throwable $ve) {
-                    Log::error("DebtReportController error on payment_vouchers: " . $ve->getMessage());
-                }
-            }
-
-            if ($schema->hasTable('monthly_account_closures')) {
-                try {
-                    $closures = DB::table('monthly_account_closures')
-                        ->select('branch_agent_id', DB::raw('SUM(paid_amount) as total_closures'), DB::raw('MAX(created_at) as last_c_date'))
-                        ->whereIn('branch_agent_id', $agentIds)
-                        ->where('paid_amount', '>', 0)
-                        ->groupBy('branch_agent_id')
-                        ->get();
-
-                    foreach ($closures as $c) {
-                        $aid = $c->branch_agent_id;
-                        if (isset($agentReport[$aid])) {
-                            $agentReport[$aid]['total_paid'] += (float)$c->total_closures;
-                            if ($c->last_c_date && $agentReport[$aid]['last_payment_date'] === 'لا يوجد') {
-                                $agentReport[$aid]['last_payment_date'] = substr($c->last_c_date, 0, 10);
-                            }
-                        }
-                    }
-                } catch (\Throwable $ce) {
-                    Log::error("DebtReportController error on monthly_account_closures: " . $ce->getMessage());
+                    Log::error("DebtReportController error calculating payments for agent {$aid}: " . $ve->getMessage());
                 }
             }
 
             // 3. Build response
             $report = [];
             foreach ($agentReport as $data) {
-                $outstandingDebt = $data['total_sales'] - $data['total_commissions'] - $data['total_paid'];
+                $companyShare = $data['total_sales'] - $data['total_commissions'];
+                $outstandingDebt = $companyShare - $data['total_paid'];
 
                 if ($outstandingDebt > 0) {
                     $status = 'normal';
@@ -158,6 +137,10 @@ class DebtReportController extends Controller
                         'id' => $data['id'],
                         'agent_id' => $data['agent_id'],
                         'agency_name' => $data['agency_name'],
+                        'total_sales' => (float)round($data['total_sales'], 2),
+                        'total_commissions' => (float)round($data['total_commissions'], 2),
+                        'company_share' => (float)round($companyShare, 2),
+                        'total_paid' => (float)round($data['total_paid'], 2),
                         'total_debt' => (float)round($outstandingDebt, 2),
                         'last_payment_date' => $data['last_payment_date'],
                         'status' => $status,

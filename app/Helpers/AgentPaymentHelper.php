@@ -133,4 +133,48 @@ class AgentPaymentHelper
 
         return $allPayments;
     }
+    /**
+     * Get total payment vouchers paid for an agent within a specific period (monthly or date range).
+     *
+     * @param int $agentId
+     * @param string $type ('monthly' | 'range')
+     * @param int|null $year
+     * @param int|null $month
+     * @param string|null $fromDate
+     * @param string|null $toDate
+     * @return float
+     */
+    public static function getPaidForPeriod(int $agentId, string $type = 'monthly', ?int $year = null, ?int $month = null, ?string $fromDate = null, ?string $toDate = null): float
+    {
+        $schema = DB::getSchemaBuilder();
+        if (!$schema->hasTable('payment_vouchers')) {
+            return 0.0;
+        }
+
+        $query = DB::table('payment_vouchers')
+            ->where('branch_agent_id', $agentId);
+
+        if ($type === 'range' && $fromDate && $toDate) {
+            $query->where(function($q) use ($fromDate, $toDate) {
+                $q->whereBetween('payment_date', [$fromDate, $toDate])
+                  ->orWhere(function($q2) use ($fromDate, $toDate) {
+                      $q2->whereNull('payment_date')
+                         ->whereBetween(DB::raw('DATE(created_at)'), [$fromDate, $toDate]);
+                  });
+            });
+        } elseif ($year && $month) {
+            $query->where(function($q) use ($year, $month) {
+                $q->where(function($q2) use ($year, $month) {
+                    $q2->whereYear('payment_date', $year)
+                       ->whereMonth('payment_date', $month);
+                })->orWhere(function($q3) use ($year, $month) {
+                    $q3->whereNull('payment_date')
+                       ->whereYear('created_at', $year)
+                       ->whereMonth('created_at', $month);
+                });
+            });
+        }
+
+        return (float)round($query->sum('amount'), 2);
+    }
 }

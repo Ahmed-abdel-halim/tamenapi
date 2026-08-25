@@ -505,7 +505,8 @@ class FinancialStatisticsController extends Controller
 
                     $monthKey = $docDate->format('Y-m');
                     if (!isset($months[$monthKey])) {
-                        if ($docDate->copy()->startOfMonth() <= \Carbon\Carbon::now()->startOfMonth() && $docDate->copy()->startOfMonth() >= $startDate) {
+                        // نقبل أي شهر لا يتجاوز الشهر الحالي (بما يشمل الوثائق القديمة التي قد تكون قبل startDate)
+                        if ($docDate->copy()->startOfMonth() <= \Carbon\Carbon::now()->startOfMonth()) {
                             $mNum = (int)$docDate->month;
                             $yNum = (int)$docDate->year;
                             $months[$monthKey] = [

@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 
 namespace App\Http\Controllers;
 
@@ -3575,5 +3575,240 @@ class BranchAgentController extends Controller
             'agent_transfers' => $agentTransfers,
         ]);
     }
-}
 
+    /**
+     * Print production portfolio report (تقرير الحوافظ الإنتاجية A4)
+     */
+    public function printProductionPortfolioReport(Request $request, $id)
+    {
+        try {
+            $branchAgent = BranchAgent::with('user')->findOrFail($id);
+            $year = $request->get('year');
+            $month = $request->get('month');
+            $fromDate = $request->get('from_date');
+            $toDate = $request->get('to_date');
+            $documentTypeFilter = $request->get('document_type', 'all');
+            $excludeCanceled = $request->boolean('exclude_canceled', false);
+
+            $schema = DB::getSchemaBuilder();
+            $usersMap = \App\Models\User::pluck('name', 'id')->toArray();
+
+            $tablesConfig = [
+                'compulsory' => [
+                    'table' => 'insurance_documents',
+                    'title' => 'تأمين إجباري سيارات',
+                    'number_field' => 'insurance_number',
+                    'name_field' => 'insured_name',
+                    'plate_field' => 'plate_number_manual',
+                    'detail_field' => 'engine_power',
+                    'detail_header' => 'قوة المحرك بالحصان',
+                    'date_field' => 'issue_date',
+                ],
+                'international' => [
+                    'table' => 'international_insurance_documents',
+                    'title' => 'تأمين السيارات الدولي',
+                    'number_field' => 'document_number',
+                    'name_field' => 'insured_name',
+                    'plate_field' => 'plate_number',
+                    'detail_field' => 'item_type',
+                    'detail_header' => 'نوع المركبة / البند',
+                    'date_field' => 'issue_date',
+                ],
+                'travel' => [
+                    'table' => 'travel_insurance_documents',
+                    'title' => 'تأمين المسافرين',
+                    'number_field' => 'insurance_number',
+                    'name_field' => 'insured_name',
+                    'plate_field' => 'geographic_area',
+                    'detail_field' => 'duration',
+                    'detail_header' => 'مدة التأمين / الوجهة',
+                    'date_field' => 'issue_date',
+                ],
+                'resident' => [
+                    'table' => 'resident_insurance_documents',
+                    'title' => 'تأمين الوافدين للمقيمين',
+                    'number_field' => 'insurance_number',
+                    'name_field' => 'insured_name',
+                    'plate_field' => 'residence_type',
+                    'detail_field' => 'occupation',
+                    'detail_header' => 'المهنة / صفة الإقامة',
+                    'date_field' => 'issue_date',
+                ],
+                'marine' => [
+                    'table' => 'marine_structure_insurance_documents',
+                    'title' => 'تأمين الهياكل البحرية',
+                    'number_field' => 'insurance_number',
+                    'name_field' => 'insured_name',
+                    'plate_field' => 'structure_name',
+                    'detail_field' => 'structure_type',
+                    'detail_header' => 'نوع الهيكل البحري',
+                    'date_field' => 'issue_date',
+                ],
+                'medical' => [
+                    'table' => 'professional_liability_insurance_documents',
+                    'title' => 'تأمين المسؤولية المهنية (الطبية)',
+                    'number_field' => 'insurance_number',
+                    'name_field' => 'insured_name',
+                    'plate_field' => 'workplace',
+                    'detail_field' => 'profession',
+                    'detail_header' => 'المهنة / جهة العمل',
+                    'date_field' => 'issue_date',
+                ],
+                'personal_accident' => [
+                    'table' => 'personal_accident_insurance_documents',
+                    'title' => 'تأمين الحوادث الشخصية',
+                    'number_field' => 'insurance_number',
+                    'name_field' => 'insured_name',
+                    'plate_field' => 'job',
+                    'detail_field' => 'coverage_type',
+                    'detail_header' => 'نوع التغطية والمهنة',
+                    'date_field' => 'issue_date',
+                ],
+                'school_student' => [
+                    'table' => 'school_student_insurance_documents',
+                    'title' => 'تأمين حماية طلاب المدارس',
+                    'number_field' => 'policy_number',
+                    'name_field' => 'insured_name',
+                    'plate_field' => 'school_name',
+                    'detail_field' => 'student_count',
+                    'detail_header' => 'المؤسسة التعليمية',
+                    'date_field' => 'start_date',
+                ],
+                'cash_in_transit' => [
+                    'table' => 'cash_in_transit_insurance_documents',
+                    'title' => 'تأمين نقل النقدية',
+                    'number_field' => 'policy_number',
+                    'name_field' => 'insured_name',
+                    'plate_field' => 'transit_route',
+                    'detail_field' => 'limit_per_transit',
+                    'detail_header' => 'خط السير وحد النقل',
+                    'date_field' => 'start_date',
+                ],
+                'cargo' => [
+                    'table' => 'cargo_insurance_documents',
+                    'title' => 'تأمين شحن ونقل البضائع',
+                    'number_field' => 'policy_number',
+                    'name_field' => 'insured_name',
+                    'plate_field' => 'bill_of_lading',
+                    'detail_field' => 'cargo_type',
+                    'detail_header' => 'نوع البضاعة والبيان',
+                    'date_field' => 'created_at',
+                ],
+            ];
+
+            $sections = [];
+
+            foreach ($tablesConfig as $typeKey => $cfg) {
+                if ($documentTypeFilter && $documentTypeFilter !== 'all' && $documentTypeFilter !== $typeKey && $documentTypeFilter !== $cfg['table']) {
+                    continue;
+                }
+
+                $tableName = $cfg['table'];
+                if (!$schema->hasTable($tableName)) continue;
+                if (!$schema->hasColumn($tableName, 'branch_agent_id')) continue;
+
+                $query = DB::table($tableName)->where('branch_agent_id', $id);
+
+                $dateCol = $schema->hasColumn($tableName, 'issue_date') ? 'issue_date' :
+                          ($schema->hasColumn($tableName, 'start_date') ? 'start_date' : 'created_at');
+
+                if ($fromDate && $toDate) {
+                    $query->whereBetween($dateCol, [$fromDate, $toDate]);
+                } elseif ($year && $month) {
+                    $query->whereYear($dateCol, (int)$year)->whereMonth($dateCol, (int)$month);
+                } elseif ($year) {
+                    $query->whereYear($dateCol, (int)$year);
+                }
+
+                if ($excludeCanceled && $schema->hasColumn($tableName, 'status')) {
+                    $query->where(function ($q) {
+                        $q->whereNull('status')->orWhere('status', '!=', 'ملغية');
+                    });
+                }
+
+                $docs = $query->orderBy($dateCol, 'desc')->get();
+
+                if ($docs->isEmpty()) {
+                    continue;
+                }
+
+                $docRows = [];
+                $totals = [
+                    'premium' => 0.0,
+                    'tax' => 0.0,
+                    'supervision_fees' => 0.0,
+                    'stamp' => 0.0,
+                    'issue_fees' => 0.0,
+                    'total' => 0.0,
+                ];
+
+                foreach ($docs as $doc) {
+                    $numField = $cfg['number_field'];
+                    $nameField = $cfg['name_field'];
+                    $plateField = $cfg['plate_field'];
+                    $detField = $cfg['detail_field'];
+
+                    $docNum = $doc->$numField ?? ($doc->insurance_number ?? $doc->document_number ?? $doc->policy_number ?? '-');
+                    $insuredName = $doc->$nameField ?? ($doc->insured_name ?? $doc->name ?? $doc->student_name ?? '-');
+                    $plateNum = $schema->hasColumn($tableName, $plateField) ? ($doc->$plateField ?? '-') : ($doc->plate_number ?? ($doc->chassis_number ?? '-'));
+                    $extraDetail = $schema->hasColumn($tableName, $detField) ? ($doc->$detField ?? '-') : '-';
+
+                    $docDate = $doc->issue_date ?? ($doc->start_date ?? ($doc->created_at ?? '-'));
+                    if ($docDate && $docDate !== '-') {
+                        $docDate = date('d/m/Y', strtotime($docDate));
+                    }
+
+                    $prem = (float)($doc->premium ?? $doc->premium_amount ?? 0);
+                    $taxVal = (float)($doc->tax ?? 0);
+                    $supVal = (float)($doc->supervision_fees ?? 0);
+                    $stmpVal = (float)($doc->stamp ?? 0);
+                    $issVal = (float)($doc->issue_fees ?? 0);
+                    $totVal = (float)($doc->total ?? ($prem + $taxVal + $supVal + $stmpVal + $issVal));
+
+                    $userId = $doc->user_id ?? null;
+                    $userName = $userId && isset($usersMap[$userId]) ? $usersMap[$userId] : ($branchAgent->agent_name ?? '-');
+
+                    $totals['premium'] += $prem;
+                    $totals['tax'] += $taxVal;
+                    $totals['supervision_fees'] += $supVal;
+                    $totals['stamp'] += $stmpVal;
+                    $totals['issue_fees'] += $issVal;
+                    $totals['total'] += $totVal;
+
+                    $docRows[] = [
+                        'document_number' => $docNum,
+                        'insured_name' => $insuredName,
+                        'issue_date' => $docDate,
+                        'plate_number' => $plateNum,
+                        'premium' => $prem,
+                        'tax' => $taxVal,
+                        'supervision_fees' => $supVal,
+                        'stamp' => $stmpVal,
+                        'issue_fees' => $issVal,
+                        'extra_detail' => $extraDetail,
+                        'total' => $totVal,
+                        'user_name' => $userName,
+                    ];
+                }
+
+                $sections[] = [
+                    'title' => $cfg['title'],
+                    'detail_header' => $cfg['detail_header'],
+                    'documents' => $docRows,
+                    'totals' => $totals,
+                ];
+            }
+
+            return view('branches-agents.production-portfolio-report', [
+                'branchAgent' => $branchAgent,
+                'sections' => $sections,
+                'year' => $year,
+                'month' => $month,
+                'fromDate' => $fromDate,
+                'toDate' => $toDate,
+            ]);
+        } catch (\Exception $e) {
+            abort(404, 'حدث خطأ أثناء إعداد تقرير الحوافظ: ' . $e->getMessage());
+        }
+    }
+}

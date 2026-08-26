@@ -181,26 +181,35 @@
             font-size: 11px;
         }
 
+        .signature-wrapper {
+            display: flex;
+            justify-content: flex-end; /* يضع الصندوق في أقصى اليسار في اتجاه RTL */
+            margin-top: 15px;
+            margin-bottom: 12px;
+            page-break-inside: avoid;
+        }
+
         .signature-box {
-            width: 320px;
-            border: 1px solid #94a3b8;
+            width: 340px;
+            border: 1.5px solid #1e293b;
             border-radius: 4px;
             overflow: hidden;
-            margin-top: 10px;
-            margin-bottom: 6px;
+            background: #fff;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
         }
 
         .sig-header {
             background: #e2e8f0;
             font-weight: 800;
-            padding: 4px 10px;
-            font-size: 11px;
-            color: #1e293b;
-            border-bottom: 1px solid #94a3b8;
+            padding: 6px 14px;
+            font-size: 12px;
+            color: #0f172a;
+            border-bottom: 1.5px solid #1e293b;
+            text-align: right;
         }
 
         .sig-body {
-            height: 38px;
+            height: 52px;
             background: #fff;
         }
 
@@ -353,10 +362,12 @@
                 </div>
             @endforelse
 
-            <!-- Signature Box -->
-            <div class="signature-box">
-                <div class="sig-header">التوقيع والختم:</div>
-                <div class="sig-body"></div>
+            <!-- Signature Box (Left Aligned & Prominent) -->
+            <div class="signature-wrapper">
+                <div class="signature-box">
+                    <div class="sig-header">التوقيع والختم:</div>
+                    <div class="sig-body"></div>
+                </div>
             </div>
         </div>
 

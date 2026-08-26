@@ -9,8 +9,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <style>
         @page {
-            size: A4;
-            margin: 8mm;
+            size: A4 landscape;
+            margin: 8mm 10mm;
         }
 
         * {
@@ -23,12 +23,12 @@
 
         html, body {
             font-family: 'Tajawal', 'Arial', 'Tahoma', sans-serif;
-            font-size: 10px;
+            font-size: 11px;
             color: #0f172a;
             background: #fff;
             padding: 0;
             margin: 0;
-            line-height: 1.25;
+            line-height: 1.3;
         }
 
         .page-container {
@@ -39,7 +39,7 @@
         }
 
         .report-section {
-            margin-bottom: 20px;
+            margin-bottom: 25px;
             page-break-inside: auto;
         }
 
@@ -47,18 +47,18 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 8px;
-            padding-bottom: 4px;
+            margin-bottom: 10px;
+            padding-bottom: 6px;
         }
 
         .logo-box {
-            width: 75px;
+            width: 85px;
             text-align: right;
         }
 
         .logo-box img {
-            max-height: 50px;
-            max-width: 75px;
+            max-height: 55px;
+            max-width: 85px;
             object-fit: contain;
         }
 
@@ -68,10 +68,10 @@
         }
 
         .main-title {
-            font-size: 16px;
+            font-size: 18px;
             font-weight: 900;
             color: #0284c7;
-            margin-bottom: 3px;
+            margin-bottom: 4px;
         }
 
         .pill-badge {
@@ -79,10 +79,11 @@
             background: #f0f9ff;
             border: 1px solid #bae6fd;
             border-radius: 6px;
-            padding: 3px 20px;
-            font-size: 13px;
+            padding: 4px 26px;
+            font-size: 14px;
             font-weight: 800;
             color: #0369a1;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
         }
 
         .agent-info-grid {
@@ -92,15 +93,15 @@
             background: #f8fafc;
             border: 1px solid #cbd5e1;
             border-radius: 6px;
-            margin-bottom: 8px;
+            margin-bottom: 10px;
             overflow: hidden;
         }
 
         .info-cell {
-            padding: 5px 8px;
+            padding: 6px 12px;
             text-align: center;
             border-left: 1px solid #cbd5e1;
-            font-size: 10px;
+            font-size: 11px;
         }
 
         .info-cell:last-child {
@@ -110,20 +111,20 @@
         .info-label {
             font-weight: 700;
             color: #475569;
-            margin-bottom: 1px;
+            margin-bottom: 2px;
         }
 
         .info-val {
             font-weight: 800;
             color: #0f172a;
-            font-size: 11px;
+            font-size: 12px;
         }
 
         .data-table {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 8px;
-            font-size: 9px;
+            margin-bottom: 10px;
+            font-size: 10px;
             text-align: center;
         }
 
@@ -132,13 +133,13 @@
             color: #1e293b;
             font-weight: 800;
             border: 1px solid #94a3b8;
-            padding: 4px 2px;
+            padding: 6px 4px;
             white-space: nowrap;
         }
 
         .data-table td {
             border: 1px solid #cbd5e1;
-            padding: 3px 2px;
+            padding: 5px 4px;
             color: #0f172a;
         }
 
@@ -149,13 +150,13 @@
         .summary-wrapper {
             display: flex;
             justify-content: center;
-            margin: 6px 0 12px 0;
+            margin: 8px 0 14px 0;
         }
 
         .summary-table {
-            width: 85%;
+            width: 75%;
             border-collapse: collapse;
-            font-size: 10px;
+            font-size: 10.5px;
             text-align: center;
         }
 
@@ -164,46 +165,47 @@
             color: #0f172a;
             font-weight: 800;
             border: 1px solid #94a3b8;
-            padding: 4px 5px;
+            padding: 5px 6px;
         }
 
         .summary-table td {
             background: #fff;
             border: 1px solid #94a3b8;
-            padding: 4px 5px;
+            padding: 6px 6px;
             font-weight: 800;
             color: #0284c7;
-            font-size: 10.5px;
+            font-size: 11px;
         }
 
         .signature-wrapper {
             display: flex;
             justify-content: flex-end; /* يضع الصندوق في أقصى اليسار في اتجاه RTL */
-            margin-top: 12px;
-            margin-bottom: 10px;
+            margin-top: 15px;
+            margin-bottom: 12px;
             page-break-inside: avoid;
         }
 
         .signature-box {
-            width: 300px;
+            width: 330px;
             border: 1.5px solid #1e293b;
             border-radius: 4px;
             overflow: hidden;
             background: #fff;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
         }
 
         .sig-header {
             background: #e2e8f0;
             font-weight: 800;
-            padding: 5px 10px;
-            font-size: 11px;
+            padding: 6px 14px;
+            font-size: 12px;
             color: #0f172a;
             border-bottom: 1.5px solid #1e293b;
             text-align: right;
         }
 
         .sig-body {
-            height: 45px;
+            height: 50px;
             background: #fff;
         }
 
@@ -211,18 +213,18 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding-top: 5px;
+            padding-top: 6px;
             border-top: 1px solid #94a3b8;
-            font-size: 9.5px;
+            font-size: 10px;
             color: #64748b;
             font-weight: 700;
-            margin-top: 15px;
+            margin-top: 20px;
         }
 
         @media print {
             @page {
-                size: A4;
-                margin: 8mm;
+                size: A4 landscape;
+                margin: 8mm 10mm;
             }
             body {
                 background: #fff !important;
@@ -260,7 +262,7 @@
                             @if ($logoBase64)
                                 <img src="{{ $logoBase64 }}" alt="Logo" />
                             @else
-                                <div style="font-weight:900; color:#139625; font-size:9px;">المدار الليبي<br><span style="color:#0284c7;">للتأمين</span></div>
+                                <div style="font-weight:900; color:#139625; font-size:10px;">المدار الليبي<br><span style="color:#0284c7;">للتأمين</span></div>
                             @endif
                         </div>
 
@@ -296,19 +298,19 @@
                     <table class="data-table">
                         <thead>
                             <tr>
-                                <th style="width: 20px;">#</th>
-                                <th style="width: 80px;">رقم الوثيقة</th>
+                                <th style="width: 25px;">#</th>
+                                <th style="width: 90px;">رقم الوثيقة</th>
                                 <th>اسم المؤمن له</th>
-                                <th style="width: 65px;">تاريخ الاصدار</th>
-                                <th style="width: 60px;">رقم اللوحة</th>
-                                <th style="width: 55px;">القسط الصافي</th>
-                                <th style="width: 45px;">الضريبة</th>
-                                <th style="width: 50px;">أ. ورقابة</th>
-                                <th style="width: 45px;">الدمغة</th>
-                                <th style="width: 50px;">م. الاصدار</th>
-                                <th style="width: 100px;">{{ $section['detail_header'] ?? 'قوة المحرك بالحصان' }}</th>
-                                <th style="width: 55px;">الاجمالي</th>
-                                <th style="width: 60px;">اسم المستخدم</th>
+                                <th style="width: 75px;">تاريخ الاصدار</th>
+                                <th style="width: 70px;">رقم اللوحة</th>
+                                <th style="width: 65px;">القسط الصافي</th>
+                                <th style="width: 50px;">الضريبة</th>
+                                <th style="width: 55px;">أ. ورقابة</th>
+                                <th style="width: 50px;">الدمغة</th>
+                                <th style="width: 55px;">م. الاصدار</th>
+                                <th style="width: 120px;">{{ $section['detail_header'] ?? 'قوة المحرك بالحصان' }}</th>
+                                <th style="width: 65px;">الاجمالي</th>
+                                <th style="width: 70px;">اسم المستخدم</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -316,7 +318,7 @@
                                 <tr>
                                     <td>{{ $idx + 1 }}</td>
                                     <td style="font-weight: 800; color: #0369a1;">{{ $doc['document_number'] }}</td>
-                                    <td style="text-align: right; padding-right: 4px; font-weight: 600;">{{ $doc['insured_name'] }}</td>
+                                    <td style="text-align: right; padding-right: 6px; font-weight: 600;">{{ $doc['insured_name'] }}</td>
                                     <td>{{ $doc['issue_date'] }}</td>
                                     <td>{{ $doc['plate_number'] ?? '-' }}</td>
                                     <td style="font-weight: 700;">{{ number_format($doc['premium'], 3) }}</td>
@@ -324,9 +326,9 @@
                                     <td>{{ number_format($doc['supervision_fees'], 3) }}</td>
                                     <td>{{ number_format($doc['stamp'], 3) }}</td>
                                     <td>{{ number_format($doc['issue_fees'], 3) }}</td>
-                                    <td style="font-size: 8.5px;">{{ $doc['extra_detail'] ?? '-' }}</td>
+                                    <td style="font-size: 9.5px;">{{ $doc['extra_detail'] ?? '-' }}</td>
                                     <td style="font-weight: 900; color: #0284c7;">{{ number_format($doc['total'], 3) }}</td>
-                                    <td style="font-size: 8.5px;">{{ $doc['user_name'] ?? '-' }}</td>
+                                    <td style="font-size: 9.5px;">{{ $doc['user_name'] ?? '-' }}</td>
                                 </tr>
                             @empty
                                 <tr>
@@ -356,14 +358,14 @@
                                     <td>{{ number_format($section['totals']['supervision_fees'], 3) }}</td>
                                     <td>{{ number_format($section['totals']['stamp'], 3) }}</td>
                                     <td>{{ number_format($section['totals']['issue_fees'], 3) }}</td>
-                                    <td style="color: #15803d; font-size: 11px;">{{ number_format($section['totals']['total'], 3) }}</td>
+                                    <td style="color: #15803d; font-size: 12px;">{{ number_format($section['totals']['total'], 3) }}</td>
                                 </tr>
                             </tbody>
                         </table>
                     </div>
                 </div>
             @empty
-                <div style="text-align: center; padding: 40px; color: #94a3b8; font-weight: 700; font-size: 13px;">
+                <div style="text-align: center; padding: 40px; color: #94a3b8; font-weight: 700; font-size: 14px;">
                     لا توجد وثائق مسجلة للوكيل في الفترة المحددة
                 </div>
             @endforelse

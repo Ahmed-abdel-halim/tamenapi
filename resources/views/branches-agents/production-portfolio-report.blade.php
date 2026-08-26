@@ -32,9 +32,8 @@
 
         .page-container {
             width: 100%;
-            padding: 4px;
-            border: 1px solid #64748b;
-            border-radius: 4px;
+            padding: 0;
+            border: none;
             min-height: 190mm;
             position: relative;
             display: flex;
@@ -227,7 +226,7 @@
 
         @media print {
             body { background: #fff; }
-            .page-container { border: 1px solid #64748b; }
+            .page-container { border: none !important; box-shadow: none !important; padding: 0 !important; }
             .no-print { display: none !important; }
         }
     </style>

@@ -279,6 +279,8 @@ class OldDocumentController extends Controller
             $branchAgentId = $request->get('branch_agent_id');
             $documentType  = $request->get('document_type');
             $search        = $request->get('search');
+            $year          = $request->get('year');
+            $month         = $request->get('month');
             $perPage       = (int)$request->get('per_page', 100);
 
             $documentTables = [
@@ -361,6 +363,17 @@ class OldDocumentController extends Controller
                     if (Schema::hasColumn($tableName, 'branch_agent_id')) {
                         $query->where('branch_agent_id', $branchAgentId);
                     }
+                }
+
+                $dateCol = Schema::hasColumn($tableName, 'issue_date') ? 'issue_date' :
+                          (Schema::hasColumn($tableName, 'start_date') ? 'start_date' : 'created_at');
+
+                if ($year) {
+                    $query->whereYear($dateCol, (int)$year);
+                }
+
+                if ($month) {
+                    $query->whereMonth($dateCol, (int)$month);
                 }
 
                 if ($search) {
@@ -455,4 +468,89 @@ class OldDocumentController extends Controller
             return now();
         }
     }
+
+    /**
+     * Update the date of an old document.
+     */
+    public function updateDate(Request $request, $id)
+    {
+        try {
+            $documentType = $request->input('document_type');
+            $startDateStr = $request->input('start_date');
+            $issueDateStr = $request->input('issue_date', $startDateStr);
+            $endDateStr   = $request->input('end_date');
+
+            if (!$startDateStr) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'تاريخ البداية مطلوب'
+                ], 422);
+            }
+
+            $startDate = $this->parseSafeDate($startDateStr);
+            $issueDate = $this->parseSafeDate($issueDateStr);
+            $endDate   = $endDateStr ? $this->parseSafeDate($endDateStr) : null;
+
+            $documentModels = [
+                'compulsory'        => InsuranceDocument::class,
+                'customs'           => InsuranceDocument::class,
+                'third_party'       => InsuranceDocument::class,
+                'foreign_car'       => InsuranceDocument::class,
+                'international'     => InternationalInsuranceDocument::class,
+                'travel'            => TravelInsuranceDocument::class,
+                'resident'          => ResidentInsuranceDocument::class,
+                'marine'            => MarineStructureInsuranceDocument::class,
+                'medical'           => ProfessionalLiabilityInsuranceDocument::class,
+                'personal_accident' => PersonalAccidentInsuranceDocument::class,
+                'school_student'    => SchoolStudentInsuranceDocument::class,
+                'cash_in_transit'   => CashInTransitInsuranceDocument::class,
+                'cargo'             => CargoInsuranceDocument::class,
+            ];
+
+            if (!isset($documentModels[$documentType])) {
+                return response()->json(['success' => false, 'message' => 'نوع الوثيقة غير صالح'], 400);
+            }
+
+            $modelClass = $documentModels[$documentType];
+            $doc = $modelClass::find($id);
+
+            if (!$doc) {
+                return response()->json(['success' => false, 'message' => 'الوثيقة غير موجودة'], 404);
+            }
+
+            $doc->timestamps = false;
+            $columns = Schema::getColumnListing($doc->getTable());
+
+            if (in_array('start_date', $columns)) {
+                $doc->start_date = $startDate->format('Y-m-d');
+            }
+            if (in_array('issue_date', $columns)) {
+                $doc->issue_date = $issueDate->format('Y-m-d H:i:s');
+            }
+            if (in_array('created_at', $columns)) {
+                $doc->created_at = $issueDate->format('Y-m-d H:i:s');
+            }
+            if (in_array('updated_at', $columns)) {
+                $doc->updated_at = $issueDate->format('Y-m-d H:i:s');
+            }
+            if ($endDate && in_array('end_date', $columns)) {
+                $doc->end_date = $endDate->format('Y-m-d');
+            }
+
+            $doc->save();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'تم تحديث تاريخ الوثيقة بنجاح',
+                'data' => $doc
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error updating old document date: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'حدث خطأ أثناء تعديل التاريخ: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
 }

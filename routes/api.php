@@ -112,6 +112,7 @@ Route::middleware('auth:sanctum')->group(function () {
 // إدارة الوثائق القديمة
 Route::get('/old-documents', [OldDocumentController::class, 'index']);
 Route::post('/old-documents', [OldDocumentController::class, 'store']);
+Route::put('/old-documents/{id}/update-date', [OldDocumentController::class, 'updateDate']);
 
 Route::post('/sync-user-permissions', [AuthController::class, 'syncUserPermissions']);
 Route::get('/public/employees', [UserController::class, 'publicEmployees']);

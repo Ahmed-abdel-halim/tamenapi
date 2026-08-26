@@ -9,8 +9,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <style>
         @page {
-            size: 297mm 210mm;
-            margin: 6mm 8mm;
+            size: A4 landscape;
+            margin: 8mm;
         }
 
         * {
@@ -21,29 +21,26 @@
             print-color-adjust: exact !important;
         }
 
-        body {
+        html, body {
             font-family: 'Tajawal', 'Arial', 'Tahoma', sans-serif;
             font-size: 11px;
             color: #0f172a;
             background: #fff;
             padding: 0;
+            margin: 0;
             line-height: 1.3;
         }
 
         .page-container {
             width: 100%;
             padding: 0;
-            border: none;
-            min-height: 190mm;
-            position: relative;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
+            margin: 0 auto;
+            background: #fff;
         }
 
         .report-section {
-            margin-bottom: 20px;
-            page-break-inside: avoid;
+            margin-bottom: 25px;
+            page-break-inside: auto;
         }
 
         .header-top {
@@ -153,7 +150,7 @@
         .summary-wrapper {
             display: flex;
             justify-content: center;
-            margin: 6px 0 12px 0;
+            margin: 8px 0 14px 0;
         }
 
         .summary-table {
@@ -221,31 +218,29 @@
             font-size: 10px;
             color: #64748b;
             font-weight: 700;
-            margin-top: auto;
+            margin-top: 20px;
         }
 
         @media print {
             @page {
-                size: 297mm 210mm;
-                margin: 6mm 8mm;
+                size: A4 landscape;
+                margin: 8mm;
             }
-            html, body {
-                width: 100%;
-                margin: 0 !important;
-                padding: 0 !important;
+            body {
                 background: #fff !important;
             }
             .page-container {
                 border: none !important;
                 box-shadow: none !important;
                 padding: 0 !important;
-                min-height: 100% !important;
             }
-            .no-print { display: none !important; }
+            .no-print {
+                display: none !important;
+            }
         }
     </style>
 </head>
-<body onload="window.print()">
+<body>
 
     <div class="page-container">
         <div>
@@ -391,5 +386,12 @@
         </div>
     </div>
 
+    <script>
+        window.addEventListener('load', function() {
+            setTimeout(function() {
+                window.print();
+            }, 400);
+        });
+    </script>
 </body>
 </html>

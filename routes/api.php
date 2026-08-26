@@ -139,6 +139,7 @@ Route::apiResource('expenses', 'App\Http\Controllers\ExpenseController');
 Route::apiResource('expense-categories', ExpenseCategoryController::class);
 Route::get('/expense-subcategories', [ExpenseSubCategoryController::class, 'index']);
 Route::post('/expense-subcategories', [ExpenseSubCategoryController::class, 'store']);
+Route::put('/expense-subcategories/{id}', [ExpenseSubCategoryController::class, 'update']);
 Route::delete('/expense-subcategories/{id}', [ExpenseSubCategoryController::class, 'destroy']);
 
 Route::get('/reset-categories', function () {

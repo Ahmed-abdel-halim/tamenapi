@@ -51,6 +51,36 @@ class ExpenseSubCategoryController extends Controller
         ], 201);
     }
 
+    public function update(Request $request, $id)
+    {
+        $subcategory = ExpenseSubCategory::findOrFail($id);
+
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+        ]);
+
+        // Prevent duplicate subcategory under same category (excluding self)
+        $exists = ExpenseSubCategory::where('category_name', $subcategory->category_name)
+                                    ->where('name', $validated['name'])
+                                    ->where('id', '!=', $subcategory->id)
+                                    ->exists();
+
+        if ($exists) {
+            return response()->json([
+                'success' => false,
+                'message' => 'هذا البند الفرعي موجود بالفعل تحت هذه الفئة'
+            ], 422);
+        }
+
+        $subcategory->update(['name' => $validated['name']]);
+
+        return response()->json([
+            'success' => true,
+            'data' => $subcategory,
+            'message' => 'تم تعديل البند الفرعي بنجاح'
+        ]);
+    }
+
     public function destroy($id)
     {
         $subcategory = ExpenseSubCategory::findOrFail($id);

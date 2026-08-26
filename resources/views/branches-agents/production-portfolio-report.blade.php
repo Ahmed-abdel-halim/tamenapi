@@ -225,8 +225,22 @@
         }
 
         @media print {
-            body { background: #fff; }
-            .page-container { border: none !important; box-shadow: none !important; padding: 0 !important; }
+            @page {
+                size: A4 landscape;
+                margin: 6mm;
+            }
+            html, body {
+                width: 100%;
+                margin: 0;
+                padding: 0;
+                background: #fff !important;
+            }
+            .page-container {
+                border: none !important;
+                box-shadow: none !important;
+                padding: 0 !important;
+                min-height: 100% !important;
+            }
             .no-print { display: none !important; }
         }
     </style>

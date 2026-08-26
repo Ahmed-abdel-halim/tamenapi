@@ -9,8 +9,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <style>
         @page {
-            size: A4 landscape;
-            margin: 8mm;
+            size: 297mm 210mm;
+            margin: 6mm 8mm;
         }
 
         * {
@@ -226,13 +226,13 @@
 
         @media print {
             @page {
-                size: A4 landscape;
-                margin: 6mm;
+                size: 297mm 210mm;
+                margin: 6mm 8mm;
             }
             html, body {
                 width: 100%;
-                margin: 0;
-                padding: 0;
+                margin: 0 !important;
+                padding: 0 !important;
                 background: #fff !important;
             }
             .page-container {

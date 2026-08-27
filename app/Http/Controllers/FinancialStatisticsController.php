@@ -1653,6 +1653,9 @@ class FinancialStatisticsController extends Controller
     public function getComprehensiveProductionPortfolio(Request $request)
     {
         try {
+            @ini_set('memory_limit', '512M');
+            @set_time_limit(180);
+
             $data = $this->buildComprehensiveProductionData($request);
             return response()->json([
                 'success' => true,
@@ -1672,6 +1675,9 @@ class FinancialStatisticsController extends Controller
     public function printComprehensiveProductionPortfolio(Request $request)
     {
         try {
+            @ini_set('memory_limit', '512M');
+            @set_time_limit(180);
+
             $data = $this->buildComprehensiveProductionData($request);
             return view('reports.comprehensive-production-portfolio-print', $data);
         } catch (\Exception $e) {
@@ -1684,6 +1690,9 @@ class FinancialStatisticsController extends Controller
      */
     private function buildComprehensiveProductionData(Request $request)
     {
+        @ini_set('memory_limit', '512M');
+        @set_time_limit(180);
+
         $agentId = $request->get('agent_id');
         $year = $request->get('year');
         $month = $request->get('month');
@@ -1700,7 +1709,7 @@ class FinancialStatisticsController extends Controller
         
         $branchAgents = collect();
         if ($schema->hasTable('branches_agents')) {
-            $branchAgents = DB::table('branches_agents')->get()->keyBy('id');
+            $branchAgents = DB::table('branches_agents')->get(['id', 'agency_name', 'agent_name', 'code'])->keyBy('id');
         }
 
         $selectedAgent = null;

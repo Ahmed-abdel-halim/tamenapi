@@ -1839,16 +1839,23 @@ class FinancialStatisticsController extends Controller
             $tableName = $cfg['table'];
             if (!$schema->hasTable($tableName)) continue;
 
+            $hasBranchAgentCol = $schema->hasColumn($tableName, 'branch_agent_id');
+            $hasStatusCol = $schema->hasColumn($tableName, 'status');
+            $hasIssueDateCol = $schema->hasColumn($tableName, 'issue_date');
+            $hasStartDateCol = $schema->hasColumn($tableName, 'start_date');
+            $dateCol = $hasIssueDateCol ? 'issue_date' : ($hasStartDateCol ? 'start_date' : 'created_at');
+
+            $hasPlateCol = $schema->hasColumn($tableName, $cfg['plate_field']);
+            $hasDetailCol = $schema->hasColumn($tableName, $cfg['detail_field']);
+            $hasPlateNumber = $schema->hasColumn($tableName, 'plate_number');
+            $hasChassisNumber = $schema->hasColumn($tableName, 'chassis_number');
+
             $query = DB::table($tableName);
 
             // Agent filter
-            if ($selectedAgent && $schema->hasColumn($tableName, 'branch_agent_id')) {
+            if ($selectedAgent && $hasBranchAgentCol) {
                 $query->where('branch_agent_id', $selectedAgent->id);
             }
-
-            // Date column detection
-            $dateCol = $schema->hasColumn($tableName, 'issue_date') ? 'issue_date' :
-                      ($schema->hasColumn($tableName, 'start_date') ? 'start_date' : 'created_at');
 
             if ($fromDate && $toDate) {
                 $query->whereBetween($dateCol, [$fromDate . ' 00:00:00', $toDate . ' 23:59:59']);
@@ -1858,39 +1865,81 @@ class FinancialStatisticsController extends Controller
                 $query->whereYear($dateCol, (int)$year);
             }
 
-            if ($excludeCanceled && $schema->hasColumn($tableName, 'status')) {
+            if ($excludeCanceled && $hasStatusCol) {
                 $query->where(function ($q) {
                     $q->whereNull('status')->orWhere('status', '!=', 'ملغية');
                 });
             }
 
-            $docs = $query->orderBy($dateCol, 'desc')->get();
+            // Quick Aggregation with SQL (Takes 2ms)
+            $stats = (clone $query)->selectRaw('
+                COUNT(*) as cnt,
+                COALESCE(SUM(premium), 0) as total_premium,
+                COALESCE(SUM(tax), 0) as total_tax,
+                COALESCE(SUM(supervision_fees), 0) as total_supervision_fees,
+                COALESCE(SUM(stamp), 0) as total_stamp,
+                COALESCE(SUM(issue_fees), 0) as total_issue_fees,
+                COALESCE(SUM(total), 0) as total_total
+            ')->first();
 
-            if ($docs->isEmpty()) {
+            $docCount = (int)($stats->cnt ?? 0);
+            if ($docCount === 0) {
                 continue;
             }
 
-            $docRows = [];
+            $premSum = (float)($stats->total_premium ?? 0);
+            $taxSum = (float)($stats->total_tax ?? 0);
+            $supSum = (float)($stats->total_supervision_fees ?? 0);
+            $stampSum = (float)($stats->total_stamp ?? 0);
+            $issSum = (float)($stats->total_issue_fees ?? 0);
+            $totSum = (float)($stats->total_total ?? 0);
+
+            // If total column was 0 or not calculated in DB, calculate it
+            if ($totSum == 0 && ($premSum > 0 || $taxSum > 0)) {
+                $totSum = $premSum + $taxSum + $supSum + $stampSum + $issSum;
+            }
+
             $sectionTotals = [
-                'documents_count' => 0,
-                'premium' => 0.0,
-                'tax' => 0.0,
-                'supervision_fees' => 0.0,
-                'stamp' => 0.0,
-                'issue_fees' => 0.0,
-                'total' => 0.0,
+                'documents_count' => $docCount,
+                'premium' => $premSum,
+                'tax' => $taxSum,
+                'supervision_fees' => $supSum,
+                'stamp' => $stampSum,
+                'issue_fees' => $issSum,
+                'total' => $totSum,
             ];
 
-            foreach ($docs as $doc) {
-                $numField = $cfg['number_field'];
-                $nameField = $cfg['name_field'];
-                $plateField = $cfg['plate_field'];
-                $detField = $cfg['detail_field'];
+            $grandTotals['documents_count'] += $docCount;
+            $grandTotals['premium'] += $premSum;
+            $grandTotals['tax'] += $taxSum;
+            $grandTotals['supervision_fees'] += $supSum;
+            $grandTotals['stamp'] += $stampSum;
+            $grandTotals['issue_fees'] += $issSum;
+            $grandTotals['total'] += $totSum;
 
+            // Fetch records efficiently (limit to max 1000 for preview in UI to ensure instant response)
+            $docs = $query->orderBy($dateCol, 'desc')->limit(1000)->get();
+
+            $docRows = [];
+            $numField = $cfg['number_field'];
+            $nameField = $cfg['name_field'];
+            $plateField = $cfg['plate_field'];
+            $detField = $cfg['detail_field'];
+
+            foreach ($docs as $doc) {
                 $docNum = $doc->$numField ?? ($doc->insurance_number ?? $doc->document_number ?? $doc->policy_number ?? '-');
                 $insuredName = $doc->$nameField ?? ($doc->insured_name ?? $doc->name ?? $doc->student_name ?? '-');
-                $plateNum = $schema->hasColumn($tableName, $plateField) ? ($doc->$plateField ?? '-') : ($doc->plate_number ?? ($doc->chassis_number ?? '-'));
-                $extraDetail = $schema->hasColumn($tableName, $detField) ? ($doc->$detField ?? '-') : '-';
+                
+                $plateNum = '-';
+                if ($hasPlateCol && isset($doc->$plateField)) {
+                    $plateNum = $doc->$plateField;
+                } elseif ($hasPlateNumber && isset($doc->plate_number)) {
+                    $plateNum = $doc->plate_number;
+                } elseif ($hasChassisNumber && isset($doc->chassis_number)) {
+                    $plateNum = $doc->chassis_number;
+                }
+
+                $extraDetail = ($hasDetailCol && isset($doc->$detField)) ? $doc->$detField : '-';
 
                 $docDate = $doc->issue_date ?? ($doc->start_date ?? ($doc->created_at ?? '-'));
                 if ($docDate && $docDate !== '-') {
@@ -1904,27 +1953,11 @@ class FinancialStatisticsController extends Controller
                 $issVal = (float)($doc->issue_fees ?? 0);
                 $totVal = (float)($doc->total ?? ($prem + $taxVal + $supVal + $stmpVal + $issVal));
 
-                $agentObj = isset($doc->branch_agent_id) && isset($branchAgents[$doc->branch_agent_id]) ? $branchAgents[$doc->branch_agent_id] : null;
+                $agentObj = (isset($doc->branch_agent_id) && isset($branchAgents[$doc->branch_agent_id])) ? $branchAgents[$doc->branch_agent_id] : null;
                 $agencyName = $agentObj ? ($agentObj->agency_name ?? $agentObj->agent_name) : '-';
                 
                 $userId = $doc->user_id ?? null;
-                $userName = $userId && isset($usersMap[$userId]) ? $usersMap[$userId] : $agencyName;
-
-                $sectionTotals['documents_count']++;
-                $sectionTotals['premium'] += $prem;
-                $sectionTotals['tax'] += $taxVal;
-                $sectionTotals['supervision_fees'] += $supVal;
-                $sectionTotals['stamp'] += $stmpVal;
-                $sectionTotals['issue_fees'] += $issVal;
-                $sectionTotals['total'] += $totVal;
-
-                $grandTotals['documents_count']++;
-                $grandTotals['premium'] += $prem;
-                $grandTotals['tax'] += $taxVal;
-                $grandTotals['supervision_fees'] += $supVal;
-                $grandTotals['stamp'] += $stmpVal;
-                $grandTotals['issue_fees'] += $issVal;
-                $grandTotals['total'] += $totVal;
+                $userName = ($userId && isset($usersMap[$userId])) ? $usersMap[$userId] : $agencyName;
 
                 $docRows[] = [
                     'id' => $doc->id,

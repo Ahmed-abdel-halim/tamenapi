@@ -1871,16 +1871,30 @@ class FinancialStatisticsController extends Controller
                 });
             }
 
+            $hasTax = $schema->hasColumn($tableName, 'tax');
+            $hasSupervision = $schema->hasColumn($tableName, 'supervision_fees');
+            $hasStamp = $schema->hasColumn($tableName, 'stamp');
+            $hasIssueFees = $schema->hasColumn($tableName, 'issue_fees');
+            $premCol = $schema->hasColumn($tableName, 'premium') ? 'premium' : ($schema->hasColumn($tableName, 'premium_amount') ? 'premium_amount' : null);
+            $hasTotal = $schema->hasColumn($tableName, 'total');
+
+            $premExpr = $premCol ? "COALESCE(SUM({$premCol}), 0)" : "0";
+            $taxExpr = $hasTax ? "COALESCE(SUM(tax), 0)" : "0";
+            $supExpr = $hasSupervision ? "COALESCE(SUM(supervision_fees), 0)" : "0";
+            $stampExpr = $hasStamp ? "COALESCE(SUM(stamp), 0)" : "0";
+            $issExpr = $hasIssueFees ? "COALESCE(SUM(issue_fees), 0)" : "0";
+            $totExpr = $hasTotal ? "COALESCE(SUM(total), 0)" : "0";
+
             // Quick Aggregation with SQL (Takes 2ms)
-            $stats = (clone $query)->selectRaw('
+            $stats = (clone $query)->selectRaw("
                 COUNT(*) as cnt,
-                COALESCE(SUM(premium), 0) as total_premium,
-                COALESCE(SUM(tax), 0) as total_tax,
-                COALESCE(SUM(supervision_fees), 0) as total_supervision_fees,
-                COALESCE(SUM(stamp), 0) as total_stamp,
-                COALESCE(SUM(issue_fees), 0) as total_issue_fees,
-                COALESCE(SUM(total), 0) as total_total
-            ')->first();
+                {$premExpr} as total_premium,
+                {$taxExpr} as total_tax,
+                {$supExpr} as total_supervision_fees,
+                {$stampExpr} as total_stamp,
+                {$issExpr} as total_issue_fees,
+                {$totExpr} as total_total
+            ")->first();
 
             $docCount = (int)($stats->cnt ?? 0);
             if ($docCount === 0) {
@@ -1895,7 +1909,7 @@ class FinancialStatisticsController extends Controller
             $totSum = (float)($stats->total_total ?? 0);
 
             // If total column was 0 or not calculated in DB, calculate it
-            if ($totSum == 0 && ($premSum > 0 || $taxSum > 0)) {
+            if ($totSum == 0 && ($premSum > 0 || $taxSum > 0 || $supSum > 0)) {
                 $totSum = $premSum + $taxSum + $supSum + $stampSum + $issSum;
             }
 
@@ -1927,8 +1941,8 @@ class FinancialStatisticsController extends Controller
             $detField = $cfg['detail_field'];
 
             foreach ($docs as $doc) {
-                $docNum = $doc->$numField ?? ($doc->insurance_number ?? $doc->document_number ?? $doc->policy_number ?? '-');
-                $insuredName = $doc->$nameField ?? ($doc->insured_name ?? $doc->name ?? $doc->student_name ?? '-');
+                $docNum = $doc->$numField ?? ($doc->insurance_number ?? ($doc->document_number ?? ($doc->policy_number ?? '-')));
+                $insuredName = $doc->$nameField ?? ($doc->insured_name ?? ($doc->name ?? ($doc->student_name ?? '-')));
                 
                 $plateNum = '-';
                 if ($hasPlateCol && isset($doc->$plateField)) {
@@ -1946,12 +1960,16 @@ class FinancialStatisticsController extends Controller
                     $docDate = date('d/m/Y', strtotime($docDate));
                 }
 
-                $prem = (float)($doc->premium ?? $doc->premium_amount ?? 0);
-                $taxVal = (float)($doc->tax ?? 0);
-                $supVal = (float)($doc->supervision_fees ?? 0);
-                $stmpVal = (float)($doc->stamp ?? 0);
-                $issVal = (float)($doc->issue_fees ?? 0);
-                $totVal = (float)($doc->total ?? ($prem + $taxVal + $supVal + $stmpVal + $issVal));
+                $prem = $premCol ? (float)($doc->$premCol ?? 0) : 0;
+                $taxVal = $hasTax ? (float)($doc->tax ?? 0) : 0;
+                $supVal = $hasSupervision ? (float)($doc->supervision_fees ?? 0) : 0;
+                $stmpVal = $hasStamp ? (float)($doc->stamp ?? 0) : 0;
+                $issVal = $hasIssueFees ? (float)($doc->issue_fees ?? 0) : 0;
+                $totVal = $hasTotal ? (float)($doc->total ?? 0) : ($prem + $taxVal + $supVal + $stmpVal + $issVal);
+
+                if ($totVal == 0 && ($prem > 0 || $taxVal > 0 || $supVal > 0)) {
+                    $totVal = $prem + $taxVal + $supVal + $stmpVal + $issVal;
+                }
 
                 $agentObj = (isset($doc->branch_agent_id) && isset($branchAgents[$doc->branch_agent_id])) ? $branchAgents[$doc->branch_agent_id] : null;
                 $agencyName = $agentObj ? ($agentObj->agency_name ?? $agentObj->agent_name) : '-';

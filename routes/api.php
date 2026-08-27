@@ -141,6 +141,14 @@ Route::apiResource('expense-categories', ExpenseCategoryController::class);
 Route::get('/expense-subcategories', [ExpenseSubCategoryController::class, 'index']);
 Route::post('/expense-subcategories', [ExpenseSubCategoryController::class, 'store']);
 Route::put('/expense-subcategories/{id}', [ExpenseSubCategoryController::class, 'update']);
+Route::delete('/expense-subcategories/{id}', [ExpenseSubCategoryController::class, 'destroy']);
+
+Route::get('/reset-categories', function () {
+    \Illuminate\Support\Facades\DB::table('expense_categories')->delete();
+    $cats = [
+        'قرطاسية',
+        'صيانة',
+        'خدمات',
         'ط¥ظٹط¬ط§ط±',
         'ط¶ظٹط§ظپط©',
         'ط§ظ„طھط¹ظˆظٹط¶ط§طھ',

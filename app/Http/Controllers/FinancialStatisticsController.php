@@ -1646,4 +1646,324 @@ class FinancialStatisticsController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Get Comprehensive Production Portfolio data for JSON and Excel exports.
+     */
+    public function getComprehensiveProductionPortfolio(Request $request)
+    {
+        try {
+            $data = $this->buildComprehensiveProductionData($request);
+            return response()->json([
+                'success' => true,
+                'data' => $data
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'حدث خطأ أثناء إعداد تقرير الحوافظ الشامل: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Print Comprehensive Production Portfolio (A4 Landscape template).
+     */
+    public function printComprehensiveProductionPortfolio(Request $request)
+    {
+        try {
+            $data = $this->buildComprehensiveProductionData($request);
+            return view('reports.comprehensive-production-portfolio-print', $data);
+        } catch (\Exception $e) {
+            abort(404, 'حدث خطأ أثناء إعداد تقرير الحوافظ للطباعة: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Internal helper to build comprehensive production data.
+     */
+    private function buildComprehensiveProductionData(Request $request)
+    {
+        $agentId = $request->get('agent_id');
+        $year = $request->get('year');
+        $month = $request->get('month');
+        $fromDate = $request->get('from_date');
+        $toDate = $request->get('to_date');
+        $documentTypeFilter = $request->get('document_type', 'all');
+        $excludeCanceled = $request->boolean('exclude_canceled', false);
+
+        $schema = DB::getSchemaBuilder();
+        $usersMap = \App\Models\User::pluck('name', 'id')->toArray();
+        
+        $branchAgentsQuery = \App\Models\BranchAgent::query();
+        $branchAgents = $branchAgentsQuery->get()->keyBy('id');
+
+        $selectedAgent = null;
+        if ($agentId && $agentId !== 'all' && is_numeric($agentId)) {
+            $selectedAgent = $branchAgents->get((int)$agentId);
+        }
+
+        $tablesConfig = [
+            'compulsory' => [
+                'table' => 'insurance_documents',
+                'title' => 'تأمين إجباري سيارات',
+                'number_field' => 'insurance_number',
+                'name_field' => 'insured_name',
+                'plate_field' => 'plate_number_manual',
+                'detail_field' => 'engine_power',
+                'detail_header' => 'قوة المحرك بالحصان',
+                'date_field' => 'issue_date',
+            ],
+            'international' => [
+                'table' => 'international_insurance_documents',
+                'title' => 'تأمين السيارات الدولي (البطاقة البرتقالية)',
+                'number_field' => 'document_number',
+                'name_field' => 'insured_name',
+                'plate_field' => 'plate_number',
+                'detail_field' => 'item_type',
+                'detail_header' => 'نوع المركبة / البند',
+                'date_field' => 'issue_date',
+            ],
+            'travel' => [
+                'table' => 'travel_insurance_documents',
+                'title' => 'تأمين المسافرين',
+                'number_field' => 'insurance_number',
+                'name_field' => 'insured_name',
+                'plate_field' => 'geographic_area',
+                'detail_field' => 'duration',
+                'detail_header' => 'مدة التأمين / الوجهة',
+                'date_field' => 'issue_date',
+            ],
+            'resident' => [
+                'table' => 'resident_insurance_documents',
+                'title' => 'تأمين الوافدين للمقيمين',
+                'number_field' => 'insurance_number',
+                'name_field' => 'insured_name',
+                'plate_field' => 'residence_type',
+                'detail_field' => 'occupation',
+                'detail_header' => 'المهنة / صفة الإقامة',
+                'date_field' => 'issue_date',
+            ],
+            'marine' => [
+                'table' => 'marine_structure_insurance_documents',
+                'title' => 'تأمين الهياكل البحرية',
+                'number_field' => 'insurance_number',
+                'name_field' => 'insured_name',
+                'plate_field' => 'structure_name',
+                'detail_field' => 'structure_type',
+                'detail_header' => 'نوع الهيكل البحري',
+                'date_field' => 'issue_date',
+            ],
+            'medical' => [
+                'table' => 'professional_liability_insurance_documents',
+                'title' => 'تأمين المسؤولية المهنية (الطبية)',
+                'number_field' => 'insurance_number',
+                'name_field' => 'insured_name',
+                'plate_field' => 'workplace',
+                'detail_field' => 'profession',
+                'detail_header' => 'المهنة / جهة العمل',
+                'date_field' => 'issue_date',
+            ],
+            'personal_accident' => [
+                'table' => 'personal_accident_insurance_documents',
+                'title' => 'تأمين الحوادث الشخصية',
+                'number_field' => 'insurance_number',
+                'name_field' => 'insured_name',
+                'plate_field' => 'job',
+                'detail_field' => 'coverage_type',
+                'detail_header' => 'نوع التغطية والمهنة',
+                'date_field' => 'issue_date',
+            ],
+            'school_student' => [
+                'table' => 'school_student_insurance_documents',
+                'title' => 'تأمين حماية طلاب المدارس',
+                'number_field' => 'policy_number',
+                'name_field' => 'insured_name',
+                'plate_field' => 'school_name',
+                'detail_field' => 'student_count',
+                'detail_header' => 'المؤسسة التعليمية',
+                'date_field' => 'start_date',
+            ],
+            'cash_in_transit' => [
+                'table' => 'cash_in_transit_insurance_documents',
+                'title' => 'تأمين نقل النقدية',
+                'number_field' => 'policy_number',
+                'name_field' => 'insured_name',
+                'plate_field' => 'transit_route',
+                'detail_field' => 'limit_per_transit',
+                'detail_header' => 'خط السير وحد النقل',
+                'date_field' => 'start_date',
+            ],
+            'cargo' => [
+                'table' => 'cargo_insurance_documents',
+                'title' => 'تأمين شحن ونقل البضائع',
+                'number_field' => 'policy_number',
+                'name_field' => 'insured_name',
+                'plate_field' => 'bill_of_lading',
+                'detail_field' => 'cargo_type',
+                'detail_header' => 'نوع البضاعة والبيان',
+                'date_field' => 'created_at',
+            ],
+        ];
+
+        $sections = [];
+        $grandTotals = [
+            'documents_count' => 0,
+            'premium' => 0.0,
+            'tax' => 0.0,
+            'supervision_fees' => 0.0,
+            'stamp' => 0.0,
+            'issue_fees' => 0.0,
+            'total' => 0.0,
+        ];
+
+        foreach ($tablesConfig as $typeKey => $cfg) {
+            if ($documentTypeFilter && $documentTypeFilter !== 'all' && $documentTypeFilter !== $typeKey && $documentTypeFilter !== $cfg['table']) {
+                continue;
+            }
+
+            $tableName = $cfg['table'];
+            if (!$schema->hasTable($tableName)) continue;
+
+            $query = DB::table($tableName);
+
+            // Agent filter
+            if ($selectedAgent && $schema->hasColumn($tableName, 'branch_agent_id')) {
+                $query->where('branch_agent_id', $selectedAgent->id);
+            }
+
+            // Date column detection
+            $dateCol = $schema->hasColumn($tableName, 'issue_date') ? 'issue_date' :
+                      ($schema->hasColumn($tableName, 'start_date') ? 'start_date' : 'created_at');
+
+            if ($fromDate && $toDate) {
+                $query->whereBetween($dateCol, [$fromDate . ' 00:00:00', $toDate . ' 23:59:59']);
+            } elseif ($year && $month) {
+                $query->whereYear($dateCol, (int)$year)->whereMonth($dateCol, (int)$month);
+            } elseif ($year) {
+                $query->whereYear($dateCol, (int)$year);
+            }
+
+            if ($excludeCanceled && $schema->hasColumn($tableName, 'status')) {
+                $query->where(function ($q) {
+                    $q->whereNull('status')->orWhere('status', '!=', 'ملغية');
+                });
+            }
+
+            $docs = $query->orderBy($dateCol, 'desc')->get();
+
+            if ($docs->isEmpty()) {
+                continue;
+            }
+
+            $docRows = [];
+            $sectionTotals = [
+                'documents_count' => 0,
+                'premium' => 0.0,
+                'tax' => 0.0,
+                'supervision_fees' => 0.0,
+                'stamp' => 0.0,
+                'issue_fees' => 0.0,
+                'total' => 0.0,
+            ];
+
+            foreach ($docs as $doc) {
+                $numField = $cfg['number_field'];
+                $nameField = $cfg['name_field'];
+                $plateField = $cfg['plate_field'];
+                $detField = $cfg['detail_field'];
+
+                $docNum = $doc->$numField ?? ($doc->insurance_number ?? $doc->document_number ?? $doc->policy_number ?? '-');
+                $insuredName = $doc->$nameField ?? ($doc->insured_name ?? $doc->name ?? $doc->student_name ?? '-');
+                $plateNum = $schema->hasColumn($tableName, $plateField) ? ($doc->$plateField ?? '-') : ($doc->plate_number ?? ($doc->chassis_number ?? '-'));
+                $extraDetail = $schema->hasColumn($tableName, $detField) ? ($doc->$detField ?? '-') : '-';
+
+                $docDate = $doc->issue_date ?? ($doc->start_date ?? ($doc->created_at ?? '-'));
+                if ($docDate && $docDate !== '-') {
+                    $docDate = date('d/m/Y', strtotime($docDate));
+                }
+
+                $prem = (float)($doc->premium ?? $doc->premium_amount ?? 0);
+                $taxVal = (float)($doc->tax ?? 0);
+                $supVal = (float)($doc->supervision_fees ?? 0);
+                $stmpVal = (float)($doc->stamp ?? 0);
+                $issVal = (float)($doc->issue_fees ?? 0);
+                $totVal = (float)($doc->total ?? ($prem + $taxVal + $supVal + $stmpVal + $issVal));
+
+                $agentObj = isset($doc->branch_agent_id) && isset($branchAgents[$doc->branch_agent_id]) ? $branchAgents[$doc->branch_agent_id] : null;
+                $agencyName = $agentObj ? ($agentObj->agency_name ?? $agentObj->agent_name) : '-';
+                
+                $userId = $doc->user_id ?? null;
+                $userName = $userId && isset($usersMap[$userId]) ? $usersMap[$userId] : $agencyName;
+
+                $sectionTotals['documents_count']++;
+                $sectionTotals['premium'] += $prem;
+                $sectionTotals['tax'] += $taxVal;
+                $sectionTotals['supervision_fees'] += $supVal;
+                $sectionTotals['stamp'] += $stmpVal;
+                $sectionTotals['issue_fees'] += $issVal;
+                $sectionTotals['total'] += $totVal;
+
+                $grandTotals['documents_count']++;
+                $grandTotals['premium'] += $prem;
+                $grandTotals['tax'] += $taxVal;
+                $grandTotals['supervision_fees'] += $supVal;
+                $grandTotals['stamp'] += $stmpVal;
+                $grandTotals['issue_fees'] += $issVal;
+                $grandTotals['total'] += $totVal;
+
+                $docRows[] = [
+                    'id' => $doc->id,
+                    'document_number' => $docNum,
+                    'insured_name' => $insuredName,
+                    'issue_date' => $docDate,
+                    'plate_number' => $plateNum,
+                    'premium' => $prem,
+                    'tax' => $taxVal,
+                    'supervision_fees' => $supVal,
+                    'stamp' => $stmpVal,
+                    'issue_fees' => $issVal,
+                    'extra_detail' => $extraDetail,
+                    'total' => $totVal,
+                    'agency_name' => $agencyName,
+                    'user_name' => $userName,
+                ];
+            }
+
+            $sections[] = [
+                'key' => $typeKey,
+                'title' => $cfg['title'],
+                'detail_header' => $cfg['detail_header'],
+                'documents' => $docRows,
+                'totals' => $sectionTotals,
+            ];
+        }
+
+        // Period Label
+        $periodLabel = 'كافة الفترات المسجلة';
+        if ($fromDate && $toDate) {
+            $periodLabel = "من تاريخ {$fromDate} إلى تاريخ {$toDate}";
+        } elseif ($year && $month) {
+            $periodLabel = "شهر {$month} لعام {$year}";
+        } elseif ($year) {
+            $periodLabel = "خلال عام {$year}";
+        }
+
+        // Agent Label
+        $agentLabel = $selectedAgent ? ($selectedAgent->agency_name . ' (' . ($selectedAgent->code ?? '') . ')') : 'جميع الوكلاء والفروع (الكل)';
+
+        return [
+            'sections' => $sections,
+            'grand_totals' => $grandTotals,
+            'selected_agent' => $selectedAgent,
+            'agent_label' => $agentLabel,
+            'period_label' => $periodLabel,
+            'year' => $year,
+            'month' => $month,
+            'from_date' => $fromDate,
+            'to_date' => $toDate,
+            'document_type' => $documentTypeFilter,
+        ];
+    }
 }
+

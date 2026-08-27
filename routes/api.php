@@ -42,6 +42,7 @@ use App\Http\Controllers\CanceledDocumentsController;
 use App\Http\Controllers\SchoolStudentInsuranceDocumentController;
 use App\Http\Controllers\CashInTransitInsuranceDocumentController;
 use App\Http\Controllers\CargoInsuranceDocumentController;
+use App\Http\Controllers\EmployeeRequestController;
 
 
 
@@ -52,7 +53,7 @@ use App\Http\Controllers\CargoInsuranceDocumentController;
 |
 | Here is where you can register API routes for your application. These
 | routes are loaded by the RouteServiceProvider and all of them will
-| be assigned to the "api" middleware group. Make something great!
+| be assigned to the 'api' middleware group. Make something great!
 |
 */
 
@@ -66,8 +67,6 @@ Route::post('/login', [AuthController::class, 'login']);
 Route::get('/user/{id}/refresh', [AuthController::class, 'refreshUser']);
 Route::post('/unlock-session', [AuthController::class, 'unlockSession']);
 Route::middleware('auth:sanctum')->post('/logout', [AuthController::class, 'logout']);
-
-use App\Http\Controllers\EmployeeRequestController;
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/notifications/unread-count', [\App\Http\Controllers\NotificationController::class, 'unreadCount']);
@@ -133,6 +132,8 @@ Route::post('/financial-statistics/agent-monthly-ledger/audit', [\App\Http\Contr
 Route::get('/financial-statistics/agent-month-documents', [\App\Http\Controllers\FinancialStatisticsController::class, 'getAgentMonthDocuments']);
 Route::put('/financial-statistics/agent-month-document', [\App\Http\Controllers\FinancialStatisticsController::class, 'updateAgentMonthDocument']);
 Route::delete('/financial-statistics/agent-month-document', [\App\Http\Controllers\FinancialStatisticsController::class, 'deleteAgentMonthDocument']);
+Route::get('/financial-statistics/comprehensive-production-portfolio', [\App\Http\Controllers\FinancialStatisticsController::class, 'getComprehensiveProductionPortfolio']);
+Route::get('/financial-statistics/comprehensive-production-portfolio/print', [\App\Http\Controllers\FinancialStatisticsController::class, 'printComprehensiveProductionPortfolio']);
 Route::apiResource('branches-agents', BranchAgentController::class);
 Route::apiResource('payment-vouchers', 'App\Http\Controllers\PaymentVoucherController');
 Route::apiResource('expenses', 'App\Http\Controllers\ExpenseController');
@@ -140,14 +141,6 @@ Route::apiResource('expense-categories', ExpenseCategoryController::class);
 Route::get('/expense-subcategories', [ExpenseSubCategoryController::class, 'index']);
 Route::post('/expense-subcategories', [ExpenseSubCategoryController::class, 'store']);
 Route::put('/expense-subcategories/{id}', [ExpenseSubCategoryController::class, 'update']);
-Route::delete('/expense-subcategories/{id}', [ExpenseSubCategoryController::class, 'destroy']);
-
-Route::get('/reset-categories', function () {
-    \Illuminate\Support\Facades\DB::table('expense_categories')->delete();
-    $cats = [
-        'ظ‚ط±ط·ط§ط³ظٹط©',
-        'طµظٹط§ظ†ط©',
-        'ط®ط¯ظ…ط§طھ',
         'ط¥ظٹط¬ط§ط±',
         'ط¶ظٹط§ظپط©',
         'ط§ظ„طھط¹ظˆظٹط¶ط§طھ',

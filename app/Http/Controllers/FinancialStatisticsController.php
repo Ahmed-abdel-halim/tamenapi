@@ -1693,10 +1693,15 @@ class FinancialStatisticsController extends Controller
         $excludeCanceled = $request->boolean('exclude_canceled', false);
 
         $schema = DB::getSchemaBuilder();
-        $usersMap = \App\Models\User::pluck('name', 'id')->toArray();
+        $usersMap = [];
+        if ($schema->hasTable('users')) {
+            $usersMap = DB::table('users')->pluck('name', 'id')->toArray();
+        }
         
-        $branchAgentsQuery = \App\Models\BranchAgent::query();
-        $branchAgents = $branchAgentsQuery->get()->keyBy('id');
+        $branchAgents = collect();
+        if ($schema->hasTable('branches_agents')) {
+            $branchAgents = DB::table('branches_agents')->get()->keyBy('id');
+        }
 
         $selectedAgent = null;
         if ($agentId && $agentId !== 'all' && is_numeric($agentId)) {

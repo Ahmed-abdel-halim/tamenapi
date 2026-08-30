@@ -20,9 +20,12 @@ class SchoolStudentInsuranceDocument extends Model
         'end_date',
         'premium_amount',
         'whatsapp_number',
-        'status'
-    ,
+        'status',
         'user_id',
+        'is_canceled',
+        'canceled_at',
+        'canceled_by',
+        'cancel_reason',
     ];
 
     public function branchAgent()

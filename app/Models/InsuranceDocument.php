@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 
 namespace App\Models;
 
@@ -64,6 +64,10 @@ class InsuranceDocument extends Model
         'eidc_synced_at',
     
         'user_id',
+        'is_canceled',
+        'canceled_at',
+        'canceled_by',
+        'cancel_reason',
     ];
 
     protected $casts = [

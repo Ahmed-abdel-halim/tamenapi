@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 
 namespace App\Models;
 
@@ -28,6 +28,10 @@ class TravelInsuranceDocument extends Model
         'branch_agent_id',
     
         'user_id',
+        'is_canceled',
+        'canceled_at',
+        'canceled_by',
+        'cancel_reason',
     ];
 
     protected $casts = [

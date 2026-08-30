@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 
 namespace App\Models;
 
@@ -23,6 +23,10 @@ class CargoInsuranceDocument extends Model
         'status'
     ,
         'user_id',
+        'is_canceled',
+        'canceled_at',
+        'canceled_by',
+        'cancel_reason',
     ];
 
     public function branchAgent()

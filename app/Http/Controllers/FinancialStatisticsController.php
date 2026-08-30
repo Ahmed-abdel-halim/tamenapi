@@ -794,6 +794,11 @@ class FinancialStatisticsController extends Controller
                 'paid_amount'     => 'required|numeric|min:0',
                 'due_amount'      => 'required|numeric|min:0',
                 'payment_amount'  => 'nullable|numeric|min:0',
+                'payment_method'  => 'nullable|string|max:100',
+                'bank_name'       => 'nullable|string|max:150',
+                'reference_number'=> 'nullable|string|max:150',
+                'payment_date'    => 'nullable|date',
+                'voucher_number'  => 'nullable|string|max:100',
                 'notes'           => 'nullable|string|max:500',
             ]);
 
@@ -869,21 +874,30 @@ class FinancialStatisticsController extends Controller
                     $monthNames = [1=>'يناير', 2=>'فبراير', 3=>'مارس', 4=>'أبريل', 5=>'مايو', 6=>'يونيو', 7=>'يوليو', 8=>'أغسطس', 9=>'سبتمبر', 10=>'أكتوبر', 11=>'نوفمبر', 12=>'ديسمبر'];
                     $monthLabel = ($monthNames[$validated['month']] ?? $validated['month']) . ' ' . $validated['year'];
 
-                    $voucherNumber = 'PV-' . date('Y') . '-' . rand(1000, 9999);
+                    $voucherNumber = !empty($validated['voucher_number'])
+                        ? $validated['voucher_number']
+                        : ('PV-' . date('Y') . '-' . rand(1000, 9999));
+
                     while (\Illuminate\Support\Facades\Schema::hasTable('payment_vouchers') && \App\Models\PaymentVoucher::where('voucher_number', $voucherNumber)->exists()) {
                         $voucherNumber = 'PV-' . date('Y') . '-' . rand(1000, 9999);
                     }
 
                     $voucherNotes = "تسديد دفعة كشف حساب شهري ({$monthLabel})" . (!empty($validated['notes']) ? " - {$validated['notes']}" : '');
+                    $paymentMethod = $validated['payment_method'] ?? 'نقدي';
+                    $paymentDate = $validated['payment_date'] ?? date('Y-m-d');
+                    $bankName = $validated['bank_name'] ?? null;
+                    $refNumber = $validated['reference_number'] ?? null;
 
-                    // 1. Create Payment Voucher (إيصال قبض مالي في قسم إدارة الإيرادات)
+                    // 1. Create Single Payment Voucher (إيصال قبض مالي موحد في إدارة الإيرادات)
                     if (\Illuminate\Support\Facades\Schema::hasTable('payment_vouchers')) {
                         $paymentVoucher = \App\Models\PaymentVoucher::create([
                             'voucher_number'   => $voucherNumber,
                             'branch_agent_id'  => $validated['branch_agent_id'],
                             'amount'           => $newPaymentAmount,
-                            'payment_method'   => 'نقدي',
-                            'payment_date'     => date('Y-m-d'),
+                            'payment_method'   => $paymentMethod,
+                            'bank_name'        => $bankName,
+                            'reference_number' => $refNumber,
+                            'payment_date'     => $paymentDate,
                             'notes'            => mb_substr($voucherNotes, 0, 490),
                             'extra_details'    => [
                                 'type'       => 'monthly_account_closure',
@@ -894,17 +908,17 @@ class FinancialStatisticsController extends Controller
                         ]);
                     }
 
-                    // 2. Create Treasury Transaction (معاملة مقبوضات في خزينة الإيرادات)
+                    // 2. Create Treasury Transaction (معاملة مقبوضات واحدة في خزينة الإيرادات)
                     if (\Illuminate\Support\Facades\Schema::hasTable('treasury_transactions')) {
                         \App\Models\TreasuryTransaction::create([
-                            'transaction_date' => date('Y-m-d'),
+                            'transaction_date' => $paymentDate,
                             'type'             => 'income',
                             'amount'           => $newPaymentAmount,
                             'description'      => mb_substr("تسديد كشف حساب شهري - {$agencyName} - شهر {$monthLabel}", 0, 190),
                             'source'           => mb_substr($agencyName, 0, 190),
-                            'reference_number' => $voucherNumber,
+                            'reference_number' => $refNumber ?: $voucherNumber,
                             'branch_agent_id'  => $validated['branch_agent_id'],
-                            'payment_source'   => 'نقدي',
+                            'payment_source'   => $paymentMethod,
                             'notes'            => !empty($validated['notes']) ? mb_substr($validated['notes'], 0, 490) : null,
                         ]);
                     }

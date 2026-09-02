@@ -48,6 +48,12 @@ class InsuranceDocumentController extends Controller
             // بناء الاستعلام
             $query = InsuranceDocument::with(['plate.city', 'vehicleType', 'branchAgent', 'user']);
             
+            // استبعاد الوثائق الملغية من القائمة العادية (تظهر فقط في قسم الوثائق الملغية)
+            $query->where(function ($q) {
+                $q->where('is_canceled', false)
+                  ->orWhereNull('is_canceled');
+            });
+            
             $hasFilterOrSearch = $request->filled('search') || 
                                  $request->filled('year') || 
                                  $request->filled('month') || 
@@ -86,18 +92,18 @@ class InsuranceDocumentController extends Controller
             }
 
             // فلتر الوكيل (للادمن)
-            if ($isAdmin && $request->has('branch_agent_id')) {
+            if ($isAdmin && $request->filled('branch_agent_id')) {
                 $query->where('branch_agent_id', $request->query('branch_agent_id'));
             }
 
             // فلاتر التاريخ (السنة، الشهر، اليوم)
-            if ($request->has('year')) {
+            if ($request->filled('year')) {
                 $query->whereYear('issue_date', $request->query('year'));
             }
-            if ($request->has('month')) {
+            if ($request->filled('month')) {
                 $query->whereMonth('issue_date', $request->query('month'));
             }
-            if ($request->has('day')) {
+            if ($request->filled('day')) {
                 $query->whereDay('issue_date', $request->query('day'));
             }
 

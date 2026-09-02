@@ -477,7 +477,9 @@ class TravelInsuranceDocumentController extends Controller
                 ]
             ];
 
-            return view('travel-insurance-documents.print', compact('document', 'printData'));
+            $customInsuranceCond = \App\Models\InsuranceCondition::where('insurance_type', 'travel')->first();
+
+            return view('travel-insurance-documents.print', compact('document', 'printData', 'customInsuranceCond'));
         } catch (\Exception $e) {
             Log::error('Error in TravelInsuranceDocumentController@print: ' . $e->getMessage());
             abort(404, 'الوثيقة غير موجودة');

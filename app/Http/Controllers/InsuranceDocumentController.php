@@ -20,26 +20,22 @@ class InsuranceDocumentController extends Controller
     public function index(Request $request)
     {
         try {
-            // الحصول على المستخدم الحالي من header أو query parameter
-            $userId = $request->header('X-User-Id') ?? $request->query('user_id');
+            // الحصول على المستخدم الحالي من Session أو Header أو Query Parameter
+            $user = $this->getAuthenticatedUser($request);
+            $userId = null;
             $isAdmin = false;
             $branchAgentId = null;
 
-            if ($userId) {
-                $userId = is_numeric($userId) ? (int) $userId : null;
-                if ($userId) {
-                    $user = User::find($userId);
-                    if ($user) {
-                        $isAdmin = $user->is_admin ?? false;
-                        if (!$isAdmin) {
-                            // إذا لم يكن admin، احصل على branch_agent_id من المستخدم أو الموظف التابع له
-                            $branchAgentId = $user->branch_agent_id;
-                            if (!$branchAgentId) {
-                                $branchAgent = BranchAgent::where('user_id', $userId)->first();
-                                if ($branchAgent) {
-                                    $branchAgentId = $branchAgent->id;
-                                }
-                            }
+            if ($user) {
+                $userId = $user->id;
+                $isAdmin = (bool) ($user->is_admin ?? false);
+                if (!$isAdmin) {
+                    // إذا لم يكن admin، احصل على branch_agent_id من المستخدم أو الموظف التابع له
+                    $branchAgentId = $user->branch_agent_id;
+                    if (!$branchAgentId) {
+                        $branchAgent = BranchAgent::where('user_id', $userId)->first();
+                        if ($branchAgent) {
+                            $branchAgentId = $branchAgent->id;
                         }
                     }
                 }
@@ -71,13 +67,16 @@ class InsuranceDocumentController extends Controller
                 $query->active();
             }
 
-            // إذا لم يكن admin، قم بتصفية الوثائق حسب branch_agent_id
-            if (!$isAdmin) {
-                if ($branchAgentId) {
-                    $query->where('branch_agent_id', $branchAgentId);
-                } else {
-                    $query->where('user_id', $userId);
-                }
+            // إذا لم يكن admin، قم بتصفية الوثائق حسب branch_agent_id أو user_id للمستخدم
+            if ($user && !$isAdmin) {
+                $query->where(function ($q) use ($branchAgentId, $userId) {
+                    if ($branchAgentId) {
+                        $q->where('branch_agent_id', $branchAgentId)
+                          ->orWhere('user_id', $userId);
+                    } else {
+                        $q->where('user_id', $userId);
+                    }
+                });
             }
 
             // إضافة ميزة البحث

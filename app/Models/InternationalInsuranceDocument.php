@@ -28,6 +28,7 @@ class InternationalInsuranceDocument extends Model
     protected $appends = ['vehicle_brand'];
 
     protected $casts = [
+        'is_canceled' => 'boolean',
         'start_date' => 'date',
         'end_date' => 'date',
         'issue_date' => 'datetime',

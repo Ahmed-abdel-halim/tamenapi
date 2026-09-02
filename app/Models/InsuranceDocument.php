@@ -71,6 +71,7 @@ class InsuranceDocument extends Model
     ];
 
     protected $casts = [
+        'is_canceled' => 'boolean',
         // 'issue_date'      => 'date',
         // 'start_date'      => 'date',
         // 'end_date'        => 'date',

@@ -46,7 +46,8 @@ class InsuranceDocumentController extends Controller
             
             // استبعاد الوثائق الملغية من القائمة العادية (تظهر فقط في قسم الوثائق الملغية)
             $query->where(function ($q) {
-                $q->where('is_canceled', false)
+                $q->where('is_canceled', 0)
+                  ->orWhere('is_canceled', false)
                   ->orWhereNull('is_canceled');
             });
             

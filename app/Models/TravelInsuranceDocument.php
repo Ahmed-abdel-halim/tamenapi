@@ -35,6 +35,7 @@ class TravelInsuranceDocument extends Model
     ];
 
     protected $casts = [
+        'is_canceled' => 'boolean',
         'issue_date' => 'datetime',
         'start_date' => 'date',
         'end_date' => 'date',

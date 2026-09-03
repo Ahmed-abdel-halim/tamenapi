@@ -78,10 +78,19 @@ class DebtReportController extends Controller
                         elseif ($hasStartDate) $selects[] = 'start_date';
                         else $selects[] = 'created_at';
 
-                        $docs = DB::table($table)
+                        $query = DB::table($table)
                             ->select($selects)
-                            ->whereIn('branch_agent_id', $agentIds)
-                            ->get();
+                            ->whereIn('branch_agent_id', $agentIds);
+
+                        if ($schema->hasColumn($table, 'is_canceled')) {
+                            $query->where(function ($q) {
+                                $q->whereNull('is_canceled')
+                                  ->orWhere('is_canceled', 0)
+                                  ->orWhere('is_canceled', false);
+                            });
+                        }
+
+                        $docs = $query->get();
 
                         foreach ($docs as $doc) {
                             $agentId = $doc->branch_agent_id;

@@ -957,6 +957,11 @@ class BranchAgentController extends Controller
             $toDate = $request->get('to_date');
 
             $applyDateFilter = function ($query, $column = 'issue_date') use ($type, $year, $month, $fromDate, $toDate) {
+                $query->where(function ($q) {
+                    $q->whereNull('is_canceled')
+                      ->orWhere('is_canceled', 0)
+                      ->orWhere('is_canceled', false);
+                });
                 if ($type === 'range' && $fromDate && $toDate) {
                     return $query->whereDate($column, '>=', $fromDate)
                         ->whereDate($column, '<=', $toDate);
@@ -1512,6 +1517,11 @@ class BranchAgentController extends Controller
             };
 
             $applyDateFilter = function ($query, $column = 'issue_date') use ($type, $year, $month, $fromDate, $toDate) {
+                $query->where(function ($q) {
+                    $q->whereNull('is_canceled')
+                      ->orWhere('is_canceled', 0)
+                      ->orWhere('is_canceled', false);
+                });
                 if ($type === 'range' && $fromDate && $toDate) {
                     return $query->whereDate($column, '>=', $fromDate)
                         ->whereDate($column, '<=', $toDate);
@@ -2002,6 +2012,14 @@ class BranchAgentController extends Controller
                 }
             }
 
+            $applyCanceledFilter = function ($query) {
+                return $query->where(function ($q) {
+                    $q->whereNull('is_canceled')
+                      ->orWhere('is_canceled', 0)
+                      ->orWhere('is_canceled', false);
+                });
+            };
+
             $statistics = [
                 'insurance_documents' => 0,
                 'travel_insurance_documents' => 0,
@@ -2020,70 +2038,70 @@ class BranchAgentController extends Controller
             if (!$isAdmin) {
                 $insuranceQuery->where('branch_agent_id', $branchAgentId);
             }
-            $statistics['insurance_documents'] = $insuranceQuery->active()->count();
+            $statistics['insurance_documents'] = $applyCanceledFilter($insuranceQuery)->active()->count();
 
             // Travel Insurance Documents
             $travelQuery = TravelInsuranceDocument::query();
             if (!$isAdmin) {
                 $travelQuery->where('branch_agent_id', $branchAgentId);
             }
-            $statistics['travel_insurance_documents'] = $travelQuery->active()->count();
+            $statistics['travel_insurance_documents'] = $applyCanceledFilter($travelQuery)->active()->count();
 
             // Resident Insurance Documents
             $residentQuery = ResidentInsuranceDocument::query();
             if (!$isAdmin) {
                 $residentQuery->where('branch_agent_id', $branchAgentId);
             }
-            $statistics['resident_insurance_documents'] = $residentQuery->active()->count();
+            $statistics['resident_insurance_documents'] = $applyCanceledFilter($residentQuery)->active()->count();
 
             // Marine Structure Insurance Documents
             $marineQuery = MarineStructureInsuranceDocument::query();
             if (!$isAdmin) {
                 $marineQuery->where('branch_agent_id', $branchAgentId);
             }
-            $statistics['marine_structure_insurance_documents'] = $marineQuery->active()->count();
+            $statistics['marine_structure_insurance_documents'] = $applyCanceledFilter($marineQuery)->active()->count();
 
             // Professional Liability Insurance Documents
             $professionalQuery = ProfessionalLiabilityInsuranceDocument::query();
             if (!$isAdmin) {
                 $professionalQuery->where('branch_agent_id', $branchAgentId);
             }
-            $statistics['professional_liability_insurance_documents'] = $professionalQuery->active()->count();
+            $statistics['professional_liability_insurance_documents'] = $applyCanceledFilter($professionalQuery)->active()->count();
 
             // Personal Accident Insurance Documents
             $personalQuery = PersonalAccidentInsuranceDocument::query();
             if (!$isAdmin) {
                 $personalQuery->where('branch_agent_id', $branchAgentId);
             }
-            $statistics['personal_accident_insurance_documents'] = $personalQuery->active()->count();
+            $statistics['personal_accident_insurance_documents'] = $applyCanceledFilter($personalQuery)->active()->count();
 
             // International Insurance Documents
             $internationalQuery = InternationalInsuranceDocument::query();
             if (!$isAdmin) {
                 $internationalQuery->where('branch_agent_id', $branchAgentId);
             }
-            $statistics['international_insurance_documents'] = $internationalQuery->active()->count();
+            $statistics['international_insurance_documents'] = $applyCanceledFilter($internationalQuery)->active()->count();
 
             // School Student Insurance Documents
             $schoolQuery = SchoolStudentInsuranceDocument::query();
             if (!$isAdmin) {
                 $schoolQuery->where('branch_agent_id', $branchAgentId);
             }
-            $statistics['school_student_insurance_documents'] = $schoolQuery->count();
+            $statistics['school_student_insurance_documents'] = $applyCanceledFilter($schoolQuery)->count();
 
             // Cargo Insurance Documents
             $cargoStatQuery = CargoInsuranceDocument::query();
             if (!$isAdmin) {
                 $cargoStatQuery->where('branch_agent_id', $branchAgentId);
             }
-            $statistics['cargo_insurance_documents'] = $cargoStatQuery->count();
+            $statistics['cargo_insurance_documents'] = $applyCanceledFilter($cargoStatQuery)->count();
 
             // Cash In Transit Insurance Documents
             $cashStatQuery = CashInTransitInsuranceDocument::query();
             if (!$isAdmin) {
                 $cashStatQuery->where('branch_agent_id', $branchAgentId);
             }
-            $statistics['cash_in_transit_insurance_documents'] = $cashStatQuery->count();
+            $statistics['cash_in_transit_insurance_documents'] = $applyCanceledFilter($cashStatQuery)->count();
 
             return response()->json($statistics);
         } catch (\Exception $e) {
@@ -2540,6 +2558,11 @@ class BranchAgentController extends Controller
             };
 
             $applyDateFilter = function ($query, $column = 'issue_date') use ($type, $year, $month, $fromDate, $toDate) {
+                $query->where(function ($q) {
+                    $q->whereNull('is_canceled')
+                      ->orWhere('is_canceled', 0)
+                      ->orWhere('is_canceled', false);
+                });
                 if ($type === 'range' && $fromDate && $toDate) {
                     return $query->whereDate($column, '>=', $fromDate)
                         ->whereDate($column, '<=', $toDate);
@@ -3074,6 +3097,11 @@ class BranchAgentController extends Controller
             $toDate = $request->get('to_date');
 
             $applyDateFilter = function ($query, $column = 'issue_date') use ($type, $year, $month, $fromDate, $toDate) {
+                $query->where(function ($q) {
+                    $q->whereNull('is_canceled')
+                      ->orWhere('is_canceled', 0)
+                      ->orWhere('is_canceled', false);
+                });
                 if ($type === 'range' && $fromDate && $toDate) {
                     return $query->whereDate($column, '>=', $fromDate)
                         ->whereDate($column, '<=', $toDate);

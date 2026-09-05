@@ -110,4 +110,22 @@ class BranchAgent extends Model
     {
         return $this->belongsTo(BranchAgent::class, 'referred_by_id');
     }
+
+    protected static function booted()
+    {
+        static::saved(function () {
+            self::clearAgentsCache();
+        });
+        static::deleted(function () {
+            self::clearAgentsCache();
+        });
+    }
+
+    public static function clearAgentsCache()
+    {
+        \Illuminate\Support\Facades\Cache::forget('branches_agents_index_light_all');
+        \Illuminate\Support\Facades\Cache::forget('branches_agents_index_light_نشط');
+        \Illuminate\Support\Facades\Cache::forget('branches_agents_index_full_all');
+        \Illuminate\Support\Facades\Cache::forget('branches_agents_index_full_نشط');
+    }
 }

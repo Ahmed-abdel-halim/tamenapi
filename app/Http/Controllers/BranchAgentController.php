@@ -23,6 +23,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\View;
+use Illuminate\Support\Facades\Cache;
 use App\Helpers\AgentPercentageHelper;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use App\Notifications\SystemNotification;
@@ -35,21 +36,38 @@ class BranchAgentController extends Controller
     public function index(Request $request)
     {
         try {
-            $query = BranchAgent::query();
+            $isLight = $request->boolean('light');
+            $status = $request->input('status');
 
-            if ($request->has('status')) {
-                $query->where('status', $request->status);
-            }
+            $cacheKey = 'branches_agents_index_' . ($isLight ? 'light_' : 'full_') . ($status ?? 'all');
 
-            if ($request->boolean('light')) {
-                $branchesAgents = $query->select('id', 'code', 'agency_name', 'agent_name', 'status', 'user_id')
-                    ->orderBy('created_at', 'desc')
-                    ->get();
-            } else {
-                $branchesAgents = $query->with('user:id,username,name,is_blocked,eidc_username,eidc_password')
-                    ->orderBy('created_at', 'desc')
-                    ->get();
-            }
+            $branchesAgents = Cache::remember($cacheKey, 120, function () use ($isLight, $status) {
+                $query = BranchAgent::query();
+
+                if ($status) {
+                    $query->where('status', $status);
+                }
+
+                if ($isLight) {
+                    return $query->select('id', 'code', 'agency_name', 'agent_name', 'status', 'user_id', 'city', 'phone')
+                        ->orderBy('agency_name', 'asc')
+                        ->get();
+                } else {
+                    $listColumns = [
+                        'id', 'type', 'code', 'agency_name', 'agent_name', 'activity', 'agency_number', 
+                        'stamp_number', 'contract_date', 'renewal_date', 'contract_end_date', 'contract_duration', 
+                        'city', 'address', 'phone', 'nationality', 'national_id', 'identity_number', 
+                        'consumed_custodies', 'fixed_custodies', 'personal_photo', 'user_id', 'notes', 
+                        'is_audited', 'status', 'show_on_landing', 'points_balance', 'wallet_balance', 
+                        'referral_code', 'referred_by_id', 'authorized_documents', 'created_at', 'updated_at', 
+                        'office_facade_photo', 'office_phone', 'office_location'
+                    ];
+                    return $query->select($listColumns)
+                        ->with('user:id,username,name,is_blocked,eidc_username,eidc_password')
+                        ->orderBy('created_at', 'desc')
+                        ->get();
+                }
+            });
             
             return response()->json($branchesAgents);
         } catch (\Exception $e) {

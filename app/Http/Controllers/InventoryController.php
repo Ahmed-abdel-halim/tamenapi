@@ -235,8 +235,22 @@ class InventoryController extends Controller
         ]);
 
         $item = StoreItem::findOrFail($validated['item_id']);
-        if (!empty($validated['inventory_type']) && ($item->inventory_type ?? 'consumable') !== $validated['inventory_type']) {
-            return response()->json(['message' => 'نوع الصنف لا يطابق نوع المخزون المحدد'], 422);
+        if (!empty($validated['inventory_type'])) {
+            $itemType = $item->inventory_type ?? 'consumable';
+            $reqType = $validated['inventory_type'];
+
+            $normalize = function($t) {
+                $lower = mb_strtolower(trim($t));
+                if ($lower === 'fixed' || str_contains($lower, 'ثابت')) return 'fixed';
+                if ($lower === 'consumable' || str_contains($lower, 'مستهلك')) return 'consumable';
+                if ($lower === 'digital' || str_contains($lower, 'رقمي')) return 'digital';
+                if ($lower === 'administrative' || str_contains($lower, 'اداري') || str_contains($lower, 'إداري')) return 'administrative';
+                return $lower;
+            };
+
+            if ($itemType !== $reqType && $normalize($itemType) !== $normalize($reqType)) {
+                return response()->json(['message' => 'نوع الصنف لا يطابق نوع المخزون المحدد'], 422);
+            }
         }
 
         DB::beginTransaction();

@@ -570,15 +570,25 @@
         <div class="section" style="margin-top: 4px;">
             <table class="two-column-table" style="width: 100%; border-collapse: collapse; margin-bottom: 6px;">
                 <tr style="vertical-align:top;">
-                    <td colspan="15" style="width:100%;height:auto;line-height:1.45;direction:rtl;text-align:justify;vertical-align:top;font-size:7.5px;font-weight:normal;padding:6px 8px;border:1px solid #000;background:#ffffff;white-space:pre-wrap;color:#000;">
-                        @if(isset($customInsuranceCond) && $customInsuranceCond && !empty(trim($customInsuranceCond->conditions)))
-                            {!! nl2br(e($customInsuranceCond->conditions)) !!}
-                        @else
-                            بيانات هامة : هذا التأمين يستثني العديد من المخاطر والأمراض المتعلقة بالصحة وكذلك لا يغطي أي مرض سابق لصدور هذه البوليسة .
-                            ((من أجل ضمان أن يكون هذا التأمين يرضي الاحتياجات الخاصة بك)). يجب أن تكون في تاريخ سريان هذا التأمين قادر على الالتزام بما يلي :
-                            ألا تكون بانتظار إجراء عملية جراحية أو فحص بعد العملية أو أي فحوصات أو اختبارات أو نتائج اختبارات طبية , أو أي علاج في المستشفى أو تشخيص (عدا فحوص منتظمة في مستشفى كمريض مقيم لحالة مستقرة حيث لم يتغير فيها الدواء والجرعة في أخر 12 شهر).
-                            لم يتلقى أي علاج لأي من الإجراءات التالية: السكتة الدماغية * أي شكل من أشكال السرطان * أو سرطان الدم أو ورم * أو عملية زرع * أو أي مشكلة في القلب أو الشرايين * أو الفشل الكلوي.
-                        @endif
+                    <td colspan="15" style="width:100%;height:auto;padding:0;border:none;background:#ffffff;">
+                        @php
+                            $isVisitor = str_contains($document->insurance_type, 'زائرين');
+                            $imgName = $isVisitor ? '00.png' : '1111.jpg';
+                            $mime = $isVisitor ? 'image/png' : 'image/jpeg';
+                            $imagePath = public_path('img/' . $imgName);
+                            if (!file_exists($imagePath)) {
+                                $frontendPath = base_path('../frontend/public/img/' . $imgName);
+                                if (file_exists($frontendPath)) {
+                                    $imagePath = $frontendPath;
+                                }
+                            }
+                            $imageData = '';
+                            if (file_exists($imagePath)) {
+                                $imageData = 'data:' . $mime . ';base64,' . base64_encode(file_get_contents($imagePath));
+                            }
+                            $fallbackUrl = asset('img/' . $imgName);
+                        @endphp
+                        <img src="{{ !empty($imageData) ? $imageData : $fallbackUrl }}" alt="شروط عامة وجدول المزايا" style="width: 100%; height: auto; max-width: 100%; display: block;" onerror="this.style.display='none';" />
                     </td>
                 </tr>
             </table>

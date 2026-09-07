@@ -35,6 +35,10 @@ class DebtReportController extends Controller
                 return response()->json([]);
             }
             
+            $now = new \DateTime();
+            $currentYear = (int)$now->format('Y');
+            $currentMonth = (int)$now->format('m');
+
             $agentReport = [];
             foreach ($agents as $agent) {
                 $percentages = $agent->document_percentages ?? [];
@@ -48,6 +52,8 @@ class DebtReportController extends Controller
                     'percentages' => $percentages,
                     'total_sales' => 0.0,
                     'total_commissions' => 0.0,
+                    'current_month_sales' => 0.0,
+                    'current_month_commissions' => 0.0,
                     'total_paid' => 0.0,
                     'last_payment_date' => 'لا يوجد',
                 ];
@@ -102,9 +108,22 @@ class DebtReportController extends Controller
                             $typeName = $this->mapTableToTypeName($table, $doc);
                             $docDate = $doc->issue_date ?? $doc->start_date ?? $doc->created_at ?? null;
                             $rate = AgentPercentageHelper::resolvePercentage($agentReport[$agentId]['percentages'], $typeName, $docDate);
+                            $commVal = ($premiumVal * ($rate / 100));
 
                             $agentReport[$agentId]['total_sales'] += $totalVal;
-                            $agentReport[$agentId]['total_commissions'] += ($premiumVal * ($rate / 100));
+                            $agentReport[$agentId]['total_commissions'] += $commVal;
+
+                            $isCurrentMonth = false;
+                            if ($docDate) {
+                                $time = strtotime($docDate);
+                                if ($time !== false) {
+                                    $isCurrentMonth = ((int)date('Y', $time) === $currentYear && (int)date('n', $time) === $currentMonth);
+                                }
+                            }
+                            if ($isCurrentMonth) {
+                                $agentReport[$agentId]['current_month_sales'] += $totalVal;
+                                $agentReport[$agentId]['current_month_commissions'] += $commVal;
+                            }
                         }
                     }
                 } catch (\Throwable $te) {
@@ -137,10 +156,19 @@ class DebtReportController extends Controller
                 $companyShare = $data['total_sales'] - $data['total_commissions'];
                 $outstandingDebt = $companyShare - $data['total_paid'];
 
-                if ($outstandingDebt > 0) {
+                if ($outstandingDebt > 0.01) {
+                    $currentMonthShare = max(0, $data['current_month_sales'] - $data['current_month_commissions']);
+                    $pastShare = max(0, $companyShare - $currentMonthShare);
+
+                    $pastOverdue = max(0, $pastShare - $data['total_paid']);
+                    $currentMonthDebt = max(0, $outstandingDebt - $pastOverdue);
+
                     $status = 'normal';
-                    if ($outstandingDebt > 10000) $status = 'critical';
-                    else if ($outstandingDebt > 5000) $status = 'warning';
+                    if ($pastOverdue > 10000) {
+                        $status = 'critical';
+                    } else if ($pastOverdue > 0.01) {
+                        $status = 'warning';
+                    }
 
                     $report[] = [
                         'id' => $data['id'],
@@ -151,9 +179,11 @@ class DebtReportController extends Controller
                         'company_share' => (float)round($companyShare, 2),
                         'total_paid' => (float)round($data['total_paid'], 2),
                         'total_debt' => (float)round($outstandingDebt, 2),
+                        'past_overdue_debt' => (float)round($pastOverdue, 2),
+                        'current_month_debt' => (float)round($currentMonthDebt, 2),
                         'last_payment_date' => $data['last_payment_date'],
                         'status' => $status,
-                        'notes' => $outstandingDebt > 10000 ? 'يتطلب إجراء فوري' : 'متابعة دورية'
+                        'notes' => $pastOverdue > 10000 ? 'يتطلب إجراء فوري' : ($pastOverdue > 0.01 ? 'متأخرات سابقة قيد المتابعة' : 'إنتاج الشهر الحالي جاري')
                     ];
                 }
             }

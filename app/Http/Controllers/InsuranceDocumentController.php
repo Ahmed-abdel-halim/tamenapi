@@ -676,10 +676,13 @@ class InsuranceDocumentController extends Controller
                 'previous_driving_license_number' => $document->driving_license_number,
             ];
 
+            $newPlateId = ($isMandatoryInsurance || $isThirdPartyInsurance) ? ($validated['plate_id'] ?? null) : $document->plate_id;
+            $newPlateManual = array_key_exists('plate_number_manual', $validated) ? $validated['plate_number_manual'] : $document->plate_number_manual;
+
             // تحديث البيانات القابلة للتعديل فقط
             $document->update([
-                'plate_id' => ($isMandatoryInsurance || $isThirdPartyInsurance) ? ($validated['plate_id'] ?? null) : $document->plate_id,
-                'plate_number_manual' => $validated['plate_number_manual'] ?? $document->plate_number_manual,
+                'plate_id' => $newPlateId,
+                'plate_number_manual' => $newPlateManual,
                 'insured_name' => $validated['insured_name'],
                 'phone' => $validated['phone'] ?? null,
                 'driving_license_number' => $validated['driving_license_number'] ?? null,
@@ -693,8 +696,8 @@ class InsuranceDocumentController extends Controller
                 'previous_insured_name' => $previousData['previous_insured_name'],
                 'previous_phone' => $previousData['previous_phone'],
                 'previous_driving_license_number' => $previousData['previous_driving_license_number'],
-                'new_plate_id' => ($isMandatoryInsurance || $isThirdPartyInsurance) ? ($validated['plate_id'] ?? null) : $document->plate_id,
-                'new_plate_number_manual' => $validated['plate_number_manual'] ?? $document->plate_number_manual,
+                'new_plate_id' => $newPlateId,
+                'new_plate_number_manual' => $newPlateManual,
                 'new_insured_name' => $validated['insured_name'],
                 'new_phone' => $validated['phone'] ?? null,
                 'new_driving_license_number' => $validated['driving_license_number'] ?? null,

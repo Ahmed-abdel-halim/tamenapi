@@ -278,6 +278,7 @@ Route::delete('/professions/{id}', [ProfessionController::class, 'destroy']);
 
 use App\Http\Controllers\DocumentRequestController;
 Route::get('/document-requests/pending-count', [DocumentRequestController::class, 'pendingCount']);
+Route::get('/document-requests/{id}/print-cancellation', [DocumentRequestController::class, 'printCancellationNotice']);
 Route::apiResource('document-requests', DocumentRequestController::class);
 
 Route::apiResource('personal-accident-insurance-documents', PersonalAccidentInsuranceDocumentController::class)->parameters([

@@ -393,7 +393,7 @@ Route::prefix('inventory')->group(function () {
     Route::post('/return-custody/{id}', [InventoryController::class, 'returnCustody']);
 });
 
-// â”€â”€â”€ Treasury Routes (ط§ظ„ط®ط²ظ†ط©) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ——— Treasury Routes (الخزنة) —————————————————————————————————————————————————
 Route::get('/treasury', [\App\Http\Controllers\TreasuryController::class, 'index']);
 Route::post('/treasury', [\App\Http\Controllers\TreasuryController::class, 'store']);
 Route::get('/treasury/balance', [\App\Http\Controllers\TreasuryController::class, 'balance']);
@@ -409,6 +409,10 @@ Route::put('/pos-machines/{id}', [\App\Http\Controllers\PosMachineController::cl
 Route::delete('/pos-machines/{id}', [\App\Http\Controllers\PosMachineController::class, 'destroy']);
 Route::post('/pos-machines/{id}/toggle-active', [\App\Http\Controllers\PosMachineController::class, 'toggleActive']);
 Route::get('/pos-machines/dashboard', [\App\Http\Controllers\PosMachineController::class, 'dashboard']);
+// ─── POS Custody Lifecycle (عهدة الأجهزة) ────────────────────────────────────────
+Route::post('/pos-machines/{id}/handover', [\App\Http\Controllers\PosMachineController::class, 'handover']);
+Route::post('/pos-machines/{id}/return-custody', [\App\Http\Controllers\PosMachineController::class, 'returnCustody']);
+Route::get('/pos-machines/{id}/custody-history', [\App\Http\Controllers\PosMachineController::class, 'custodyHistory']);
 
 // â”€â”€â”€ POS Transactions Routes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 Route::get('/pos-transactions', [\App\Http\Controllers\PosMachineController::class, 'transactions']);

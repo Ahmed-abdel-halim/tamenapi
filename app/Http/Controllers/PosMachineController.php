@@ -3,9 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Models\PosMachine;
+use App\Models\PosCustodyMovement;
 use App\Models\PosTransaction;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 
 class PosMachineController extends Controller
@@ -446,6 +448,169 @@ class PosMachineController extends Controller
             'machine_stats'    => $machineStats,
             'grand_total'      => (float) $grandTotal,
             'month_grand_total'=> (float) $monthGrandTotal,
+        ]);
+    }
+
+    // ─── عهدة الماكينات (Custody Lifecycle) ────────────────────────────────────
+
+    /**
+     * POST /api/pos-machines/{id}/handover
+     * تسليم عهدة الجهاز لوكيل مع إنشاء محضر تسليم رسمي
+     */
+    public function handover(Request $request, $id)
+    {
+        if (!$this->hasPosAccess()) {
+            return response()->json(['success' => false, 'message' => 'غير مصرح لك بتسليم عهدة ماكينات POS'], 403);
+        }
+
+        $machine = PosMachine::findOrFail($id);
+
+        if (($machine->custody_status ?? 'available') === 'in_custody') {
+            return response()->json([
+                'success' => false,
+                'message' => 'لا يمكن تسليم هذا الجهاز، فهو بعهدة وكيل حالياً. يجب استرجاعه أولاً.',
+            ], 422);
+        }
+
+        $request->validate([
+            'branch_agent_id' => 'required|exists:branches_agents,id',
+            'movement_date'   => 'required|date',
+            'device_condition'=> 'nullable|string',
+            'accessories'     => 'nullable|array',
+            'received_by_name'=> 'nullable|string',
+            'notes'           => 'nullable|string',
+        ]);
+
+        $user = $this->resolveUser();
+
+        DB::transaction(function () use ($request, $machine, $user) {
+            // إنشاء محضر التسليم
+            $movement = PosCustodyMovement::create([
+                'reference_no'    => PosCustodyMovement::generateReferenceNo('handover'),
+                'pos_machine_id'  => $machine->id,
+                'branch_agent_id' => $request->branch_agent_id,
+                'movement_type'   => 'handover',
+                'movement_date'   => $request->movement_date,
+                'device_condition'=> $request->device_condition ?? 'ممتاز',
+                'accessories'     => $request->accessories ?? [],
+                'financial_clearance' => 'cleared',
+                'received_by_name'=> $request->received_by_name,
+                'notes'           => $request->notes,
+                'processed_by'    => $user?->id,
+                'status'          => 'active',
+            ]);
+
+            // تحديث حالة الماكينة
+            $machine->update([
+                'custody_status'    => 'in_custody',
+                'current_agent_id'  => $request->branch_agent_id,
+                'current_custody_id'=> $movement->id,
+            ]);
+        });
+
+        return response()->json([
+            'success' => true,
+            'message' => 'تم تسليم العهدة للوكيل بنجاح وإنشاء محضر التسليم',
+            'data'    => $machine->fresh()->load(['custodyMovements.agent', 'currentAgent']),
+        ], 201);
+    }
+
+    /**
+     * POST /api/pos-machines/{id}/return-custody
+     * استرجاع عهدة الجهاز للشركة مع إنشاء محضر الإرجاع
+     */
+    public function returnCustody(Request $request, $id)
+    {
+        if (!$this->hasPosAccess()) {
+            return response()->json(['success' => false, 'message' => 'غير مصرح لك باسترجاع عهدة ماكينات POS'], 403);
+        }
+
+        $machine = PosMachine::findOrFail($id);
+
+        if (($machine->custody_status ?? 'available') !== 'in_custody') {
+            return response()->json([
+                'success' => false,
+                'message' => 'هذا الجهاز ليس بعهدة أي وكيل حالياً.',
+            ], 422);
+        }
+
+        $request->validate([
+            'movement_date'       => 'required|date',
+            'device_condition'    => 'nullable|string',
+            'accessories'         => 'nullable|array',
+            'return_reason'       => 'nullable|string',
+            'financial_clearance' => 'nullable|in:cleared,pending_audit,has_deductions',
+            'received_by_name'    => 'nullable|string',
+            'notes'               => 'nullable|string',
+            'new_status'          => 'nullable|in:available,maintenance,damaged',
+        ]);
+
+        $user = $this->resolveUser();
+
+        DB::transaction(function () use ($request, $machine, $user) {
+            // إغلاق محضر التسليم النشط
+            if ($machine->current_custody_id) {
+                PosCustodyMovement::where('id', $machine->current_custody_id)
+                    ->update(['status' => 'closed']);
+            }
+
+            // إنشاء محضر الإرجاع
+            PosCustodyMovement::create([
+                'reference_no'    => PosCustodyMovement::generateReferenceNo('return'),
+                'pos_machine_id'  => $machine->id,
+                'branch_agent_id' => $machine->current_agent_id,
+                'movement_type'   => 'return',
+                'movement_date'   => $request->movement_date,
+                'device_condition'=> $request->device_condition ?? 'ممتاز',
+                'accessories'     => $request->accessories ?? [],
+                'return_reason'   => $request->return_reason,
+                'financial_clearance' => $request->financial_clearance ?? 'cleared',
+                'received_by_name'=> $request->received_by_name,
+                'notes'           => $request->notes,
+                'processed_by'    => $user?->id,
+                'status'          => 'closed',
+            ]);
+
+            // تحديث حالة الماكينة
+            $machine->update([
+                'custody_status'    => $request->new_status ?? 'available',
+                'current_agent_id'  => null,
+                'current_custody_id'=> null,
+            ]);
+        });
+
+        return response()->json([
+            'success' => true,
+            'message' => 'تم استرجاع العهدة للشركة بنجاح وإنشاء محضر الإرجاع',
+            'data'    => $machine->fresh()->load(['custodyMovements.agent', 'currentAgent']),
+        ]);
+    }
+
+    /**
+     * GET /api/pos-machines/{id}/custody-history
+     * جلب السجل التاريخي الكامل لحركة عهدة الجهاز (Timeline)
+     */
+    public function custodyHistory($id)
+    {
+        if (!$this->hasPosAccess()) {
+            return response()->json(['success' => false, 'message' => 'غير مصرح لك'], 403);
+        }
+
+        $machine = PosMachine::with([
+            'currentAgent',
+            'custodyMovements' => function ($q) {
+                $q->with(['agent', 'processor'])
+                  ->orderBy('movement_date', 'asc')
+                  ->orderBy('id', 'asc');
+            },
+        ])->findOrFail($id);
+
+        return response()->json([
+            'success' => true,
+            'data'    => [
+                'machine'          => $machine,
+                'custody_movements'=> $machine->custodyMovements,
+            ],
         ]);
     }
 }

@@ -37,10 +37,10 @@
             width: 100%;
             max-width: 210mm;
             background: #fff;
-            border: 2px solid #374151;
+            border: 1.5px solid #475569;
             padding: 18px;
             position: relative;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.06);
         }
 
         /* Top Header */
@@ -48,7 +48,7 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            border-bottom: 2px solid #1f2937;
+            border-bottom: 2px solid #cbd5e1;
             padding-bottom: 12px;
             margin-bottom: 15px;
         }
@@ -72,19 +72,19 @@
         .company-name {
             font-size: 14px;
             font-weight: 800;
-            color: #1f2937;
+            color: #1e293b;
             margin-bottom: 4px;
         }
 
         .notice-title {
-            font-size: 24px;
+            font-size: 22px;
             font-weight: 900;
             color: #b91c1c;
-            background: #fee2e2;
+            background: #ffffff;
             display: inline-block;
-            padding: 6px 30px;
-            border-radius: 8px;
-            border: 1.5px solid #ef4444;
+            padding: 5px 28px;
+            border-radius: 6px;
+            border: 1.5px solid #dc2626;
             letter-spacing: 0.5px;
         }
 
@@ -99,7 +99,7 @@
         #qrcode {
             display: inline-block;
             padding: 4px;
-            border: 1px solid #d1d5db;
+            border: 1px solid #cbd5e1;
             background: #fff;
             border-radius: 4px;
         }
@@ -109,8 +109,8 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            background: #f3f4f6;
-            border: 1px solid #d1d5db;
+            background: #ffffff;
+            border: 1px solid #cbd5e1;
             border-radius: 6px;
             padding: 8px 14px;
             margin-bottom: 14px;
@@ -118,109 +118,121 @@
         }
 
         .code-badge {
-            font-size: 16px;
+            font-size: 15px;
             font-weight: 900;
             color: #1e3a8a;
             direction: ltr;
             display: inline-block;
-            background: #dbeafe;
+            background: #ffffff;
             padding: 3px 12px;
             border-radius: 6px;
-            border: 1px solid #93c5fd;
+            border: 1.5px solid #2563eb;
         }
 
         .status-badge {
-            padding: 4px 14px;
+            padding: 3px 14px;
             border-radius: 20px;
-            font-size: 12px;
+            font-size: 11.5px;
             font-weight: 800;
+            background: #ffffff;
         }
 
         .status-accepted {
-            background-color: #fee2e2;
-            color: #991b1b;
-            border: 1px solid #f87171;
+            background-color: #ffffff;
+            color: #b91c1c;
+            border: 1.5px solid #dc2626;
         }
 
         .status-pending {
-            background-color: #fef3c7;
-            color: #92400e;
-            border: 1px solid #fcd34d;
+            background-color: #ffffff;
+            color: #b45309;
+            border: 1.5px solid #d97706;
         }
 
         .status-rejected {
-            background-color: #f3f4f6;
-            color: #4b5563;
-            border: 1px solid #d1d5db;
+            background-color: #ffffff;
+            color: #475569;
+            border: 1.5px solid #64748b;
         }
 
-        /* Sections */
+        /* Sections - Economical Clean Design */
         .section {
             margin-bottom: 14px;
         }
 
         .section-header {
-            background: #1e3a8a;
-            color: #ffffff;
+            background: #f8fafc;
+            color: #1e3a8a;
             font-weight: 800;
-            padding: 6px 10px;
+            padding: 6px 12px;
             font-size: 12px;
+            border-top: 1px solid #cbd5e1;
+            border-left: 1px solid #cbd5e1;
+            border-right: 4px solid #1e3a8a;
+            border-bottom: 1px solid #cbd5e1;
             border-radius: 4px 4px 0 0;
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
 
+        .section-header.section-header-admin {
+            border-right-color: #475569;
+            color: #1e293b;
+        }
+
         .data-table {
             width: 100%;
             border-collapse: collapse;
-            border: 1px solid #d1d5db;
+            border: 1px solid #cbd5e1;
         }
 
         .data-table td {
             padding: 7px 10px;
-            border: 1px solid #e5e7eb;
+            border: 1px solid #e2e8f0;
             font-size: 11px;
         }
 
         .data-table td.label {
             font-weight: 800;
-            background-color: #f9fafb;
-            color: #374151;
+            background-color: #f8fafc;
+            color: #334155;
             width: 20%;
         }
 
         .data-table td.val {
             font-weight: 600;
-            color: #111827;
+            color: #0f172a;
+            background-color: #ffffff;
             width: 30%;
         }
 
         /* Legal Box */
         .legal-box {
-            background: #fffbeb;
-            border: 1.5px solid #f59e0b;
-            border-radius: 6px;
-            padding: 10px 14px;
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-right: 4px solid #d97706;
+            border-radius: 4px;
+            padding: 9px 12px;
             margin-bottom: 14px;
         }
 
         .legal-box-title {
-            color: #92400e;
+            color: #b45309;
             font-weight: 900;
-            font-size: 12px;
+            font-size: 11.5px;
             display: flex;
             align-items: center;
             gap: 6px;
-            margin-bottom: 5px;
+            margin-bottom: 4px;
         }
 
         .legal-box-content {
-            color: #78350f;
+            color: #334155;
             font-size: 10.5px;
             line-height: 1.5;
             text-align: justify;
-            font-weight: 600;
+            font-weight: 500;
         }
 
         /* Signatures */
@@ -229,23 +241,23 @@
             grid-template-columns: 1fr 1fr 1fr;
             gap: 12px;
             margin-top: 15px;
-            border-top: 1.5px dashed #9ca3af;
+            border-top: 1.5px dashed #cbd5e1;
             padding-top: 12px;
         }
 
         .signature-card {
-            border: 1px solid #e5e7eb;
+            border: 1px solid #e2e8f0;
             border-radius: 6px;
             padding: 10px;
             text-align: center;
-            background: #fbfbfb;
+            background: #ffffff;
         }
 
         .signature-card-title {
             font-weight: 800;
             font-size: 11px;
-            color: #1f2937;
-            border-bottom: 1px solid #e5e7eb;
+            color: #1e293b;
+            border-bottom: 1px solid #e2e8f0;
             padding-bottom: 4px;
             margin-bottom: 8px;
         }
@@ -265,8 +277,8 @@
             margin-top: 12px;
             text-align: center;
             font-size: 9.5px;
-            color: #6b7280;
-            border-top: 1px solid #f3f4f6;
+            color: #64748b;
+            border-top: 1px solid #e2e8f0;
             padding-top: 6px;
         }
 
@@ -298,8 +310,18 @@
             }
             .notice-container {
                 box-shadow: none;
-                border: 2px solid #000;
+                border: 1.5px solid #000;
                 padding: 12px;
+            }
+            .section-header {
+                background: #f8fafc !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+            .data-table td.label {
+                background-color: #f8fafc !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
             }
             .no-print-bar {
                 display: none !important;
@@ -438,7 +460,7 @@
         <!-- Management Review (if reviewed) -->
         @if($request->reviewed_at || $request->status !== 'pending')
         <div class="section">
-            <div class="section-header" style="background: #374151;">
+            <div class="section-header section-header-admin">
                 <span>4. قرار إدارة العمليات والاعتماد</span>
                 <span>Management Action</span>
             </div>

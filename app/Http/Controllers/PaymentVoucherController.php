@@ -106,9 +106,61 @@ class PaymentVoucherController extends Controller
                 ->where('payment_voucher_id', $voucher->id)
                 ->update(['payment_voucher_id' => null]);
 
+            $extra = is_array($voucher->extra_details) 
+                ? $voucher->extra_details 
+                : (json_decode($voucher->extra_details ?? '[]', true) ?: []);
+
+            // 1. If this was a monthly account closure payment, adjust the closure's paid_amount
+            if (isset($extra['type']) && $extra['type'] === 'monthly_account_closure') {
+                $closure = null;
+                if (!empty($extra['closure_id'])) {
+                    $closure = \App\Models\MonthlyAccountClosure::find($extra['closure_id']);
+                }
+                if (!$closure && !empty($extra['year']) && !empty($extra['month']) && $voucher->branch_agent_id) {
+                    $closure = \App\Models\MonthlyAccountClosure::where('branch_agent_id', $voucher->branch_agent_id)
+                        ->where('year', $extra['year'])
+                        ->where('month', $extra['month'])
+                        ->first();
+                }
+
+                if ($closure) {
+                    $closure->paid_amount = max(0, round((float)$closure->paid_amount - (float)$voucher->amount, 2));
+                    $closure->remaining_amount = max(0, round((float)$closure->due_amount - (float)$closure->paid_amount, 2));
+                    $closure->save();
+                }
+            }
+
+            // 2. If there was a linked POS transaction, delete it and its file
+            if (!empty($extra['pos_transaction_id'])) {
+                $posTxn = \App\Models\PosTransaction::find($extra['pos_transaction_id']);
+                if ($posTxn) {
+                    if ($posTxn->report_file) {
+                        \Illuminate\Support\Facades\Storage::disk('public')->delete($posTxn->report_file);
+                    }
+                    $posTxn->delete();
+                }
+            }
+
+            // 3. Delete any stored report/receipt file
+            if (!empty($extra['report_file'])) {
+                \Illuminate\Support\Facades\Storage::disk('public')->delete($extra['report_file']);
+            }
+
+            // 4. Remove associated Treasury Transaction
+            if (!empty($voucher->voucher_number)) {
+                \App\Models\TreasuryTransaction::where('reference_number', $voucher->voucher_number)
+                    ->orWhere(function($q) use ($voucher) {
+                        if ($voucher->reference_number) {
+                            $q->where('reference_number', $voucher->reference_number)
+                              ->where('branch_agent_id', $voucher->branch_agent_id);
+                        }
+                    })
+                    ->delete();
+            }
+
             $voucher->delete();
 
-            return response()->json(['message' => 'تم حذف الإيصال بنجاح']);
+            return response()->json(['message' => 'تم حذف الإيصال وتحديث الرصيد بنجاح']);
         } catch (\Exception $e) {
             return response()->json([
                 'message' => 'حدث خطأ أثناء الحذف: ' . $e->getMessage()

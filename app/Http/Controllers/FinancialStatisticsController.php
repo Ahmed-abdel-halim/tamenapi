@@ -788,18 +788,21 @@ class FinancialStatisticsController extends Controller
     {
         try {
             $validated = $request->validate([
-                'branch_agent_id' => 'required|integer|exists:branches_agents,id',
-                'year'            => 'required|integer',
-                'month'           => 'required|integer|min:1|max:12',
-                'paid_amount'     => 'required|numeric|min:0',
-                'due_amount'      => 'required|numeric|min:0',
-                'payment_amount'  => 'nullable|numeric|min:0',
-                'payment_method'  => 'nullable|string|max:100',
-                'bank_name'       => 'nullable|string|max:150',
-                'reference_number'=> 'nullable|string|max:150',
-                'payment_date'    => 'nullable|date',
-                'voucher_number'  => 'nullable|string|max:100',
-                'notes'           => 'nullable|string|max:500',
+                'branch_agent_id'    => 'required|integer|exists:branches_agents,id',
+                'year'               => 'required|integer',
+                'month'              => 'required|integer|min:1|max:12',
+                'paid_amount'        => 'required|numeric|min:0',
+                'due_amount'         => 'required|numeric|min:0',
+                'payment_amount'     => 'nullable|numeric|min:0',
+                'payment_method'     => 'nullable|string|max:100',
+                'bank_name'          => 'nullable|string|max:150',
+                'reference_number'   => 'nullable|string|max:150',
+                'payment_date'       => 'nullable|date',
+                'voucher_number'     => 'nullable|string|max:100',
+                'notes'              => 'nullable|string|max:500',
+                'pos_machine_id'     => 'nullable|integer|exists:pos_machines,id',
+                'transactions_count' => 'nullable|integer|min:1',
+                'report_file'        => 'nullable|file|mimes:pdf,xlsx,xls,csv,jpg,jpeg,png,webp|max:20480',
             ]);
 
             $fromDate = \Carbon\Carbon::create($validated['year'], $validated['month'], 1)->format('Y-m-d');
@@ -866,6 +869,7 @@ class FinancialStatisticsController extends Controller
                 : round((float)$validated['paid_amount'] - $previousPaidAmount, 2);
 
             $paymentVoucher = null;
+            $posTransaction = null;
             if ($newPaymentAmount > 0) {
                 try {
                     $agent = \App\Models\BranchAgent::find($validated['branch_agent_id']);
@@ -888,6 +892,35 @@ class FinancialStatisticsController extends Controller
                     $bankName = $validated['bank_name'] ?? null;
                     $refNumber = $validated['reference_number'] ?? null;
 
+                    // Handle file upload if provided
+                    $filePath = null;
+                    if ($request->hasFile('report_file')) {
+                        $filePath = $request->file('report_file')->store('pos_reports', 'public');
+                    }
+
+                    // Handle POS Transaction settlement creation if POS machine is specified
+                    $posMachine = null;
+                    if (!empty($validated['pos_machine_id']) && \Illuminate\Support\Facades\Schema::hasTable('pos_transactions')) {
+                        $posMachine = \App\Models\PosMachine::find($validated['pos_machine_id']);
+                        if ($posMachine && empty($bankName)) {
+                            $bankName = $posMachine->bank_name;
+                        }
+
+                        $txnCount = !empty($request->input('transactions_count')) ? (int)$request->input('transactions_count') : 1;
+                        $posTransaction = \App\Models\PosTransaction::create([
+                            'pos_machine_id'     => $validated['pos_machine_id'],
+                            'transaction_date'   => $paymentDate,
+                            'amount'             => $newPaymentAmount,
+                            'transactions_count' => $txnCount,
+                            'reference_number'   => $refNumber,
+                            'report_file'        => $filePath,
+                            'is_reconciled'      => false,
+                            'notes'              => !empty($validated['notes']) 
+                                ? $validated['notes'] 
+                                : "تسديد دفعة كشف حساب شهري ({$monthLabel}) - وكيل: {$agencyName}",
+                        ]);
+                    }
+
                     // 1. Create Single Payment Voucher (إيصال قبض مالي موحد في إدارة الإيرادات)
                     if (\Illuminate\Support\Facades\Schema::hasTable('payment_vouchers')) {
                         $paymentVoucher = \App\Models\PaymentVoucher::create([
@@ -900,21 +933,29 @@ class FinancialStatisticsController extends Controller
                             'payment_date'     => $paymentDate,
                             'notes'            => mb_substr($voucherNotes, 0, 490),
                             'extra_details'    => [
-                                'type'       => 'monthly_account_closure',
-                                'year'       => $validated['year'],
-                                'month'      => $validated['month'],
-                                'closure_id' => $closure->id,
+                                'type'               => 'monthly_account_closure',
+                                'year'               => $validated['year'],
+                                'month'              => $validated['month'],
+                                'closure_id'         => $closure->id,
+                                'pos_machine_id'     => $validated['pos_machine_id'] ?? null,
+                                'pos_machine_name'   => $posMachine?->machine_name ?? null,
+                                'pos_transaction_id' => $posTransaction?->id ?? null,
+                                'report_file'        => $filePath ?? null,
                             ]
                         ]);
                     }
 
                     // 2. Create Treasury Transaction (معاملة مقبوضات واحدة في خزينة الإيرادات)
                     if (\Illuminate\Support\Facades\Schema::hasTable('treasury_transactions')) {
+                        $desc = "تسديد كشف حساب شهري - {$agencyName} - شهر {$monthLabel}";
+                        if ($posMachine) {
+                            $desc .= " (POS: {$posMachine->machine_name})";
+                        }
                         \App\Models\TreasuryTransaction::create([
                             'transaction_date' => $paymentDate,
                             'type'             => 'income',
                             'amount'           => $newPaymentAmount,
-                            'description'      => mb_substr("تسديد كشف حساب شهري - {$agencyName} - شهر {$monthLabel}", 0, 190),
+                            'description'      => mb_substr($desc, 0, 190),
                             'source'           => mb_substr($agencyName, 0, 190),
                             'reference_number' => $refNumber ?: $voucherNumber,
                             'branch_agent_id'  => $validated['branch_agent_id'],
@@ -929,9 +970,10 @@ class FinancialStatisticsController extends Controller
 
             return response()->json([
                 'success'         => true,
-                'message'         => 'تم تسجيل الدفعة وإنشاء إيصال القبض في إدارة الإيرادات والخزينة بنجاح',
+                'message'         => 'تم تسجيل الدفعة وإنشاء إيصال القبض في إدارة الإيرادات والخزينة بنجاح' . ($posTransaction ? ' وتسجيل تسوية مبيعات POS' : ''),
                 'closure'         => $closure,
                 'payment_voucher' => $paymentVoucher,
+                'pos_transaction' => $posTransaction,
             ]);
         } catch (\Exception $e) {
             \Illuminate\Support\Facades\Log::error('Error updating monthly payment: ' . $e->getMessage());
@@ -1006,6 +1048,19 @@ class FinancialStatisticsController extends Controller
 
             $voucherNumbers = [];
             foreach ($vouchers as $v) {
+                $extra = is_array($v->extra_details) ? $v->extra_details : (json_decode($v->extra_details ?? '[]', true) ?: []);
+                if (!empty($extra['pos_transaction_id'])) {
+                    $posTxn = \App\Models\PosTransaction::find($extra['pos_transaction_id']);
+                    if ($posTxn) {
+                        if ($posTxn->report_file) {
+                            \Illuminate\Support\Facades\Storage::disk('public')->delete($posTxn->report_file);
+                        }
+                        $posTxn->delete();
+                    }
+                }
+                if (!empty($extra['report_file'])) {
+                    \Illuminate\Support\Facades\Storage::disk('public')->delete($extra['report_file']);
+                }
                 if (!empty($v->voucher_number)) {
                     $voucherNumbers[] = $v->voucher_number;
                 }

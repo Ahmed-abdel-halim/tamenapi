@@ -76,7 +76,7 @@ class PosMachineController extends Controller
 
     // ─── ماكينات POS ────────────────────────────────────────────────────────────
 
-    public function index()
+    public function index(Request $request)
     {
         if (!$this->hasPosAccess()) {
             return response()->json(['success' => false, 'message' => 'غير مصرح لك بالوصول إلى هذه الصفحة'], 403);
@@ -90,8 +90,17 @@ class PosMachineController extends Controller
             ->orderBy('machine_name');
 
         if ($branchAgentId) {
-            $query->whereHas('branchAgents', function ($q) use ($branchAgentId) {
-                $q->where('branches_agents.id', $branchAgentId);
+            $query->where(function($q) use ($branchAgentId) {
+                $q->whereHas('branchAgents', function ($sub) use ($branchAgentId) {
+                    $sub->where('branches_agents.id', $branchAgentId);
+                })->orWhere('current_agent_id', $branchAgentId);
+            });
+        } elseif ($request->filled('branch_agent_id') && $request->boolean('only_agent')) {
+            $agentId = (int)$request->branch_agent_id;
+            $query->where(function($q) use ($agentId) {
+                $q->whereHas('branchAgents', function ($sub) use ($agentId) {
+                    $sub->where('branches_agents.id', $agentId);
+                })->orWhere('current_agent_id', $agentId);
             });
         }
 
@@ -261,7 +270,7 @@ class PosMachineController extends Controller
             'transactions_count' => 'nullable|integer|min:1',
             'reference_number'   => 'nullable|string',
             'notes'              => 'nullable|string',
-            'report_file'        => 'nullable|file|mimes:pdf,xlsx,xls,csv|max:20480',
+            'report_file'        => 'nullable|file|mimes:pdf,xlsx,xls,csv,jpg,jpeg,png,webp|max:20480',
         ]);
 
         if ($branchAgentId) {
@@ -313,6 +322,7 @@ class PosMachineController extends Controller
             'pos_machine_id'   => 'required|exists:pos_machines,id',
             'transaction_date' => 'required|date',
             'amount'           => 'required|numeric|min:0.01',
+            'report_file'      => 'nullable|file|mimes:pdf,xlsx,xls,csv,jpg,jpeg,png,webp|max:20480',
         ]);
 
         if ($branchAgentId) {

@@ -87,6 +87,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/users/{user}/eidc-credentials', [UserController::class, 'updateEidcCredentials']);
     Route::put('/users/{user}/lifo-credentials', [UserController::class, 'updateLifoCredentials']);
     Route::post('/users/{id}/toggle-landing', [UserController::class, 'toggleShowOnLanding']);
+    Route::post('/users/{user}/toggle-block', [UserController::class, 'toggleBlock']);
     Route::get('/users/{user}/salary-history', [UserController::class, 'salaryHistory']);
     Route::apiResource('employee-requests', EmployeeRequestController::class);
     Route::apiResource('agent-requests', \App\Http\Controllers\AgentRequestController::class);
@@ -96,6 +97,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/employee-payrolls/employees', [EmployeePayrollController::class, 'employees']);
     Route::get('/employee-payrolls/reports', [EmployeePayrollController::class, 'taxSSReport']);
     Route::get('/employee-payrolls', [EmployeePayrollController::class, 'index']);
+    Route::get('/payrolls', [EmployeePayrollController::class, 'index']);
     Route::post('/employee-payrolls/bulk-pay', [EmployeePayrollController::class, 'bulkPay']);
     Route::post('/employee-payrolls', [EmployeePayrollController::class, 'upsert']);
 

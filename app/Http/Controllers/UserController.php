@@ -246,8 +246,8 @@ class UserController extends Controller
     public function update(Request $request, User $user)
     {
         $validated = $request->validate([
-            'username' => 'required|string|unique:users,username,' . $user->id,
-            'name' => 'required|string',
+            'username' => 'sometimes|required|string|unique:users,username,' . $user->id,
+            'name' => 'sometimes|required|string',
             'email' => 'nullable|email',
             'password' => 'nullable|string|min:6',
             'is_admin' => 'nullable|boolean',
@@ -289,6 +289,7 @@ class UserController extends Controller
             'hourly_leave_deduction' => 'nullable|numeric',
             'daily_leave_deduction' => 'nullable|numeric',
             'is_active' => 'nullable|boolean',
+            'is_blocked' => 'nullable|boolean',
             'show_on_landing' => 'nullable|boolean',
             'tax_percentage' => 'nullable|numeric',
             'social_security_percentage' => 'nullable|numeric',
@@ -321,6 +322,23 @@ class UserController extends Controller
             }
         }
 
+        if ($request->has('is_blocked')) {
+            $validated['is_blocked'] = (bool) $request->is_blocked;
+            if ($validated['is_blocked']) {
+                $validated['is_active'] = false;
+                $user->tokens()->delete();
+            }
+        }
+        if ($request->has('is_active') && !$request->has('is_blocked')) {
+            $validated['is_active'] = (bool) $request->is_active;
+            if (!$validated['is_active']) {
+                $validated['is_blocked'] = true;
+                $user->tokens()->delete();
+            } else {
+                $validated['is_blocked'] = false;
+            }
+        }
+
         $user->update($validated);
 
         if ((string) ($oldSalary ?? '') !== (string) ($user->salary ?? '')) {
@@ -335,6 +353,40 @@ class UserController extends Controller
         }
 
         return response()->json($user);
+    }
+
+    /**
+     * Toggle block/active status for an employee/user.
+     */
+    public function toggleBlock(Request $request, User $user)
+    {
+        try {
+            $isBlocked = $user->is_blocked || $user->is_active === false;
+            $newBlockedState = !$isBlocked;
+
+            $user->is_blocked = $newBlockedState;
+            $user->is_active = !$newBlockedState;
+
+            if ($newBlockedState) {
+                // Invalidate all tokens immediately for blocked user
+                $user->tokens()->delete();
+            }
+
+            $user->save();
+
+            return response()->json([
+                'success' => true,
+                'is_blocked' => (bool) $user->is_blocked,
+                'is_active' => (bool) $user->is_active,
+                'message' => $newBlockedState ? 'تم حظر الموظف وإيقاف حسابه بنجاح' : 'تم إلغاء حظر الموظف وتنشيط حسابه بنجاح',
+                'user' => $user,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'حدث خطأ أثناء تحديث حالة الحظر',
+                'error' => config('app.debug') ? $e->getMessage() : 'خطأ غير معروف'
+            ], 500);
+        }
     }
 
     public function salaryHistory(User $user)

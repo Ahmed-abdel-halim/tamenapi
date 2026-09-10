@@ -19,9 +19,11 @@ class EmployeePayrollController extends Controller
             'from_date' => 'nullable|date',
             'to_date' => 'nullable|date',
             'user_id' => 'nullable|integer|exists:users,id',
+            'branch_agent_id' => 'nullable|integer',
+            'scope' => 'nullable|string|max:50',
         ]);
 
-        $query = EmployeePayroll::with(['user:id,name,username,email,salary', 'processor:id,name']);
+        $query = EmployeePayroll::with(['user:id,name,username,email,salary,job_title,branch_agent_id', 'processor:id,name']);
 
         if (!empty($validated['year'])) {
             $query->where('year', $validated['year']);
@@ -34,6 +36,20 @@ class EmployeePayrollController extends Controller
         }
         if (!empty($validated['user_id'])) {
             $query->where('user_id', $validated['user_id']);
+        }
+        if (!empty($validated['branch_agent_id'])) {
+            $agentId = (int) $validated['branch_agent_id'];
+            $agent = \App\Models\BranchAgent::find($agentId);
+            $query->whereHas('user', function ($q) use ($agentId, $agent) {
+                $q->where('branch_agent_id', $agentId);
+                if ($agent && $agent->user_id) {
+                    $q->orWhere('id', $agent->user_id);
+                }
+            });
+        } elseif (($validated['scope'] ?? '') === 'hq') {
+            $query->whereHas('user', function ($q) {
+                $q->whereNull('branch_agent_id');
+            });
         }
         if (!empty($validated['from_date']) || !empty($validated['to_date'])) {
             $query->whereHas('user', function ($q) use ($validated) {
@@ -140,13 +156,28 @@ class EmployeePayrollController extends Controller
             ]
         );
 
-        return response()->json($payroll->fresh(['user:id,name,username,email,salary', 'processor:id,name']));
+        return response()->json($payroll->fresh(['user:id,name,username,email,salary,job_title,branch_agent_id', 'processor:id,name']));
     }
 
     public function employees(Request $request)
     {
-        $query = User::whereNull('branch_agent_id')
-            ->where('is_active', true);
+        $query = User::where('is_active', true);
+
+        if ($request->filled('branch_agent_id')) {
+            $agentId = (int) $request->input('branch_agent_id');
+            $agent = \App\Models\BranchAgent::find($agentId);
+            $query->where(function ($q) use ($agentId, $agent) {
+                $q->where('branch_agent_id', $agentId);
+                if ($agent && $agent->user_id) {
+                    $q->orWhere('id', $agent->user_id);
+                }
+            });
+        } elseif ($request->input('scope') === 'all') {
+            // Return all users (HQ + branches)
+        } else {
+            // Default to HQ users for backwards compatibility
+            $query->whereNull('branch_agent_id');
+        }
 
         if ($request->filled('year') && $request->filled('month')) {
             $year = (int) $request->input('year');
@@ -167,7 +198,7 @@ class EmployeePayrollController extends Controller
                 'id', 'name', 'username', 'email', 'salary', 'is_admin', 
                 'tax_percentage', 'social_security_percentage', 'apply_tax', 'apply_social_security',
                 'housing_allowance', 'transportation_allowance', 'communication_allowance', 'fixed_bonuses', 'fixed_fines',
-                'start_date', 'end_date', 'branch_agent_id'
+                'start_date', 'end_date', 'branch_agent_id', 'job_title'
             )
             ->get();
 
@@ -175,7 +206,7 @@ class EmployeePayrollController extends Controller
     }
 
     /**
-     * Mark payroll as paid for all employees (non–branch-agent) for a given month.
+     * Mark payroll as paid for employees (filtered by branch_agent_id or non-branch-agent) for a given month.
      * Creates payroll rows from user salary when none exist yet.
      */
     public function bulkPay(Request $request)
@@ -183,6 +214,7 @@ class EmployeePayrollController extends Controller
         $validated = $request->validate([
             'year' => 'required|integer|min:2000|max:2100',
             'month' => 'required|integer|min:1|max:12',
+            'branch_agent_id' => 'nullable|integer',
         ]);
 
         $year = $validated['year'];
@@ -191,8 +223,22 @@ class EmployeePayrollController extends Controller
         $monthStart = sprintf('%04d-%02d-01', $year, $month);
         $monthEnd = date('Y-m-t', strtotime($monthStart));
 
-        $employees = User::whereNull('branch_agent_id')
-            ->where('is_active', true)
+        $query = User::where('is_active', true);
+
+        if (!empty($validated['branch_agent_id'])) {
+            $agentId = (int) $validated['branch_agent_id'];
+            $agent = \App\Models\BranchAgent::find($agentId);
+            $query->where(function ($q) use ($agentId, $agent) {
+                $q->where('branch_agent_id', $agentId);
+                if ($agent && $agent->user_id) {
+                    $q->orWhere('id', $agent->user_id);
+                }
+            });
+        } else {
+            $query->whereNull('branch_agent_id');
+        }
+
+        $employees = $query
             ->where(function ($q) use ($monthEnd) {
                 $q->whereNull('start_date')
                   ->orWhere('start_date', '<=', $monthEnd);
@@ -205,7 +251,7 @@ class EmployeePayrollController extends Controller
                 'id', 'name', 'username', 'email', 'salary', 'is_admin', 
                 'tax_percentage', 'social_security_percentage', 'apply_tax', 'apply_social_security',
                 'housing_allowance', 'transportation_allowance', 'communication_allowance', 'fixed_bonuses', 'fixed_fines',
-                'start_date', 'end_date', 'branch_agent_id'
+                'start_date', 'end_date', 'branch_agent_id', 'job_title'
             )
             ->get();
 

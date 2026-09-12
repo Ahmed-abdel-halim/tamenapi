@@ -55,6 +55,8 @@ class User extends Authenticatable
         'bank_name',
         'bank_branch',
         'account_number',
+        'hire_date',
+        'work_start_date',
         'start_date',
         'working_hours_from',
         'working_hours_to',
@@ -94,6 +96,7 @@ class User extends Authenticatable
         'tax_percentage',
         'social_security_percentage',
         'end_date',
+        'resignation_date',
         'department_id',
     ];
 
@@ -217,7 +220,7 @@ class User extends Authenticatable
     }
 
     /**
-     * Path relative to site root so the SPA (Vite) can proxy /storage → Laravel.
+     * Path relative to site root so the SPA (Vite) can proxy /storage â†’ Laravel.
      * Avoids APP_URL on :8000 breaking images when the app runs on :5173.
      */
     protected function storagePublicUrl(?string $path): ?string
@@ -305,3 +308,4 @@ class User extends Authenticatable
         return $this->storagePublicUrl($this->resignation_letter_path);
     }
 }
+

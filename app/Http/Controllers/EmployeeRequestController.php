@@ -109,6 +109,8 @@ class EmployeeRequestController extends Controller
         $validated = $request->validate([
             'status' => 'required|in:approved,rejected',
             'admin_notes' => 'nullable|string',
+            'resignation_date' => 'nullable|date',
+            'end_date' => 'nullable|date',
         ]);
 
         $employeeRequest->update([
@@ -117,6 +119,23 @@ class EmployeeRequestController extends Controller
             'approver_id' => $user->id,
             'processed_at' => now(),
         ]);
+
+        // إذا كان الطلب إنهاء خدمة/استقالة وتمت الموافقة عليه، تحديث تاريخ الاستقالة ونهاية العمل للموظف لإيقاف المرتب
+        if ($employeeRequest->type === 'termination' && $validated['status'] === 'approved') {
+            $employeeUser = \App\Models\User::find($employeeRequest->user_id);
+            if ($employeeUser) {
+                $details = is_array($employeeRequest->details) ? $employeeRequest->details : [];
+                $resDate = $request->input('resignation_date') 
+                    ?? ($details['last_working_day'] ?? null)
+                    ?? now()->toDateString();
+                $endDate = $request->input('end_date') ?? $resDate;
+
+                $employeeUser->update([
+                    'resignation_date' => $resDate,
+                    'end_date' => $endDate,
+                ]);
+            }
+        }
 
         // إرسال إشعار للموظف
         try {

@@ -132,6 +132,8 @@ class UserController extends Controller
             'bank_name' => 'nullable|string',
             'bank_branch' => 'nullable|string',
             'account_number' => 'nullable|string',
+            'hire_date' => 'nullable|date',
+            'work_start_date' => 'nullable|date',
             'start_date' => 'nullable|date',
             'working_hours_from' => 'nullable|string',
             'working_hours_to' => 'nullable|string',
@@ -163,6 +165,7 @@ class UserController extends Controller
             'tax_file_number' => 'nullable|string|max:191',
             'social_security_file_number' => 'nullable|string|max:191',
             'end_date' => 'nullable|date',
+            'resignation_date' => 'nullable|date',
         ]);
 
         $data = $validated;
@@ -273,6 +276,8 @@ class UserController extends Controller
             'bank_name' => 'nullable|string',
             'bank_branch' => 'nullable|string',
             'account_number' => 'nullable|string',
+            'hire_date' => 'nullable|date',
+            'work_start_date' => 'nullable|date',
             'start_date' => 'nullable|date',
             'working_hours_from' => 'nullable|string',
             'working_hours_to' => 'nullable|string',
@@ -337,6 +342,10 @@ class UserController extends Controller
             } else {
                 $validated['is_blocked'] = false;
             }
+        }
+
+        if (!empty($validated['resignation_date']) && empty($validated['end_date'])) {
+            $validated['end_date'] = $validated['resignation_date'];
         }
 
         $user->update($validated);

@@ -186,11 +186,27 @@ class EmployeePayrollController extends Controller
             $monthEnd = date('Y-m-t', strtotime($monthStart));
 
             $query->where(function ($q) use ($monthEnd) {
-                $q->whereNull('start_date')
-                  ->orWhere('start_date', '<=', $monthEnd);
+                $q->where(function ($sq) use ($monthEnd) {
+                    $sq->whereNotNull('work_start_date')
+                       ->where('work_start_date', '<=', $monthEnd);
+                })->orWhere(function ($sq) use ($monthEnd) {
+                    $sq->whereNull('work_start_date')
+                       ->whereNotNull('start_date')
+                       ->where('start_date', '<=', $monthEnd);
+                })->orWhere(function ($sq) use ($monthEnd) {
+                    $sq->whereNull('work_start_date')
+                       ->whereNull('start_date')
+                       ->where(function ($ssq) use ($monthEnd) {
+                           $ssq->whereNull('hire_date')
+                               ->orWhere('hire_date', '<=', $monthEnd);
+                       });
+                });
             })->where(function ($q) use ($monthStart) {
                 $q->whereNull('end_date')
                   ->orWhere('end_date', '>=', $monthStart);
+            })->where(function ($q) use ($monthStart) {
+                $q->whereNull('resignation_date')
+                  ->orWhere('resignation_date', '>=', $monthStart);
             });
         }
 
@@ -198,7 +214,7 @@ class EmployeePayrollController extends Controller
                 'id', 'name', 'username', 'email', 'salary', 'is_admin', 
                 'tax_percentage', 'social_security_percentage', 'apply_tax', 'apply_social_security',
                 'housing_allowance', 'transportation_allowance', 'communication_allowance', 'fixed_bonuses', 'fixed_fines',
-                'start_date', 'end_date', 'branch_agent_id', 'job_title'
+                'hire_date', 'work_start_date', 'start_date', 'end_date', 'resignation_date', 'branch_agent_id', 'job_title'
             )
             ->get();
 
@@ -240,18 +256,35 @@ class EmployeePayrollController extends Controller
 
         $employees = $query
             ->where(function ($q) use ($monthEnd) {
-                $q->whereNull('start_date')
-                  ->orWhere('start_date', '<=', $monthEnd);
+                $q->where(function ($sq) use ($monthEnd) {
+                    $sq->whereNotNull('work_start_date')
+                       ->where('work_start_date', '<=', $monthEnd);
+                })->orWhere(function ($sq) use ($monthEnd) {
+                    $sq->whereNull('work_start_date')
+                       ->whereNotNull('start_date')
+                       ->where('start_date', '<=', $monthEnd);
+                })->orWhere(function ($sq) use ($monthEnd) {
+                    $sq->whereNull('work_start_date')
+                       ->whereNull('start_date')
+                       ->where(function ($ssq) use ($monthEnd) {
+                           $ssq->whereNull('hire_date')
+                               ->orWhere('hire_date', '<=', $monthEnd);
+                       });
+                });
             })
             ->where(function ($q) use ($monthStart) {
                 $q->whereNull('end_date')
                   ->orWhere('end_date', '>=', $monthStart);
             })
+            ->where(function ($q) use ($monthStart) {
+                $q->whereNull('resignation_date')
+                  ->orWhere('resignation_date', '>=', $monthStart);
+            })
             ->select(
                 'id', 'name', 'username', 'email', 'salary', 'is_admin', 
                 'tax_percentage', 'social_security_percentage', 'apply_tax', 'apply_social_security',
                 'housing_allowance', 'transportation_allowance', 'communication_allowance', 'fixed_bonuses', 'fixed_fines',
-                'start_date', 'end_date', 'branch_agent_id', 'job_title'
+                'hire_date', 'work_start_date', 'start_date', 'end_date', 'resignation_date', 'branch_agent_id', 'job_title'
             )
             ->get();
 

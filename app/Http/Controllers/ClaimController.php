@@ -492,6 +492,7 @@ class ClaimController extends Controller
                 'financial_value' => $validated['total_paid'],
                 'recipient_name' => $validated['recipient_name'],
                 'payment_method' => $validated['payment_method'],
+                'currency' => $validated['currency'] ?? 'LYD',
                 'document_number' => $validated['document_number'] ?? '',
                 'book_number' => $validated['document_number'] ?? '',
                 'notes' => $validated['notes'] ?? '',

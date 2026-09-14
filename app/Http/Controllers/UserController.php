@@ -107,10 +107,31 @@ class UserController extends Controller
 
     public function store(Request $request)
     {
-        $validated = $request->validate([
-            'username' => 'required|string|unique:users,username',
-            'name' => 'required|string',
-            'email' => 'nullable|email',
+        // تنظيف القيم الفارغة وتحويلها إلى null للحقول الاختيارية قبل التحقق
+        $preClean = [];
+        $dateKeys = ['birth_date', 'hire_date', 'work_start_date', 'start_date', 'end_date', 'resignation_date'];
+        foreach ($dateKeys as $k) {
+            if ($request->has($k) && (is_null($request->$k) || trim((string)$request->$k) === '')) {
+                $preClean[$k] = null;
+            }
+        }
+        if ($request->has('email') && (is_null($request->email) || trim((string)$request->email) === '')) {
+            $preClean['email'] = null;
+        }
+        if ($request->has('salary') && (is_null($request->salary) || trim((string)$request->salary) === '')) {
+            $preClean['salary'] = null;
+        }
+        if ($request->has('hourly_rate') && (is_null($request->hourly_rate) || trim((string)$request->hourly_rate) === '')) {
+            $preClean['hourly_rate'] = 0;
+        }
+        if (!empty($preClean)) {
+            $request->merge($preClean);
+        }
+
+        $rules = [
+            'username' => 'required|string|max:191|unique:users,username',
+            'name' => 'required|string|max:255',
+            'email' => 'nullable|email|max:191',
             'password' => 'required|string|min:6',
             'is_admin' => 'nullable|boolean',
             'authorized_documents' => 'nullable|array',
@@ -118,32 +139,32 @@ class UserController extends Controller
             'national_id_number' => 'nullable|string|max:64',
             'job_title' => 'nullable|string|max:191',
             // الموظفين
-            'full_name_quad' => 'nullable|string',
-            'mother_name' => 'nullable|string',
-            'gender' => 'nullable|string',
+            'full_name_quad' => 'nullable|string|max:255',
+            'mother_name' => 'nullable|string|max:255',
+            'gender' => 'nullable|string|max:20',
             'birth_date' => 'nullable|date',
-            'birth_place' => 'nullable|string',
-            'nationality' => 'nullable|string',
-            'social_status' => 'nullable|string',
-            'qualification' => 'nullable|string',
-            'blood_type' => 'nullable|string',
-            'personal_phone' => 'nullable|string',
-            'guardian_phone' => 'nullable|string',
+            'birth_place' => 'nullable|string|max:255',
+            'nationality' => 'nullable|string|max:100',
+            'social_status' => 'nullable|string|max:100',
+            'qualification' => 'nullable|string|max:255',
+            'blood_type' => 'nullable|string|max:20',
+            'personal_phone' => 'nullable|string|max:50',
+            'guardian_phone' => 'nullable|string|max:50',
             'address' => 'nullable|string',
-            'financial_number' => 'nullable|string',
-            'job_number' => 'nullable|string',
-            'bank_name' => 'nullable|string',
-            'bank_branch' => 'nullable|string',
-            'account_number' => 'nullable|string',
+            'financial_number' => 'nullable|string|max:100',
+            'job_number' => 'nullable|string|max:100',
+            'bank_name' => 'nullable|string|max:191',
+            'bank_branch' => 'nullable|string|max:191',
+            'account_number' => 'nullable|string|max:100',
             'hire_date' => 'nullable|date',
             'work_start_date' => 'nullable|date',
             'start_date' => 'nullable|date',
-            'working_hours_from' => 'nullable|string',
-            'working_hours_to' => 'nullable|string',
-            'working_days_from' => 'nullable|string',
-            'working_days_to' => 'nullable|string',
-            'contract_type' => 'nullable|string',
-            'contract_duration' => 'nullable|string',
+            'working_hours_from' => 'nullable|string|max:50',
+            'working_hours_to' => 'nullable|string|max:50',
+            'working_days_from' => 'nullable|string|max:50',
+            'working_days_to' => 'nullable|string|max:50',
+            'contract_type' => 'nullable|string|max:100',
+            'contract_duration' => 'nullable|string|max:100',
             'contract_conditions' => 'nullable|string',
             'housing_allowance' => 'nullable|numeric',
             'transportation_allowance' => 'nullable|numeric',
@@ -156,7 +177,7 @@ class UserController extends Controller
             'show_on_landing' => 'nullable|boolean',
             'tax_percentage' => 'nullable|numeric',
             'social_security_percentage' => 'nullable|numeric',
-            'salary_type' => 'nullable|string|in:monthly,hourly',
+            'salary_type' => 'nullable|string|max:191',
             'hourly_rate' => 'nullable|numeric',
             'eidc_username' => 'nullable|string|max:191',
             'eidc_password' => 'nullable|string|max:191',
@@ -169,9 +190,64 @@ class UserController extends Controller
             'social_security_file_number' => 'nullable|string|max:191',
             'end_date' => 'nullable|date',
             'resignation_date' => 'nullable|date',
-        ]);
+        ];
+
+        $messages = [
+            'username.required' => 'اسم المستخدم مطلوب.',
+            'username.unique' => 'اسم المستخدم هذا مسجل بالفعل لموظف آخر، يرجى اختيار اسم مستخدم آخر.',
+            'name.required' => 'الاسم مطلوب.',
+            'password.required' => 'كلمة المرور مطلوبة.',
+            'password.min' => 'كلمة المرور يجب أن تتكون من 6 أحرف أو أرقام على الأقل.',
+            'email.email' => 'البريد الإلكتروني المدخل غير صالح.',
+            'salary.numeric' => 'المرتب الأساسي يجب أن يكون رقماً صحيحاً.',
+            'birth_date.date' => 'تاريخ الميلاد غير صالح.',
+            'hire_date.date' => 'تاريخ التعيين غير صالح.',
+            'work_start_date.date' => 'تاريخ بدء العمل غير صالح.',
+            'start_date.date' => 'تاريخ البداية غير صالح.',
+            'end_date.date' => 'تاريخ التوقف غير صالح.',
+            'resignation_date.date' => 'تاريخ الاستقالة غير صالح.',
+            'hourly_rate.numeric' => 'سعر الساعة يجب أن يكون رقماً.',
+            'housing_allowance.numeric' => 'بدل السكن يجب أن يكون رقماً.',
+            'transportation_allowance.numeric' => 'بدل المواصلات يجب أن يكون رقماً.',
+            'communication_allowance.numeric' => 'بدل الاتصالات يجب أن يكون رقماً.',
+            'fixed_bonuses.numeric' => 'العلاوات الثابتة يجب أن تكون رقماً.',
+            'fixed_fines.numeric' => 'الخصومات الثابتة يجب أن تكون رقماً.',
+            'tax_percentage.numeric' => 'نسبة الضريبة يجب أن تكون رقماً.',
+            'social_security_percentage.numeric' => 'نسبة الضمان يجب أن تكون رقماً.',
+        ];
+
+        $validated = $request->validate($rules, $messages);
 
         $data = $validated;
+
+        // تنظيف الحقول النصية والتأكد من توافق enum
+        if (empty($data['gender']) || !in_array($data['gender'], ['ذكر', 'أنثى'])) {
+            $data['gender'] = null;
+        }
+        if (empty($data['salary_type'])) {
+            $data['salary_type'] = 'monthly';
+        }
+
+        // تحويل النصوص الفارغة إلى null للحقول الاختيارية
+        $stringFields = [
+            'email', 'national_id_number', 'job_title', 'full_name_quad', 'mother_name',
+            'birth_place', 'nationality', 'social_status', 'qualification', 'blood_type',
+            'personal_phone', 'guardian_phone', 'address', 'bank_name', 'bank_branch',
+            'account_number', 'working_hours_from', 'working_hours_to', 'working_days_from',
+            'working_days_to', 'contract_type', 'contract_duration', 'contract_conditions',
+            'eidc_username', 'eidc_password', 'lifo_username', 'lifo_password', 'lifo_office_id',
+            'tax_file_number', 'social_security_file_number'
+        ];
+        foreach ($stringFields as $sf) {
+            if (isset($data[$sf]) && is_string($data[$sf]) && trim($data[$sf]) === '') {
+                $data[$sf] = null;
+            }
+        }
+        foreach ($dateKeys as $df) {
+            if (isset($data[$df]) && empty($data[$df])) {
+                $data[$df] = null;
+            }
+        }
 
         // توليد الرقم المالي والوظيفي تلقائياً إذا تم تركه فارغاً
         $nextId = (User::max('id') ?? 0) + 1;
@@ -251,10 +327,31 @@ class UserController extends Controller
 
     public function update(Request $request, User $user)
     {
-        $validated = $request->validate([
-            'username' => 'sometimes|required|string|unique:users,username,' . $user->id,
-            'name' => 'sometimes|required|string',
-            'email' => 'nullable|email',
+        // تنظيف القيم الفارغة وتحويلها إلى null للحقول الاختيارية قبل التحقق
+        $preClean = [];
+        $dateKeys = ['birth_date', 'hire_date', 'work_start_date', 'start_date', 'end_date', 'resignation_date'];
+        foreach ($dateKeys as $k) {
+            if ($request->has($k) && (is_null($request->$k) || trim((string)$request->$k) === '')) {
+                $preClean[$k] = null;
+            }
+        }
+        if ($request->has('email') && (is_null($request->email) || trim((string)$request->email) === '')) {
+            $preClean['email'] = null;
+        }
+        if ($request->has('salary') && (is_null($request->salary) || trim((string)$request->salary) === '')) {
+            $preClean['salary'] = null;
+        }
+        if ($request->has('hourly_rate') && (is_null($request->hourly_rate) || trim((string)$request->hourly_rate) === '')) {
+            $preClean['hourly_rate'] = 0;
+        }
+        if (!empty($preClean)) {
+            $request->merge($preClean);
+        }
+
+        $rules = [
+            'username' => 'sometimes|required|string|max:191|unique:users,username,' . $user->id,
+            'name' => 'sometimes|required|string|max:255',
+            'email' => 'nullable|email|max:191',
             'password' => 'nullable|string|min:6',
             'is_admin' => 'nullable|boolean',
             'authorized_documents' => 'nullable|array',
@@ -262,32 +359,32 @@ class UserController extends Controller
             'national_id_number' => 'nullable|string|max:64',
             'job_title' => 'nullable|string|max:191',
             // الموظفين
-            'full_name_quad' => 'nullable|string',
-            'mother_name' => 'nullable|string',
-            'gender' => 'nullable|string',
+            'full_name_quad' => 'nullable|string|max:255',
+            'mother_name' => 'nullable|string|max:255',
+            'gender' => 'nullable|string|max:20',
             'birth_date' => 'nullable|date',
-            'birth_place' => 'nullable|string',
-            'nationality' => 'nullable|string',
-            'social_status' => 'nullable|string',
-            'qualification' => 'nullable|string',
-            'blood_type' => 'nullable|string',
-            'personal_phone' => 'nullable|string',
-            'guardian_phone' => 'nullable|string',
+            'birth_place' => 'nullable|string|max:255',
+            'nationality' => 'nullable|string|max:100',
+            'social_status' => 'nullable|string|max:100',
+            'qualification' => 'nullable|string|max:255',
+            'blood_type' => 'nullable|string|max:20',
+            'personal_phone' => 'nullable|string|max:50',
+            'guardian_phone' => 'nullable|string|max:50',
             'address' => 'nullable|string',
-            'financial_number' => 'nullable|string',
-            'job_number' => 'nullable|string',
-            'bank_name' => 'nullable|string',
-            'bank_branch' => 'nullable|string',
-            'account_number' => 'nullable|string',
+            'financial_number' => 'nullable|string|max:100',
+            'job_number' => 'nullable|string|max:100',
+            'bank_name' => 'nullable|string|max:191',
+            'bank_branch' => 'nullable|string|max:191',
+            'account_number' => 'nullable|string|max:100',
             'hire_date' => 'nullable|date',
             'work_start_date' => 'nullable|date',
             'start_date' => 'nullable|date',
-            'working_hours_from' => 'nullable|string',
-            'working_hours_to' => 'nullable|string',
-            'working_days_from' => 'nullable|string',
-            'working_days_to' => 'nullable|string',
-            'contract_type' => 'nullable|string',
-            'contract_duration' => 'nullable|string',
+            'working_hours_from' => 'nullable|string|max:50',
+            'working_hours_to' => 'nullable|string|max:50',
+            'working_days_from' => 'nullable|string|max:50',
+            'working_days_to' => 'nullable|string|max:50',
+            'contract_type' => 'nullable|string|max:100',
+            'contract_duration' => 'nullable|string|max:100',
             'contract_conditions' => 'nullable|string',
             'housing_allowance' => 'nullable|numeric',
             'transportation_allowance' => 'nullable|numeric',
@@ -301,7 +398,7 @@ class UserController extends Controller
             'show_on_landing' => 'nullable|boolean',
             'tax_percentage' => 'nullable|numeric',
             'social_security_percentage' => 'nullable|numeric',
-            'salary_type' => 'nullable|string|in:monthly,hourly',
+            'salary_type' => 'nullable|string|max:191',
             'hourly_rate' => 'nullable|numeric',
             'eidc_username' => 'nullable|string|max:191',
             'eidc_password' => 'nullable|string|max:191',
@@ -313,7 +410,62 @@ class UserController extends Controller
             'tax_file_number' => 'nullable|string|max:191',
             'social_security_file_number' => 'nullable|string|max:191',
             'end_date' => 'nullable|date',
-        ]);
+            'resignation_date' => 'nullable|date',
+        ];
+
+        $messages = [
+            'username.required' => 'اسم المستخدم مطلوب.',
+            'username.unique' => 'اسم المستخدم هذا مسجل بالفعل لموظف آخر، يرجى اختيار اسم مستخدم آخر.',
+            'name.required' => 'الاسم مطلوب.',
+            'password.min' => 'كلمة المرور يجب أن تتكون من 6 أحرف أو أرقام على الأقل.',
+            'email.email' => 'البريد الإلكتروني المدخل غير صالح.',
+            'salary.numeric' => 'المرتب الأساسي يجب أن يكون رقماً صحيحاً.',
+            'birth_date.date' => 'تاريخ الميلاد غير صالح.',
+            'hire_date.date' => 'تاريخ التعيين غير صالح.',
+            'work_start_date.date' => 'تاريخ بدء العمل غير صالح.',
+            'start_date.date' => 'تاريخ البداية غير صالح.',
+            'end_date.date' => 'تاريخ التوقف غير صالح.',
+            'resignation_date.date' => 'تاريخ الاستقالة غير صالح.',
+            'hourly_rate.numeric' => 'سعر الساعة يجب أن يكون رقماً.',
+            'housing_allowance.numeric' => 'بدل السكن يجب أن يكون رقماً.',
+            'transportation_allowance.numeric' => 'بدل المواصلات يجب أن يكون رقماً.',
+            'communication_allowance.numeric' => 'بدل الاتصالات يجب أن يكون رقماً.',
+            'fixed_bonuses.numeric' => 'العلاوات الثابتة يجب أن تكون رقماً.',
+            'fixed_fines.numeric' => 'الخصومات الثابتة يجب أن تكون رقماً.',
+            'tax_percentage.numeric' => 'نسبة الضريبة يجب أن تكون رقماً.',
+            'social_security_percentage.numeric' => 'نسبة الضمان يجب أن تكون رقماً.',
+        ];
+
+        $validated = $request->validate($rules, $messages);
+
+        if (array_key_exists('gender', $validated)) {
+            if (empty($validated['gender']) || !in_array($validated['gender'], ['ذكر', 'أنثى'])) {
+                $validated['gender'] = null;
+            }
+        }
+        if (array_key_exists('salary_type', $validated) && empty($validated['salary_type'])) {
+            $validated['salary_type'] = 'monthly';
+        }
+
+        $stringFields = [
+            'email', 'national_id_number', 'job_title', 'full_name_quad', 'mother_name',
+            'birth_place', 'nationality', 'social_status', 'qualification', 'blood_type',
+            'personal_phone', 'guardian_phone', 'address', 'bank_name', 'bank_branch',
+            'account_number', 'working_hours_from', 'working_hours_to', 'working_days_from',
+            'working_days_to', 'contract_type', 'contract_duration', 'contract_conditions',
+            'eidc_username', 'eidc_password', 'lifo_username', 'lifo_password', 'lifo_office_id',
+            'tax_file_number', 'social_security_file_number'
+        ];
+        foreach ($stringFields as $sf) {
+            if (array_key_exists($sf, $validated) && is_string($validated[$sf]) && trim($validated[$sf]) === '') {
+                $validated[$sf] = null;
+            }
+        }
+        foreach ($dateKeys as $df) {
+            if (array_key_exists($df, $validated) && empty($validated[$df])) {
+                $validated[$df] = null;
+            }
+        }
 
         $oldSalary = $user->salary;
 

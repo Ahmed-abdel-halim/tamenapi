@@ -61,8 +61,10 @@ class Handler extends ExceptionHandler
         // إذا كان الطلب من API، أرجع JSON بدلاً من HTML
         if ($request->is('api/*') || $request->expectsJson()) {
             if ($e instanceof ValidationException) {
+                $allErrors = collect($e->errors())->flatten()->all();
+                $firstError = !empty($allErrors) ? $allErrors[0] : 'خطأ في التحقق من البيانات';
                 return response()->json([
-                    'message' => 'خطأ في التحقق من البيانات',
+                    'message' => $firstError,
                     'errors' => $e->errors()
                 ], 422);
             }

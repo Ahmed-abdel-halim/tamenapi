@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\BranchAgent;
 use App\Models\EmployeeSalaryHistory;
 use App\Models\User;
+use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -267,6 +268,7 @@ class UserController extends Controller
             $data['authorized_documents'] = null;
         }
 
+        $data = $this->filterExistingUserColumns($data);
         $user = User::create($data);
 
         if ($request->filled('salary')) {
@@ -503,6 +505,7 @@ class UserController extends Controller
             $validated['end_date'] = $validated['resignation_date'];
         }
 
+        $validated = $this->filterExistingUserColumns($validated);
         $user->update($validated);
 
         if ((string) ($oldSalary ?? '') !== (string) ($user->salary ?? '')) {
@@ -1535,6 +1538,49 @@ class UserController extends Controller
         } catch (\Exception $e) {
             return response()->json(['message' => 'خطأ في جلب وثائق الموظف', 'error' => $e->getMessage()], 500);
         }
+    }
+
+    /**
+     * التأكد من وجود أعمدة التعيين والاستقالة في قاعدة البيانات وإزالتها بأمان إن لم تكن موجودة لمنع خطأ SQL 1054
+     */
+    private function filterExistingUserColumns(array $data): array
+    {
+        try {
+            if (!Schema::hasColumn('users', 'hire_date')) {
+                Schema::table('users', function (Blueprint $table) {
+                    if (!Schema::hasColumn('users', 'hire_date')) {
+                        $table->date('hire_date')->nullable()->comment('تاريخ التعيين');
+                    }
+                    if (!Schema::hasColumn('users', 'work_start_date')) {
+                        $table->date('work_start_date')->nullable()->comment('بداية العمل');
+                    }
+                    if (!Schema::hasColumn('users', 'resignation_date')) {
+                        $table->date('resignation_date')->nullable()->comment('تاريخ الاستقالة');
+                    }
+                });
+            }
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Auto-migration for users columns failed: ' . $e->getMessage());
+        }
+
+        try {
+            $existing = Schema::getColumnListing('users');
+            if (!empty($existing)) {
+                // إذا كان hire_date غير موجود بعد في الجدول، ننسخ قيمته إلى start_date لضمان حفظ التاريخ
+                if (!in_array('hire_date', $existing) && in_array('start_date', $existing) && empty($data['start_date']) && !empty($data['hire_date'])) {
+                    $data['start_date'] = $data['hire_date'];
+                }
+                // إذا كان resignation_date غير موجود بعد في الجدول، ننسخ قيمته إلى end_date
+                if (!in_array('resignation_date', $existing) && in_array('end_date', $existing) && empty($data['end_date']) && !empty($data['resignation_date'])) {
+                    $data['end_date'] = $data['resignation_date'];
+                }
+                return array_intersect_key($data, array_flip($existing));
+            }
+        } catch (\Throwable $e) {
+            // fallback
+        }
+
+        return $data;
     }
 }
 

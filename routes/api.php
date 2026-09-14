@@ -89,6 +89,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/users/{id}/toggle-landing', [UserController::class, 'toggleShowOnLanding']);
     Route::post('/users/{user}/toggle-block', [UserController::class, 'toggleBlock']);
     Route::get('/users/{user}/salary-history', [UserController::class, 'salaryHistory']);
+    Route::get('/users/{user}/issued-documents', [UserController::class, 'issuedDocuments']);
     Route::apiResource('employee-requests', EmployeeRequestController::class);
     Route::apiResource('agent-requests', \App\Http\Controllers\AgentRequestController::class);
     Route::apiResource('agency-cancellations', AgencyCancellationController::class);

@@ -96,6 +96,25 @@ class InsuranceDocumentController extends Controller
                 $query->where('branch_agent_id', $request->query('branch_agent_id'));
             }
 
+            // فلتر الموظف أو المستخدم المصدر (user_id أو created_by)
+            $filterUserId = $request->query('user_id') ?? $request->query('created_by');
+            if ($filterUserId) {
+                $targetUser = User::find($filterUserId);
+                $targetBranchAgentId = $targetUser ? $targetUser->branch_agent_id : null;
+                if (!$targetBranchAgentId) {
+                    $targetAgent = BranchAgent::where('user_id', $filterUserId)->first();
+                    if ($targetAgent) {
+                        $targetBranchAgentId = $targetAgent->id;
+                    }
+                }
+                $query->where(function ($q) use ($filterUserId, $targetBranchAgentId) {
+                    $q->where('user_id', $filterUserId);
+                    if ($targetBranchAgentId) {
+                        $q->orWhere('branch_agent_id', $targetBranchAgentId);
+                    }
+                });
+            }
+
             // فلاتر التاريخ (السنة، الشهر، اليوم)
             if ($request->filled('year')) {
                 $query->whereYear('issue_date', $request->query('year'));
@@ -113,6 +132,7 @@ class InsuranceDocumentController extends Controller
                 ->paginate($perPage);
 
             $documents->getCollection()->transform(function ($document) use ($isAdmin) {
+                $document->document_number = $document->insurance_number ?? $document->document_number ?? '-';
                 $transferCount = InsuranceOwnershipTransfer::where('insurance_document_id', $document->id)->count();
                 $document->ownership_transfer_count = $transferCount;
                 $document->has_ownership_transfer = $transferCount > 0;

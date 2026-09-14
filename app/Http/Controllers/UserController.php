@@ -2,10 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\BranchAgent;
 use App\Models\EmployeeSalaryHistory;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 
 class UserController extends Controller
@@ -1167,6 +1170,218 @@ class UserController extends Controller
                     ]
                 ]);
             }
+        }
+    }
+
+    /**
+     * جلب كافة وثائق التأمين الصادرة بواسطة موظف / مستخدم محدد عبر جميع أنواع التأمين
+     */
+    public function issuedDocuments($id, Request $request)
+    {
+        try {
+            $user = User::find($id);
+            if (!$user) {
+                return response()->json(['message' => 'المستخدم غير موجود'], 404);
+            }
+
+            $agentId = $user->branch_agent_id;
+            if (!$agentId) {
+                $agent = BranchAgent::where('user_id', $user->id)->first();
+                if ($agent) {
+                    $agentId = $agent->id;
+                }
+            }
+
+            $perPage = (int) $request->get('per_page', 1000);
+            $allDocs = [];
+
+            // 1. وثائق تأمين السيارات (إجباري / شامل)
+            if (Schema::hasTable('insurance_documents')) {
+                $q = DB::table('insurance_documents');
+                $q->where(function ($sub) use ($user, $agentId) {
+                    $sub->where('user_id', $user->id);
+                    if ($agentId) {
+                        $sub->orWhere('branch_agent_id', $agentId);
+                    }
+                });
+                $docs = $q->select([
+                    'id',
+                    'insurance_number as document_number',
+                    'insurance_number',
+                    DB::raw("'insurance_documents' as doc_category"),
+                    DB::raw("COALESCE(insurance_type, 'تأمين إجباري سيارات') as insurance_type"),
+                    'insured_name',
+                    'start_date',
+                    'end_date',
+                    'total as premium',
+                    DB::raw("CASE WHEN is_canceled = 1 THEN 'canceled' ELSE 'active' END as status"),
+                    'created_at',
+                    DB::raw("'/insurance-documents/' as view_url_prefix")
+                ])->orderByDesc('id')->take($perPage)->get();
+
+                foreach ($docs as $d) {
+                    $allDocs[] = (array) $d;
+                }
+            }
+
+            // 2. وثائق تأمين السيارات الدولي (البطاقة البرتقالية)
+            if (Schema::hasTable('international_insurance_documents')) {
+                $q = DB::table('international_insurance_documents');
+                $q->where(function ($sub) use ($user, $agentId) {
+                    $sub->where('user_id', $user->id);
+                    if ($agentId) {
+                        $sub->orWhere('branch_agent_id', $agentId);
+                    }
+                });
+                $docs = $q->select([
+                    'id',
+                    'document_number',
+                    'document_number as insurance_number',
+                    DB::raw("'international_insurance_documents' as doc_category"),
+                    DB::raw("'تأمين سيارات دولي' as insurance_type"),
+                    'insured_name',
+                    'start_date',
+                    'end_date',
+                    'total as premium',
+                    DB::raw("CASE WHEN is_canceled = 1 THEN 'canceled' ELSE 'active' END as status"),
+                    'created_at',
+                    DB::raw("'/international-insurance-documents/' as view_url_prefix")
+                ])->orderByDesc('id')->take($perPage)->get();
+
+                foreach ($docs as $d) {
+                    $allDocs[] = (array) $d;
+                }
+            }
+
+            // 3. وثائق تأمين السفر
+            if (Schema::hasTable('travel_insurance_documents')) {
+                $q = DB::table('travel_insurance_documents');
+                $q->where(function ($sub) use ($user, $agentId) {
+                    $sub->where('user_id', $user->id);
+                    if ($agentId) {
+                        $sub->orWhere('branch_agent_id', $agentId);
+                    }
+                });
+                $docs = $q->select([
+                    'id',
+                    'insurance_number as document_number',
+                    'insurance_number',
+                    DB::raw("'travel_insurance_documents' as doc_category"),
+                    DB::raw("COALESCE(insurance_type, 'تأمين المسافرين') as insurance_type"),
+                    DB::raw("'-' as insured_name"),
+                    'start_date',
+                    'end_date',
+                    'total as premium',
+                    DB::raw("CASE WHEN is_canceled = 1 THEN 'canceled' ELSE 'active' END as status"),
+                    'created_at',
+                    DB::raw("'/travel-insurance-documents/' as view_url_prefix")
+                ])->orderByDesc('id')->take($perPage)->get();
+
+                foreach ($docs as $d) {
+                    $allDocs[] = (array) $d;
+                }
+            }
+
+            // 4. وثائق تأمين الوافدين / المقيمين
+            if (Schema::hasTable('resident_insurance_documents')) {
+                $q = DB::table('resident_insurance_documents');
+                $q->where(function ($sub) use ($user, $agentId) {
+                    $sub->where('user_id', $user->id);
+                    if ($agentId) {
+                        $sub->orWhere('branch_agent_id', $agentId);
+                    }
+                });
+                $docs = $q->select([
+                    'id',
+                    'insurance_number as document_number',
+                    'insurance_number',
+                    DB::raw("'resident_insurance_documents' as doc_category"),
+                    DB::raw("'تأمين الوافدين' as insurance_type"),
+                    DB::raw("'-' as insured_name"),
+                    'start_date',
+                    'end_date',
+                    'total as premium',
+                    DB::raw("CASE WHEN is_canceled = 1 THEN 'canceled' ELSE 'active' END as status"),
+                    'created_at',
+                    DB::raw("'/resident-insurance-documents/' as view_url_prefix")
+                ])->orderByDesc('id')->take($perPage)->get();
+
+                foreach ($docs as $d) {
+                    $allDocs[] = (array) $d;
+                }
+            }
+
+            // 5. وثائق تأمين الهياكل البحرية
+            if (Schema::hasTable('marine_structure_insurance_documents')) {
+                $q = DB::table('marine_structure_insurance_documents');
+                $q->where(function ($sub) use ($user, $agentId) {
+                    $sub->where('user_id', $user->id);
+                    if ($agentId) {
+                        $sub->orWhere('branch_agent_id', $agentId);
+                    }
+                });
+                $docs = $q->select([
+                    'id',
+                    'insurance_number as document_number',
+                    'insurance_number',
+                    DB::raw("'marine_structure_insurance_documents' as doc_category"),
+                    DB::raw("'تأمين الهياكل البحرية' as insurance_type"),
+                    'insured_name',
+                    'start_date',
+                    'end_date',
+                    'total as premium',
+                    DB::raw("CASE WHEN is_canceled = 1 THEN 'canceled' ELSE 'active' END as status"),
+                    'created_at',
+                    DB::raw("'/marine-structure-insurance-documents/' as view_url_prefix")
+                ])->orderByDesc('id')->take($perPage)->get();
+
+                foreach ($docs as $d) {
+                    $allDocs[] = (array) $d;
+                }
+            }
+
+            // 6. وثائق تأمين المسؤولية المهنية
+            if (Schema::hasTable('professional_liability_insurance_documents')) {
+                $q = DB::table('professional_liability_insurance_documents');
+                $q->where(function ($sub) use ($user, $agentId) {
+                    $sub->where('user_id', $user->id);
+                    if ($agentId) {
+                        $sub->orWhere('branch_agent_id', $agentId);
+                    }
+                });
+                $docs = $q->select([
+                    'id',
+                    'insurance_number as document_number',
+                    'insurance_number',
+                    DB::raw("'professional_liability_insurance_documents' as doc_category"),
+                    DB::raw("'تأمين المسؤولية المهنية' as insurance_type"),
+                    'insured_name',
+                    'start_date',
+                    'end_date',
+                    'total as premium',
+                    DB::raw("CASE WHEN is_canceled = 1 THEN 'canceled' ELSE 'active' END as status"),
+                    'created_at',
+                    DB::raw("'/professional-liability-insurance-documents/' as view_url_prefix")
+                ])->orderByDesc('id')->take($perPage)->get();
+
+                foreach ($docs as $d) {
+                    $allDocs[] = (array) $d;
+                }
+            }
+
+            // ترتيب الوثائق تنازلياً حسب تاريخ الإنشاء
+            usort($allDocs, function ($a, $b) {
+                return strcmp($b['created_at'] ?? '', $a['created_at'] ?? '');
+            });
+
+            $sliced = array_slice($allDocs, 0, $perPage);
+
+            return response()->json([
+                'data' => $sliced,
+                'total' => count($allDocs),
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['message' => 'خطأ في جلب وثائق الموظف', 'error' => $e->getMessage()], 500);
         }
     }
 }

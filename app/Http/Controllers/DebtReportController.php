@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\Models\BranchAgent;
 use App\Helpers\AgentPercentageHelper;
+use App\Helpers\InternationalInsuranceHelper;
 use Illuminate\Support\Facades\Log;
 
 class DebtReportController extends Controller
@@ -83,6 +84,13 @@ class DebtReportController extends Controller
                         if ($hasIssueDate) $selects[] = 'issue_date';
                         elseif ($hasStartDate) $selects[] = 'start_date';
                         else $selects[] = 'created_at';
+                        if ($table === 'international_insurance_documents') {
+                            foreach (['document_number', 'chassis_number', 'phone', 'insured_name', 'external_policy_number'] as $extraCol) {
+                                if ($schema->hasColumn($table, $extraCol) && !in_array($extraCol, $selects)) {
+                                    $selects[] = $extraCol;
+                                }
+                            }
+                        }
 
                         $query = DB::table($table)
                             ->select($selects)
@@ -97,6 +105,9 @@ class DebtReportController extends Controller
                         }
 
                         $docs = $query->get();
+                        if ($table === 'international_insurance_documents') {
+                            $docs = InternationalInsuranceHelper::deduplicateDocuments($docs);
+                        }
 
                         foreach ($docs as $doc) {
                             $agentId = $doc->branch_agent_id;

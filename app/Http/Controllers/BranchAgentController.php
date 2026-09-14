@@ -25,6 +25,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\Facades\Cache;
 use App\Helpers\AgentPercentageHelper;
+use App\Helpers\InternationalInsuranceHelper;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use App\Notifications\SystemNotification;
 
@@ -1018,6 +1019,7 @@ class BranchAgentController extends Controller
                     return $applyDateFilter($q, 'issue_date');
                 })
                 ->get();
+            $internationalInsuranceDocuments = InternationalInsuranceHelper::deduplicateDocuments($internationalInsuranceDocuments);
 
             $travelInsuranceDocuments = DB::table('travel_insurance_documents')
                 ->where('branch_agent_id', $id)
@@ -1595,6 +1597,7 @@ class BranchAgentController extends Controller
                     return $applyDateFilter($q, 'issue_date');
                 })
                 ->get();
+            $internationalDocs = InternationalInsuranceHelper::deduplicateDocuments($internationalDocs);
 
             foreach ($internationalDocs as $doc) {
                 // التحقق من نوع التأمين قبل الإضافة
@@ -2643,6 +2646,7 @@ class BranchAgentController extends Controller
                     return $applyDateFilter($q, 'issue_date');
                 })
                 ->get();
+            $internationalDocs = InternationalInsuranceHelper::deduplicateDocuments($internationalDocs);
 
             foreach ($internationalDocs as $doc) {
                 // التحقق من نوع التأمين قبل الإضافة
@@ -3146,6 +3150,7 @@ class BranchAgentController extends Controller
                     return $applyDateFilter($q, 'issue_date');
                 })
                 ->get();
+            $internationalInsuranceDocuments = InternationalInsuranceHelper::deduplicateDocuments($internationalInsuranceDocuments);
 
             $travelInsuranceDocuments = DB::table('travel_insurance_documents')
                 ->where('branch_agent_id', $id)
@@ -3242,7 +3247,7 @@ class BranchAgentController extends Controller
                         'category' => $category,
                         'insured_name' => $insuredName,
                         'phone' => $phone,
-                        'document_number' => $doc->insurance_number ?? '-',
+                        'document_number' => $doc->insurance_number ?? $doc->document_number ?? '-',
                         'percentage' => $percentage,
                         'agent_amount' => $agentAmount,
                         'company_amount' => $companyAmount,
@@ -3359,10 +3364,22 @@ class BranchAgentController extends Controller
                 if ($hasStartDate) $selectCols[] = 'start_date';
                 if ($hasCreatedAt) $selectCols[] = 'created_at';
 
+                if ($tableName === 'international_insurance_documents') {
+                    foreach (['document_number', 'chassis_number', 'phone', 'insured_name', 'external_policy_number'] as $c) {
+                        if ($schema->hasColumn($tableName, $c) && !in_array($c, $selectCols)) {
+                            $selectCols[] = $c;
+                        }
+                    }
+                }
+
                 $rows = DB::table($tableName)
                     ->where('branch_agent_id', $id)
                     ->select($selectCols)
                     ->get();
+
+                if ($tableName === 'international_insurance_documents') {
+                    $rows = InternationalInsuranceHelper::deduplicateDocuments($rows);
+                }
 
                 $agentShare = 0;
                 $revenue    = 0;
@@ -3507,9 +3524,21 @@ class BranchAgentController extends Controller
                 if ($hasStartDate) $selectCols[] = 'start_date';
                 if ($hasCreatedAt) $selectCols[] = 'created_at';
 
+                if ($tableName === 'international_insurance_documents') {
+                    foreach (['document_number', 'chassis_number', 'phone', 'insured_name', 'external_policy_number'] as $c) {
+                        if ($schema->hasColumn($tableName, $c) && !in_array($c, $selectCols)) {
+                            $selectCols[] = $c;
+                        }
+                    }
+                }
+
                 $rows = DB::table($tableName)
                     ->select($selectCols)
                     ->get();
+
+                if ($tableName === 'international_insurance_documents') {
+                    $rows = InternationalInsuranceHelper::deduplicateDocuments($rows);
+                }
 
                 foreach ($rows as $row) {
                     $agentId = $row->branch_agent_id;

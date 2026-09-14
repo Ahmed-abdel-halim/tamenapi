@@ -143,6 +143,8 @@ class InternationalInsuranceDocumentController extends Controller
     {
         try {
             $validated = $request->validate([
+                'document_number' => 'nullable|string|max:255',
+                'card_number' => 'nullable|string|max:255',
                 'external_policy_number' => 'nullable|string|max:255',
                 'insured_name' => 'required|string|max:255',
                 'insured_address' => 'required|string|max:255',
@@ -178,19 +180,74 @@ class InternationalInsuranceDocumentController extends Controller
         }
 
         try {
-            // توليد رقم الوثيقة LBY0001
-            $lastDocument = InternationalInsuranceDocument::where('document_number', 'like', 'LBY%')
-                ->orderBy('id', 'desc')
-                ->first();
-            if ($lastDocument && preg_match('/LBY(\d+)/', $lastDocument->document_number, $matches)) {
-                $nextNumber = (int)$matches[1] + 1;
-            } else {
-                $nextNumber = 1;
+            // استخدام رقم بطاقة الاتحاد الرسمي أولاً إذا توفر لمنع إنشاء أرقام محلية وهمية مكررة
+            $officialDocNumber = null;
+            $candidateNumbers = [
+                $request->input('document_number'),
+                $request->input('card_number'),
+                $validated['external_policy_number'] ?? null,
+            ];
+            foreach ($candidateNumbers as $candidate) {
+                if ($candidate && is_string($candidate)) {
+                    $trimmed = trim($candidate);
+                    if (strpos($trimmed, '/') !== false) {
+                        $officialDocNumber = $trimmed;
+                        break;
+                    }
+                }
             }
-            do {
-                $documentNumber = 'LBY' . str_pad($nextNumber, 4, '0', STR_PAD_LEFT);
-                $nextNumber++;
-            } while (InternationalInsuranceDocument::where('document_number', $documentNumber)->exists());
+
+            if ($officialDocNumber) {
+                // منع التكرار: التحقق مما إذا كانت هذه الوثيقة مسجلة مسبقاً بنفس رقم بطاقة الاتحاد
+                $existingDoc = InternationalInsuranceDocument::where('document_number', $officialDocNumber)
+                    ->orWhere('external_policy_number', $officialDocNumber)
+                    ->first();
+                if ($existingDoc) {
+                    return response()->json([
+                        'message' => 'تم حفظ الوثيقة مسبقاً بنجاح',
+                        'data' => $existingDoc,
+                        'id' => $existingDoc->id,
+                    ], 200);
+                }
+                $documentNumber = $officialDocNumber;
+            } else {
+                // توليد رقم محلي LBY0001 فقط في حال عدم توفر بطاقة اتحاد رسمية
+                $lastDocument = InternationalInsuranceDocument::where('document_number', 'like', 'LBY%')
+                    ->where('document_number', 'not like', '%/%')
+                    ->orderBy('id', 'desc')
+                    ->first();
+                if ($lastDocument && preg_match('/LBY(\d+)/', $lastDocument->document_number, $matches)) {
+                    $nextNumber = (int)$matches[1] + 1;
+                } else {
+                    $nextNumber = 1;
+                }
+                do {
+                    $documentNumber = 'LBY' . str_pad($nextNumber, 4, '0', STR_PAD_LEFT);
+                    $nextNumber++;
+                } while (InternationalInsuranceDocument::where('document_number', $documentNumber)->exists());
+            }
+
+            // منع التكرار برقم الهيكل وتاريخ البدء: إذا وُجدت مسودة محلية يتم تحديثها بدلاً من إضافة مكرر
+            $normalizedChassis = \App\Helpers\InternationalInsuranceHelper::normalizeChassis($validated['chassis_number'] ?? null);
+            if ($normalizedChassis !== '') {
+                $existingByChassis = InternationalInsuranceDocument::where('chassis_number', $validated['chassis_number'])
+                    ->where('start_date', $validated['start_date'])
+                    ->first();
+                if ($existingByChassis) {
+                    if ($officialDocNumber && strpos($existingByChassis->document_number, '/') === false) {
+                        $existingByChassis->update([
+                            'document_number' => $officialDocNumber,
+                            'external_policy_number' => $validated['external_policy_number'] ?? $officialDocNumber,
+                            'updated_at' => now(),
+                        ]);
+                        return response()->json([
+                            'message' => 'تم تحديث الوثيقة برقم الاتحاد الرسمي بنجاح',
+                            'data' => $existingByChassis,
+                            'id' => $existingByChassis->id,
+                        ], 200);
+                    }
+                }
+            }
 
             // الحصول على branch_agent_id والتحقق من الصلاحيات للمستخدم الحالي
             $branchAgentId = null;

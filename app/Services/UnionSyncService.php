@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use App\Helpers\InternationalInsuranceHelper;
 
 class UnionSyncService
 {
@@ -229,23 +230,67 @@ class UnionSyncService
             }
 
             // 6. Preload existing documents map ONLY for the incoming new reports
-            $cardIds = array_filter(array_column($reports, 'Card_Id'));
-            $cardNumbers = array_filter(array_column($reports, 'Card_Number'));
+            $lifoDocIds = [];
+            $cardNumbers = [];
+            $chassisNumbers = [];
+
+            foreach ($reports as $r) {
+                $docId = $r['id'] ?? $r['Id'] ?? null;
+                if ($docId) $lifoDocIds[] = (string)$docId;
+
+                $cNum = $cardsMap[$r['cards_id'] ?? ''] ?? $r['policyNumber'] ?? $r['card_number'] ?? $r['Card_Number'] ?? null;
+                if ($cNum) $cardNumbers[] = (string)$cNum;
+
+                $ch = $r['chassis_number'] ?? null;
+                if ($ch) {
+                    $norm = InternationalInsuranceHelper::normalizeChassis($ch);
+                    if ($norm !== '') {
+                        $chassisNumbers[] = (string)$ch;
+                    }
+                }
+            }
+
+            $lifoDocIds = array_values(array_unique(array_filter($lifoDocIds)));
+            $cardNumbers = array_values(array_unique(array_filter($cardNumbers)));
+            $chassisNumbers = array_values(array_unique(array_filter($chassisNumbers)));
 
             $existingExternalMap = [];
-            if (!empty($cardIds)) {
-                $existingExternalMap = DB::table('international_insurance_documents')
-                    ->whereIn('external_policy_number', array_chunk($cardIds, 1000)[0] ?? [])
-                    ->pluck('id', 'external_policy_number')
-                    ->toArray();
+            if (!empty($lifoDocIds)) {
+                foreach (array_chunk($lifoDocIds, 1000) as $chunkIds) {
+                    $rows = DB::table('international_insurance_documents')
+                        ->whereIn('external_policy_number', $chunkIds)
+                        ->pluck('id', 'external_policy_number')
+                        ->toArray();
+                    $existingExternalMap += $rows;
+                }
             }
 
             $existingDocNumberMap = [];
-            if (!empty($cardNumbers)) {
-                $existingDocNumberMap = DB::table('international_insurance_documents')
-                    ->whereIn('document_number', array_chunk($cardNumbers, 1000)[0] ?? [])
-                    ->pluck('id', 'document_number')
-                    ->toArray();
+            $lookupNumbers = array_values(array_unique(array_merge($cardNumbers, $lifoDocIds)));
+            if (!empty($lookupNumbers)) {
+                foreach (array_chunk($lookupNumbers, 1000) as $chunkNums) {
+                    $rows = DB::table('international_insurance_documents')
+                        ->whereIn('document_number', $chunkNums)
+                        ->pluck('id', 'document_number')
+                        ->toArray();
+                    $existingDocNumberMap += $rows;
+                }
+            }
+
+            // Map existing documents by chassis and start_date to match temporary drafts (e.g. LBY0014)
+            $existingChassisMap = [];
+            if (!empty($chassisNumbers)) {
+                foreach (array_chunk($chassisNumbers, 1000) as $chunkChassis) {
+                    $rows = DB::table('international_insurance_documents')
+                        ->whereIn('chassis_number', $chunkChassis)
+                        ->select('id', 'chassis_number', 'start_date', 'document_number')
+                        ->get();
+                    foreach ($rows as $row) {
+                        $cKey = strtolower(trim((string)$row->chassis_number));
+                        $sKey = $row->start_date ? substr($row->start_date, 0, 10) : '';
+                        $existingChassisMap[$cKey . '_' . $sKey] = $row;
+                    }
+                }
             }
 
             // 7. Preload all agents
@@ -260,7 +305,7 @@ class UnionSyncService
             // 8. Process reports and save to database in chunks of 5000 inside transactions
             $chunks = array_chunk($reports, 5000);
             foreach ($chunks as $chunkIndex => $chunk) {
-                DB::transaction(function() use ($chunk, $cardsMap, &$cancelledCardIds, &$existingExternalMap, &$existingDocNumberMap, &$usernameMap, &$officeToAgentMap, &$officeIdToUserMap, &$agentsMap, &$agentsMapById, &$stats) {
+                DB::transaction(function() use ($chunk, $cardsMap, &$cancelledCardIds, &$existingExternalMap, &$existingDocNumberMap, &$existingChassisMap, &$usernameMap, &$officeToAgentMap, &$officeIdToUserMap, &$agentsMap, &$agentsMapById, &$stats) {
                     foreach ($chunk as $doc) {
                         try {
                             $lifoDocId = $doc['id'] ?? null;
@@ -286,6 +331,21 @@ class UnionSyncService
 
                             // Check if already exists in DB
                             $existingId = $existingExternalMap[$lifoDocId] ?? $existingDocNumberMap[$cardNumber] ?? $existingExternalMap[$cardNumber] ?? null;
+
+                            $chassisNumber = $doc['chassis_number'] ?? '';
+                            $startDate     = !empty($doc['insurance_day_from']) ? substr($doc['insurance_day_from'], 0, 10) : date('Y-m-d');
+
+                            // Fallback matching: Check if an existing local draft exists for the same chassis & start date
+                            if (!$existingId && !empty($chassisNumber)) {
+                                $normChassis = InternationalInsuranceHelper::normalizeChassis($chassisNumber);
+                                if ($normChassis !== '') {
+                                    $cKey = strtolower(trim((string)$chassisNumber));
+                                    $sKey = substr($startDate, 0, 10);
+                                    if (isset($existingChassisMap[$cKey . '_' . $sKey])) {
+                                        $existingId = $existingChassisMap[$cKey . '_' . $sKey]->id;
+                                    }
+                                }
+                            }
 
                             // Prepare mapped attributes
                             $premium       = (float) ($doc['insurance_installment'] ?? 0);
@@ -448,6 +508,11 @@ class UnionSyncService
                                 if ($cardNumber) {
                                     $existingDocNumberMap[$cardNumber] = $existingId;
                                 }
+                                if (!empty($chassisNumber)) {
+                                    $cKey = strtolower(trim((string)$chassisNumber));
+                                    $sKey = substr($startDate, 0, 10);
+                                    $existingChassisMap[$cKey . '_' . $sKey] = (object)['id' => $existingId];
+                                }
                             } else {
                                 $attributes['created_at'] = now();
                                 $attributes['updated_at'] = now();
@@ -460,6 +525,11 @@ class UnionSyncService
                                 }
                                 if ($cardNumber) {
                                     $existingDocNumberMap[$cardNumber] = $newId;
+                                }
+                                if (!empty($chassisNumber)) {
+                                    $cKey = strtolower(trim((string)$chassisNumber));
+                                    $sKey = substr($startDate, 0, 10);
+                                    $existingChassisMap[$cKey . '_' . $sKey] = (object)['id' => $newId];
                                 }
                                 $stats['created']++;
                             }

@@ -452,6 +452,8 @@ Route::get('/test-lifo-connection', [LifoReportController::class, 'testLifoConne
 Route::get('/public/website-settings', [\App\Http\Controllers\WebsiteSettingsController::class, 'getPublicSettings']);
 Route::get('/public/media-posts', [\App\Http\Controllers\WebsiteSettingsController::class, 'getPublicMediaPosts']);
 Route::post('/public/insurance-requests', [\App\Http\Controllers\PublicInsuranceRequestController::class, 'store']);
+Route::get('/exchange-rates', [\App\Http\Controllers\ExchangeRateController::class, 'index']);
+Route::post('/exchange-rates', [\App\Http\Controllers\ExchangeRateController::class, 'update']);
 
 Route::middleware('auth:sanctum')->group(function () {
     // ط¥ط¹ط¯ط§ط¯ط§طھ ط§ظ„ظ…ظˆظ‚ط¹

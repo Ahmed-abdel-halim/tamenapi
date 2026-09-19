@@ -72,6 +72,8 @@ class ClaimController extends Controller
 
             // Vehicle
             'damaged_vehicle_model'       => 'nullable|string',
+            'damaged_vehicle_type'        => 'nullable|string',
+            'damaged_vehicle_color'       => 'nullable|string',
             'damaged_vehicle_plate'       => 'nullable|string',
             'damaged_vehicle_amount'      => 'nullable|numeric',
             'damaged_vehicle_repair_shop' => 'nullable|string',
@@ -162,6 +164,8 @@ class ClaimController extends Controller
             'driver_license_expiry_date'  => 'nullable|date',
             'damaged_body_type'           => 'nullable|string',
             'damaged_vehicle_model'       => 'nullable|string',
+            'damaged_vehicle_type'        => 'nullable|string',
+            'damaged_vehicle_color'       => 'nullable|string',
             'damaged_vehicle_plate'       => 'nullable|string',
             'damaged_vehicle_amount'      => 'nullable|numeric',
             'damaged_vehicle_repair_shop' => 'nullable|string',
@@ -691,3 +695,4 @@ class ClaimController extends Controller
         ]);
     }
 }
+

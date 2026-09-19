@@ -373,6 +373,7 @@ Route::post('/claims/{id}/transfers', [ClaimController::class, 'addTransfer']);
 Route::post('/claims/{id}/submit-compensation', [ClaimController::class, 'submitCompensation']);
 Route::post('/claims/{id}/approve-payment', [ClaimController::class, 'approvePayment']);
 Route::post('/claims/{id}/reject-payment', [ClaimController::class, 'rejectPayment']);
+Route::post('/claims/{id}/cancel-payment', [ClaimController::class, 'cancelPayment']);
 
 // â”€â”€â”€ Excel Import Routes (ط§ط³طھظٹط±ط§ط¯ ظ…ظ„ظپط§طھ Excel) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 Route::post('/excel-import/analyze', [\App\Http\Controllers\ExcelImportController::class, 'analyzeFile']);

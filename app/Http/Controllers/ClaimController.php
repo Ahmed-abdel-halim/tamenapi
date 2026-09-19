@@ -618,4 +618,76 @@ class ClaimController extends Controller
 
         return response()->json($claim->load(['document', 'transfers', 'reports']));
     }
+
+    public function cancelPayment(Request $request, $id)
+    {
+        $claim = Claim::findOrFail($id);
+
+        $userId = $request->header('X-User-Id') ?? $request->query('user_id') ?? auth()->id();
+        $user = $userId ? \App\Models\User::find($userId) : null;
+        $userName = $user ? $user->name : 'المسؤول';
+        $reason = $request->input('reason') ?: 'إلغاء التسديد وإعادة الملف كغير مسدد';
+
+        // 1. Delete associated expenses and financial transactions if any were created
+        $expenses = \App\Models\Expense::where('category', 'التعويضات')
+            ->where(function($q) use ($claim) {
+                $q->where('name', 'like', "%{$claim->claim_number}%");
+                if ($claim->document_number) {
+                    $q->orWhere('voucher_number', $claim->document_number);
+                }
+            })
+            ->get();
+
+        foreach ($expenses as $expense) {
+            \App\Models\TreasuryTransaction::where('description', 'like', "%مصروف رقم: {$expense->id}%")
+                ->delete();
+
+            \App\Models\BankTransaction::where('notes', 'like', "%مصروف رقم: {$expense->id}%")
+                ->delete();
+
+            $expense->delete();
+        }
+
+        // Catch any transactions referencing the claim number directly
+        \App\Models\TreasuryTransaction::where('description', 'like', "%{$claim->claim_number}%")->delete();
+        \App\Models\BankTransaction::where('notes', 'like', "%{$claim->claim_number}%")->delete();
+
+        // 2. Remove payment transfer records so lists & reports don't treat it as paid
+        $claim->transfers()
+            ->whereIn('transfer_type', ['للتسديد - الشؤون المالية', 'تم التسديد'])
+            ->delete();
+
+        // 3. Reset payment and compensation fields
+        $claim->update([
+            'status' => 'التعويضات',
+            'finance_status' => null,
+            'finance_approved_at' => null,
+            'finance_user_id' => null,
+            'finance_notes' => null,
+            'compensation_value' => null,
+            'additional_expenses' => null,
+            'total_paid' => null,
+            'recipient_name' => null,
+            'payment_method' => null,
+            'document_number' => null,
+            'financial_value_image' => null,
+        ]);
+
+        // 4. Add an audit log in transfers
+        $claim->transfers()->create([
+            'transfer_type' => 'إلغاء التسديد',
+            'details' => [
+                'action' => 'إلغاء التسديد والصرف المالي',
+                'cancelled_at' => now()->toDateTimeString(),
+                'cancelled_by' => $userName,
+                'reason' => $reason,
+                'restored_status' => 'التعويضات',
+            ]
+        ]);
+
+        return response()->json([
+            'message' => 'تم إلغاء التسديد وإعادة ملف المطالبة إلى قسم التعويضات بنجاح',
+            'claim' => $claim->load(['document', 'transfers', 'reports'])
+        ]);
+    }
 }

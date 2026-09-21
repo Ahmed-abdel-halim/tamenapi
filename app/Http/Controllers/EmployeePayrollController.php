@@ -35,7 +35,72 @@ class EmployeePayrollController extends Controller
             $query->where('status', $validated['status']);
         }
         if (!empty($validated['user_id'])) {
-            $query->where('user_id', $validated['user_id']);
+            $userId = (int) $validated['user_id'];
+            $query->where('user_id', $userId);
+
+            $user = User::find($userId);
+            if ($user) {
+                // Effective start date (work_start_date > hire_date > start_date)
+                $effectiveStart = $user->work_start_date ?? $user->hire_date ?? $user->start_date;
+                // Effective stop date (resignation or contract end, whichever is earlier)
+                $effectiveStop = null;
+                if ($user->resignation_date && $user->end_date) {
+                    $effectiveStop = min($user->resignation_date, $user->end_date);
+                } else {
+                    $effectiveStop = $user->resignation_date ?? $user->end_date;
+                }
+
+                if ($effectiveStart) {
+                    $startDate = substr((string)$effectiveStart, 0, 10);
+                    $startY = (int) substr($startDate, 0, 4);
+                    $startM = (int) substr($startDate, 5, 2);
+                    $startPeriod = $startY * 100 + $startM;
+                    $query->whereRaw('(year * 100 + month) >= ?', [$startPeriod]);
+                }
+
+                if ($effectiveStop) {
+                    $stopDate = substr((string)$effectiveStop, 0, 10);
+                    $stopY = (int) substr($stopDate, 0, 4);
+                    $stopM = (int) substr($stopDate, 5, 2);
+                    $stopPeriod = $stopY * 100 + $stopM;
+                    $query->whereRaw('(year * 100 + month) <= ?', [$stopPeriod]);
+                }
+            }
+        }
+
+        if (!empty($validated['year']) && !empty($validated['month']) && empty($validated['user_id'])) {
+            $y = (int) $validated['year'];
+            $m = (int) $validated['month'];
+            $monthStart = sprintf('%04d-%02d-01', $y, $m);
+            $monthEnd = date('Y-m-t', strtotime($monthStart));
+
+            $query->whereHas('user', function ($uq) use ($monthStart, $monthEnd) {
+                $uq->where(function ($sq) use ($monthEnd) {
+                    $sq->whereNotNull('work_start_date')
+                       ->where('work_start_date', '<=', $monthEnd);
+                })->orWhere(function ($sq) use ($monthEnd) {
+                    $sq->whereNull('work_start_date')
+                       ->whereNotNull('hire_date')
+                       ->where('hire_date', '<=', $monthEnd);
+                })->orWhere(function ($sq) use ($monthEnd) {
+                    $sq->whereNull('work_start_date')
+                       ->whereNull('hire_date')
+                       ->whereNotNull('start_date')
+                       ->where('start_date', '<=', $monthEnd);
+                })->orWhere(function ($sq) use ($monthEnd) {
+                    $sq->whereNull('work_start_date')
+                       ->whereNull('hire_date')
+                       ->whereNull('start_date');
+                });
+            })->whereHas('user', function ($uq) use ($monthStart) {
+                $uq->where(function ($sq) use ($monthStart) {
+                    $sq->whereNull('end_date')
+                      ->orWhere('end_date', '>=', $monthStart);
+                })->where(function ($sq) use ($monthStart) {
+                    $sq->whereNull('resignation_date')
+                      ->orWhere('resignation_date', '>=', $monthStart);
+                });
+            });
         }
         if (!empty($validated['branch_agent_id'])) {
             $agentId = (int) $validated['branch_agent_id'];
@@ -191,15 +256,18 @@ class EmployeePayrollController extends Controller
                        ->where('work_start_date', '<=', $monthEnd);
                 })->orWhere(function ($sq) use ($monthEnd) {
                     $sq->whereNull('work_start_date')
+                       ->whereNotNull('hire_date')
+                       ->where('hire_date', '<=', $monthEnd);
+                })->orWhere(function ($sq) use ($monthEnd) {
+                    $sq->whereNull('work_start_date')
+                       ->whereNull('hire_date')
                        ->whereNotNull('start_date')
                        ->where('start_date', '<=', $monthEnd);
                 })->orWhere(function ($sq) use ($monthEnd) {
                     $sq->whereNull('work_start_date')
+                       ->whereNull('hire_date')
                        ->whereNull('start_date')
-                       ->where(function ($ssq) use ($monthEnd) {
-                           $ssq->whereNull('hire_date')
-                               ->orWhere('hire_date', '<=', $monthEnd);
-                       });
+                       ->where('created_at', '<=', $monthEnd . ' 23:59:59');
                 });
             })->where(function ($q) use ($monthStart) {
                 $q->whereNull('end_date')
@@ -261,15 +329,18 @@ class EmployeePayrollController extends Controller
                        ->where('work_start_date', '<=', $monthEnd);
                 })->orWhere(function ($sq) use ($monthEnd) {
                     $sq->whereNull('work_start_date')
+                       ->whereNotNull('hire_date')
+                       ->where('hire_date', '<=', $monthEnd);
+                })->orWhere(function ($sq) use ($monthEnd) {
+                    $sq->whereNull('work_start_date')
+                       ->whereNull('hire_date')
                        ->whereNotNull('start_date')
                        ->where('start_date', '<=', $monthEnd);
                 })->orWhere(function ($sq) use ($monthEnd) {
                     $sq->whereNull('work_start_date')
+                       ->whereNull('hire_date')
                        ->whereNull('start_date')
-                       ->where(function ($ssq) use ($monthEnd) {
-                           $ssq->whereNull('hire_date')
-                               ->orWhere('hire_date', '<=', $monthEnd);
-                       });
+                       ->where('created_at', '<=', $monthEnd . ' 23:59:59');
                 });
             })
             ->where(function ($q) use ($monthStart) {

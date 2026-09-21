@@ -501,12 +501,52 @@ class UserController extends Controller
             }
         }
 
-        if (!empty($validated['resignation_date']) && empty($validated['end_date'])) {
-            $validated['end_date'] = $validated['resignation_date'];
+        if (!empty($validated['hire_date'])) {
+            if (empty($validated['start_date']) || $validated['start_date'] < $validated['hire_date']) {
+                $validated['start_date'] = $validated['hire_date'];
+            }
+            if (empty($validated['work_start_date'])) {
+                $validated['work_start_date'] = $validated['hire_date'];
+            }
+        }
+
+        if (!empty($validated['resignation_date'])) {
+            if (empty($validated['end_date']) || $validated['end_date'] > $validated['resignation_date']) {
+                $validated['end_date'] = $validated['resignation_date'];
+            }
         }
 
         $validated = $this->filterExistingUserColumns($validated);
         $user->update($validated);
+
+        // تنظيف وحذف أي سجلات رواتب ومسيرات خارج فترة عمل الموظف الفعلية بعد تحديث التواريخ
+        try {
+            $effectiveStart = $user->work_start_date ?? $user->hire_date ?? $user->start_date;
+            $effectiveStop = null;
+            if ($user->resignation_date && $user->end_date) {
+                $effectiveStop = min($user->resignation_date, $user->end_date);
+            } else {
+                $effectiveStop = $user->resignation_date ?? $user->end_date;
+            }
+
+            if ($effectiveStart) {
+                $sDate = substr((string)$effectiveStart, 0, 10);
+                $startYm = ((int)substr($sDate, 0, 4)) * 100 + ((int)substr($sDate, 5, 2));
+                \App\Models\EmployeePayroll::where('user_id', $user->id)
+                    ->whereRaw('(year * 100 + month) < ?', [$startYm])
+                    ->delete();
+            }
+
+            if ($effectiveStop) {
+                $eDate = substr((string)$effectiveStop, 0, 10);
+                $stopYm = ((int)substr($eDate, 0, 4)) * 100 + ((int)substr($eDate, 5, 2));
+                \App\Models\EmployeePayroll::where('user_id', $user->id)
+                    ->whereRaw('(year * 100 + month) > ?', [$stopYm])
+                    ->delete();
+            }
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning("Failed to prune out-of-period payrolls for user {$user->id}: " . $e->getMessage());
+        }
 
         if ((string) ($oldSalary ?? '') !== (string) ($user->salary ?? '')) {
             EmployeeSalaryHistory::create([

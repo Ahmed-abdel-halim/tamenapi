@@ -664,7 +664,7 @@ class ClaimController extends Controller
         // 3. Reset payment and compensation fields
         $claim->update([
             'status' => 'التعويضات',
-            'finance_status' => null,
+            'finance_status' => 'pending',
             'finance_approved_at' => null,
             'finance_user_id' => null,
             'finance_notes' => null,

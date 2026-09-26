@@ -103,7 +103,15 @@ class ResidentInsuranceDocumentController extends Controller
                 $query->whereDay('issue_date', $request->query('day'));
             }
 
-            $perPage = $request->query('per_page', 10);
+            if ($request->boolean('all') || $request->query('per_page') === 'all') {
+                $count = (clone $query)->count();
+                $perPage = max($count, 1);
+            } else {
+                $perPage = (int) $request->query('per_page', 10);
+                if ($perPage <= 0) {
+                    $perPage = 10;
+                }
+            }
             $documents = $query->orderBy('issue_date', 'desc')
                 ->orderBy('id', 'desc')
                 ->paginate($perPage);

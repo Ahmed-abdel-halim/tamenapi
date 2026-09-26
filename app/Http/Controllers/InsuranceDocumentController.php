@@ -126,14 +126,34 @@ class InsuranceDocumentController extends Controller
                 $query->whereDay('issue_date', $request->query('day'));
             }
 
-            $perPage = $request->query('per_page', 10);
+            if ($request->boolean('all') || $request->query('per_page') === 'all') {
+                $count = (clone $query)->count();
+                $perPage = max($count, 1);
+            } else {
+                $perPage = (int) $request->query('per_page', 10);
+                if ($perPage <= 0) {
+                    $perPage = 10;
+                }
+            }
+
             $documents = $query->orderBy('issue_date', 'desc')
                 ->orderBy('id', 'desc')
                 ->paginate($perPage);
 
-            $documents->getCollection()->transform(function ($document) use ($isAdmin) {
+            // Preload transfer counts to avoid N+1 query problem during bulk export
+            $docIds = $documents->getCollection()->pluck('id')->filter()->all();
+            $transferCounts = [];
+            if (!empty($docIds)) {
+                $transferCounts = InsuranceOwnershipTransfer::whereIn('insurance_document_id', $docIds)
+                    ->selectRaw('insurance_document_id, count(*) as count')
+                    ->groupBy('insurance_document_id')
+                    ->pluck('count', 'insurance_document_id')
+                    ->toArray();
+            }
+
+            $documents->getCollection()->transform(function ($document) use ($isAdmin, $transferCounts) {
                 $document->document_number = $document->insurance_number ?? $document->document_number ?? '-';
-                $transferCount = InsuranceOwnershipTransfer::where('insurance_document_id', $document->id)->count();
+                $transferCount = $transferCounts[$document->id] ?? 0;
                 $document->ownership_transfer_count = $transferCount;
                 $document->has_ownership_transfer = $transferCount > 0;
 

@@ -176,7 +176,14 @@ class CanceledDocumentsController extends Controller
             $filterYear = $request->query('year', '');
             $filterMonth = $request->query('month', '');
             $filterDay = $request->query('day', '');
-            $perPage = (int) $request->query('per_page', 15);
+            if ($request->boolean('all') || $request->query('per_page') === 'all') {
+                $perPage = 100000;
+            } else {
+                $perPage = (int) $request->query('per_page', 15);
+                if ($perPage <= 0) {
+                    $perPage = 15;
+                }
+            }
             $page = (int) $request->query('page', 1);
 
 

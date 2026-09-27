@@ -27,10 +27,20 @@ class ClaimController extends Controller
         }
 
         if ($request->status) {
-            $query->where('status', $request->status);
+            $statuses = explode(',', $request->status);
+            if (count($statuses) > 1) {
+                $query->whereIn('status', $statuses);
+            } else {
+                $query->where('status', $statuses[0]);
+            }
         }
         if ($request->damage_type) {
-            $query->where('damage_type', 'like', '%' . $request->damage_type . '%');
+            $damageTypes = explode(',', $request->damage_type);
+            if (count($damageTypes) > 1) {
+                $query->whereIn('damage_type', $damageTypes);
+            } else {
+                $query->where('damage_type', 'like', '%' . $damageTypes[0] . '%');
+            }
         }
 
         $claims = $query->orderBy('created_at', 'desc')->get();
@@ -695,4 +705,5 @@ class ClaimController extends Controller
         ]);
     }
 }
+
 

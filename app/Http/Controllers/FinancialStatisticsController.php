@@ -1748,6 +1748,15 @@ class FinancialStatisticsController extends Controller
             @set_time_limit(300);
 
             $data = $this->buildComprehensiveProductionData($request);
+
+            if ($request->get('print_mode') === 'summary') {
+                return response($this->renderExecutiveSummaryPrintHtml($data));
+            }
+
+            if (($data['grand_totals']['documents_count'] ?? 0) > 400 && !$request->has('force_all')) {
+                return response($this->renderLargeDetailedPrintHtml($data, $request));
+            }
+
             return view('reports.comprehensive-production-portfolio-print', $data);
         } catch (\Exception $e) {
             abort(404, 'حدث خطأ أثناء إعداد تقرير الحوافظ للطباعة: ' . $e->getMessage());
@@ -1769,6 +1778,7 @@ class FinancialStatisticsController extends Controller
         $toDate = $request->get('to_date');
         $documentTypeFilter = $request->get('document_type', 'all');
         $excludeCanceled = $request->boolean('exclude_canceled', false);
+        $printMode = $request->get('print_mode', 'detailed'); // 'summary' or 'detailed'
 
         $schema = DB::getSchemaBuilder();
         $usersMap = [];
@@ -1926,12 +1936,17 @@ class FinancialStatisticsController extends Controller
                 $query->where('branch_agent_id', $selectedAgent->id);
             }
 
+            // High-performance date range filtering using DB indexes
             if ($fromDate && $toDate) {
                 $query->whereBetween($dateCol, [$fromDate . ' 00:00:00', $toDate . ' 23:59:59']);
             } elseif ($year && $month) {
-                $query->whereYear($dateCol, (int)$year)->whereMonth($dateCol, (int)$month);
+                $m = str_pad((string)$month, 2, '0', STR_PAD_LEFT);
+                $startDate = "{$year}-{$m}-01 00:00:00";
+                $daysInMonth = date('t', strtotime("{$year}-{$m}-01"));
+                $endDate = "{$year}-{$m}-{$daysInMonth} 23:59:59";
+                $query->whereBetween($dateCol, [$startDate, $endDate]);
             } elseif ($year) {
-                $query->whereYear($dateCol, (int)$year);
+                $query->whereBetween($dateCol, ["{$year}-01-01 00:00:00", "{$year}-12-31 23:59:59"]);
             }
 
             if ($excludeCanceled && $hasStatusCol) {
@@ -2000,68 +2015,91 @@ class FinancialStatisticsController extends Controller
             $grandTotals['issue_fees'] += $issSum;
             $grandTotals['total'] += $totSum;
 
-            // Fetch all records for report display, printing, and Excel export
-            $docs = $query->orderBy($dateCol, 'desc')->get();
-
             $docRows = [];
-            $numField = $cfg['number_field'];
-            $nameField = $cfg['name_field'];
-            $plateField = $cfg['plate_field'];
-            $detField = $cfg['detail_field'];
 
-            foreach ($docs as $doc) {
-                $docNum = $doc->$numField ?? ($doc->insurance_number ?? ($doc->document_number ?? ($doc->policy_number ?? '-')));
-                $insuredName = $doc->$nameField ?? ($doc->insured_name ?? ($doc->name ?? ($doc->student_name ?? '-')));
-                
-                $plateNum = '-';
-                if ($hasPlateCol && isset($doc->$plateField)) {
-                    $plateNum = $doc->$plateField;
-                } elseif ($hasPlateNumber && isset($doc->plate_number)) {
-                    $plateNum = $doc->plate_number;
-                } elseif ($hasChassisNumber && isset($doc->chassis_number)) {
-                    $plateNum = $doc->chassis_number;
+            // Only fetch individual document records if not in summary-only print mode
+            if ($printMode !== 'summary') {
+                $numField = $cfg['number_field'];
+                $nameField = $cfg['name_field'];
+                $plateField = $cfg['plate_field'];
+                $detField = $cfg['detail_field'];
+
+                // Select only the columns needed to minimize DB IO and memory usage
+                $selectCols = ['id'];
+                if ($numField) $selectCols[] = $numField;
+                if ($nameField && !in_array($nameField, $selectCols)) $selectCols[] = $nameField;
+                if ($dateCol && !in_array($dateCol, $selectCols)) $selectCols[] = $dateCol;
+                if ($hasPlateCol && !in_array($cfg['plate_field'], $selectCols)) $selectCols[] = $cfg['plate_field'];
+                if ($hasPlateNumber && !in_array('plate_number', $selectCols)) $selectCols[] = 'plate_number';
+                if ($hasChassisNumber && !in_array('chassis_number', $selectCols)) $selectCols[] = 'chassis_number';
+                if ($hasDetailCol && !in_array($cfg['detail_field'], $selectCols)) $selectCols[] = $cfg['detail_field'];
+                if ($premCol && !in_array($premCol, $selectCols)) $selectCols[] = $premCol;
+                if ($hasTax) $selectCols[] = 'tax';
+                if ($hasSupervision) $selectCols[] = 'supervision_fees';
+                if ($hasStamp) $selectCols[] = 'stamp';
+                if ($hasIssueFees) $selectCols[] = 'issue_fees';
+                if ($hasTotal) $selectCols[] = 'total';
+                if ($hasBranchAgentCol) $selectCols[] = 'branch_agent_id';
+                if ($schema->hasColumn($tableName, 'user_id')) $selectCols[] = 'user_id';
+
+                $docs = $query->select(array_values(array_unique($selectCols)))
+                              ->orderBy($dateCol, 'desc')
+                              ->get();
+
+                foreach ($docs as $doc) {
+                    $docNum = $doc->$numField ?? ($doc->insurance_number ?? ($doc->document_number ?? ($doc->policy_number ?? '-')));
+                    $insuredName = $doc->$nameField ?? ($doc->insured_name ?? ($doc->name ?? ($doc->student_name ?? '-')));
+                    
+                    $plateNum = '-';
+                    if ($hasPlateCol && isset($doc->$plateField)) {
+                        $plateNum = $doc->$plateField;
+                    } elseif ($hasPlateNumber && isset($doc->plate_number)) {
+                        $plateNum = $doc->plate_number;
+                    } elseif ($hasChassisNumber && isset($doc->chassis_number)) {
+                        $plateNum = $doc->chassis_number;
+                    }
+
+                    $extraDetail = ($hasDetailCol && isset($doc->$detField)) ? $doc->$detField : '-';
+
+                    $docDate = $doc->$dateCol ?? ($doc->issue_date ?? ($doc->start_date ?? ($doc->created_at ?? '-')));
+                    if ($docDate && $docDate !== '-') {
+                        $docDate = date('d/m/Y', strtotime($docDate));
+                    }
+
+                    $prem = $premCol ? (float)($doc->$premCol ?? 0) : 0;
+                    $taxVal = $hasTax ? (float)($doc->tax ?? 0) : 0;
+                    $supVal = $hasSupervision ? (float)($doc->supervision_fees ?? 0) : 0;
+                    $stmpVal = $hasStamp ? (float)($doc->stamp ?? 0) : 0;
+                    $issVal = $hasIssueFees ? (float)($doc->issue_fees ?? 0) : 0;
+                    $totVal = $hasTotal ? (float)($doc->total ?? 0) : ($prem + $taxVal + $supVal + $stmpVal + $issVal);
+
+                    if ($totVal == 0 && ($prem > 0 || $taxVal > 0 || $supVal > 0)) {
+                        $totVal = $prem + $taxVal + $supVal + $stmpVal + $issVal;
+                    }
+
+                    $agentObj = (isset($doc->branch_agent_id) && isset($branchAgents[$doc->branch_agent_id])) ? $branchAgents[$doc->branch_agent_id] : null;
+                    $agencyName = $agentObj ? ($agentObj->agency_name ?? $agentObj->agent_name) : '-';
+                    
+                    $userId = $doc->user_id ?? null;
+                    $userName = ($userId && isset($usersMap[$userId])) ? $usersMap[$userId] : $agencyName;
+
+                    $docRows[] = [
+                        'id' => $doc->id,
+                        'document_number' => $docNum,
+                        'insured_name' => $insuredName,
+                        'issue_date' => $docDate,
+                        'plate_number' => $plateNum,
+                        'premium' => $prem,
+                        'tax' => $taxVal,
+                        'supervision_fees' => $supVal,
+                        'stamp' => $stmpVal,
+                        'issue_fees' => $issVal,
+                        'extra_detail' => $extraDetail,
+                        'total' => $totVal,
+                        'agency_name' => $agencyName,
+                        'user_name' => $userName,
+                    ];
                 }
-
-                $extraDetail = ($hasDetailCol && isset($doc->$detField)) ? $doc->$detField : '-';
-
-                $docDate = $doc->issue_date ?? ($doc->start_date ?? ($doc->created_at ?? '-'));
-                if ($docDate && $docDate !== '-') {
-                    $docDate = date('d/m/Y', strtotime($docDate));
-                }
-
-                $prem = $premCol ? (float)($doc->$premCol ?? 0) : 0;
-                $taxVal = $hasTax ? (float)($doc->tax ?? 0) : 0;
-                $supVal = $hasSupervision ? (float)($doc->supervision_fees ?? 0) : 0;
-                $stmpVal = $hasStamp ? (float)($doc->stamp ?? 0) : 0;
-                $issVal = $hasIssueFees ? (float)($doc->issue_fees ?? 0) : 0;
-                $totVal = $hasTotal ? (float)($doc->total ?? 0) : ($prem + $taxVal + $supVal + $stmpVal + $issVal);
-
-                if ($totVal == 0 && ($prem > 0 || $taxVal > 0 || $supVal > 0)) {
-                    $totVal = $prem + $taxVal + $supVal + $stmpVal + $issVal;
-                }
-
-                $agentObj = (isset($doc->branch_agent_id) && isset($branchAgents[$doc->branch_agent_id])) ? $branchAgents[$doc->branch_agent_id] : null;
-                $agencyName = $agentObj ? ($agentObj->agency_name ?? $agentObj->agent_name) : '-';
-                
-                $userId = $doc->user_id ?? null;
-                $userName = ($userId && isset($usersMap[$userId])) ? $usersMap[$userId] : $agencyName;
-
-                $docRows[] = [
-                    'id' => $doc->id,
-                    'document_number' => $docNum,
-                    'insured_name' => $insuredName,
-                    'issue_date' => $docDate,
-                    'plate_number' => $plateNum,
-                    'premium' => $prem,
-                    'tax' => $taxVal,
-                    'supervision_fees' => $supVal,
-                    'stamp' => $stmpVal,
-                    'issue_fees' => $issVal,
-                    'extra_detail' => $extraDetail,
-                    'total' => $totVal,
-                    'agency_name' => $agencyName,
-                    'user_name' => $userName,
-                ];
             }
 
             $sections[] = [
@@ -2097,7 +2135,272 @@ class FinancialStatisticsController extends Controller
             'from_date' => $fromDate,
             'to_date' => $toDate,
             'document_type' => $documentTypeFilter,
+            'print_mode' => $printMode,
         ];
     }
+
+    /**
+     * Render the official Executive Financial Summary print sheet (A4 Landscape, 1-2 pages, zero lag).
+     */
+    private function renderExecutiveSummaryPrintHtml(array $data): string
+    {
+        $agentLabel = htmlspecialchars($data['agent_label'] ?? 'الكل', ENT_QUOTES, 'UTF-8');
+        $periodLabel = htmlspecialchars($data['period_label'] ?? '', ENT_QUOTES, 'UTF-8');
+        $grandTotals = $data['grand_totals'] ?? [];
+        $sections = $data['sections'] ?? [];
+        $grandTotalVal = max(0.001, (float)($grandTotals['total'] ?? 0));
+        $dateStr = date('d/m/Y h:i A');
+
+        $rowsHtml = '';
+        $idx = 1;
+        foreach ($sections as $sec) {
+            $title = htmlspecialchars($sec['title'] ?? '', ENT_QUOTES, 'UTF-8');
+            $cnt = number_format($sec['totals']['documents_count'] ?? 0);
+            $prem = number_format($sec['totals']['premium'] ?? 0, 3);
+            $tax = number_format($sec['totals']['tax'] ?? 0, 3);
+            $sup = number_format($sec['totals']['supervision_fees'] ?? 0, 3);
+            $stampAndFees = number_format(($sec['totals']['stamp'] ?? 0) + ($sec['totals']['issue_fees'] ?? 0), 3);
+            $tot = number_format($sec['totals']['total'] ?? 0, 3);
+            $pct = number_format((($sec['totals']['total'] ?? 0) / $grandTotalVal) * 100, 1) . '%';
+
+            $rowsHtml .= "
+                <tr>
+                    <td style=\"padding:7px;border:1px solid #cbd5e1;text-align:center;\">{$idx}</td>
+                    <td style=\"padding:7px 10px;border:1px solid #cbd5e1;font-weight:800;color:#0284c7;text-align:right;\">{$title}</td>
+                    <td style=\"padding:7px;border:1px solid #cbd5e1;font-weight:800;text-align:center;\">{$cnt}</td>
+                    <td style=\"padding:7px;border:1px solid #cbd5e1;text-align:center;\">{$prem}</td>
+                    <td style=\"padding:7px;border:1px solid #cbd5e1;text-align:center;\">{$tax}</td>
+                    <td style=\"padding:7px;border:1px solid #cbd5e1;text-align:center;\">{$sup}</td>
+                    <td style=\"padding:7px;border:1px solid #cbd5e1;text-align:center;\">{$stampAndFees}</td>
+                    <td style=\"padding:7px;border:1px solid #cbd5e1;font-weight:900;color:#15803d;text-align:center;\">{$tot} د.ل</td>
+                    <td style=\"padding:7px;border:1px solid #cbd5e1;color:#475569;text-align:center;\">{$pct}</td>
+                </tr>
+            ";
+            $idx++;
+        }
+
+        $cntTotal = number_format($grandTotals['documents_count'] ?? 0);
+        $premTotal = number_format($grandTotals['premium'] ?? 0, 3);
+        $taxTotal = number_format($grandTotals['tax'] ?? 0, 3);
+        $supTotal = number_format($grandTotals['supervision_fees'] ?? 0, 3);
+        $stampTotal = number_format(($grandTotals['stamp'] ?? 0) + ($grandTotals['issue_fees'] ?? 0), 3);
+        $grandTot = number_format($grandTotals['total'] ?? 0, 3);
+
+        return <<<HTML
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>كشف الملخص المالي المعتمد للحوافظ - شركة المدار الليبي للتأمين</title>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@500;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        @page { size: A4 landscape; margin: 8mm 10mm; }
+        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+        body { font-family: 'Tajawal', Tahoma, sans-serif; font-size: 11.5px; color: #0f172a; background: #fff; padding: 10px; }
+        .hdr { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #0284c7; padding-bottom: 8px; margin-bottom: 12px; }
+        .hdr h1 { font-size: 19px; color: #0284c7; font-weight: 900; }
+        .badge { background: #f0f9ff; border: 1px solid #bae6fd; color: #0369a1; padding: 4px 18px; border-radius: 6px; font-weight: 800; font-size: 13px; }
+        .info-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; margin-bottom: 14px; overflow: hidden; }
+        .info-cell { padding: 8px 12px; text-align: center; border-left: 1px solid #cbd5e1; }
+        .info-cell:last-child { border-left: none; }
+        .info-lbl { font-size: 11px; color: #475569; font-weight: 700; margin-bottom: 2px; }
+        .info-val { font-size: 13px; font-weight: 800; color: #0f172a; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 15px; font-size: 11px; }
+        th { background: #0284c7; color: #fff; font-weight: 800; padding: 8px 6px; border: 1px solid #0369a1; text-align: center; }
+        .grand-row td { background: #e0f2fe; font-weight: 900; font-size: 12px; color: #0369a1; border-top: 2px solid #0284c7; }
+        .declaration { background: #f8fafc; border: 1px dashed #94a3b8; border-radius: 6px; padding: 10px 14px; font-size: 11px; margin-bottom: 15px; line-height: 1.6; }
+        .sig-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 15px; }
+        .sig-box { border: 1.5px solid #64748b; border-radius: 6px; overflow: hidden; background: #fff; text-align: center; }
+        .sig-title { background: #f1f5f9; padding: 6px; font-weight: 800; font-size: 11px; border-bottom: 1px solid #64748b; }
+        .sig-space { height: 50px; }
+        .ftr { display: flex; justify-content: space-between; border-top: 1px solid #94a3b8; padding-top: 6px; font-size: 10px; color: #64748b; font-weight: 700; }
+        .no-print { display: flex; justify-content: space-between; align-items: center; background: #f0fdf4; border: 1.5px solid #10b981; padding: 10px 16px; border-radius: 8px; margin-bottom: 15px; }
+        .btn { padding: 6px 16px; border-radius: 6px; font-weight: 800; cursor: pointer; border: none; font-family: inherit; font-size: 12px; }
+        @media print { .no-print { display: none !important; } }
+    </style>
+</head>
+<body>
+    <div class="no-print">
+        <span style="color:#047857;font-weight:800;">📄 كشف الملخص المالي المعتمد للحوافظ والإنتاجية (مجهز للطباعة بمقاس A4 أفقي)</span>
+        <div>
+            <button onclick="window.print()" class="btn" style="background:#10b981;color:#fff;">🖨️ طباعة المستند الآن</button>
+            <button onclick="window.close()" class="btn" style="background:#e2e8f0;color:#1e293b;margin-right:6px;">إغلاق</button>
+        </div>
+    </div>
+
+    <div class="hdr">
+        <div style="font-weight:900;color:#139625;font-size:12px;">المدار الليبي<br><span style="color:#0284c7;">للتأمين</span></div>
+        <div style="text-align:center;">
+            <h1>شركة المدار الليبي للتأمين</h1>
+            <div class="badge">كشف الملخص المالي المعتمد لحوافظ الإنتاجية</div>
+        </div>
+        <div style="width:50px;"></div>
+    </div>
+
+    <div class="info-grid">
+        <div class="info-cell">
+            <div class="info-lbl">نطاق الوكلاء والفروع</div>
+            <div class="info-val">{$agentLabel}</div>
+        </div>
+        <div class="info-cell">
+            <div class="info-lbl">الفترة المحددة</div>
+            <div class="info-val" style="color:#0284c7;">{$periodLabel}</div>
+        </div>
+        <div class="info-cell">
+            <div class="info-lbl">إجمالي عدد الوثائق</div>
+            <div class="info-val">{$cntTotal} وثيقة</div>
+        </div>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th style="width:35px;">#</th>
+                <th style="text-align:right;padding-right:10px;">نوع التأمين</th>
+                <th style="width:80px;">عدد الوثائق</th>
+                <th style="width:110px;">القسط الصافي (د.ل)</th>
+                <th style="width:90px;">الضرائب (د.ل)</th>
+                <th style="width:95px;">أ. ورقابة (د.ل)</th>
+                <th style="width:110px;">الدمغة وم. الإصدار</th>
+                <th style="width:120px;">المجموع الإجمالي (د.ل)</th>
+                <th style="width:70px;">النسبة %</th>
+            </tr>
+        </thead>
+        <tbody>
+            {$rowsHtml}
+            <tr class="grand-row">
+                <td colspan="2" style="text-align:center;padding:8px;border:1px solid #0284c7;">المجموع العام الإجمالي لكافة التأمينات</td>
+                <td style="text-align:center;padding:8px;border:1px solid #0284c7;">{$cntTotal}</td>
+                <td style="text-align:center;padding:8px;border:1px solid #0284c7;">{$premTotal}</td>
+                <td style="text-align:center;padding:8px;border:1px solid #0284c7;">{$taxTotal}</td>
+                <td style="text-align:center;padding:8px;border:1px solid #0284c7;">{$supTotal}</td>
+                <td style="text-align:center;padding:8px;border:1px solid #0284c7;">{$stampTotal}</td>
+                <td style="text-align:center;padding:8px;border:1px solid #0284c7;color:#0f172a;font-size:13px;">{$grandTot} د.ل</td>
+                <td style="text-align:center;padding:8px;border:1px solid #0284c7;">100%</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div class="declaration">
+        <strong>إقرار ومصادقة:</strong>
+        نقر ونشهد بصحة واكتمال كافة العمليات والبيانات المالية والرسوم والضرائب المدرجة أعلاه والمستخرجة من منظومة شركة المدار الليبي للتأمين للفترة المحددة، وقد تمت المطابقة المحاسبية والدفترية وفق القوانين واللوائح السارية.
+    </div>
+
+    <div class="sig-grid">
+        <div class="sig-box">
+            <div class="sig-title">إعداد رئيس قسم الإصدار / الفروع</div>
+            <div class="sig-space"></div>
+        </div>
+        <div class="sig-box">
+            <div class="sig-title">التدقيق والمراجعة المالية</div>
+            <div class="sig-space"></div>
+        </div>
+        <div class="sig-box">
+            <div class="sig-title">اعتماد المدير المالي</div>
+            <div class="sig-space"></div>
+        </div>
+        <div class="sig-box">
+            <div class="sig-title">الختم الرسمي للشركة</div>
+            <div class="sig-space"></div>
+        </div>
+    </div>
+
+    <div class="ftr">
+        <div>منظومة شركة المدار الليبي للتأمين - تقرير الحوافظ الشامل</div>
+        <div>تاريخ الاستخراج: {$dateStr}</div>
+    </div>
+
+    <script>
+        window.addEventListener('load', function() {
+            setTimeout(function() {
+                window.print();
+            }, 300);
+        });
+    </script>
+</body>
+</html>
+HTML;
+    }
+
+    /**
+     * Render safety print interface when documents count is too large for browser layout.
+     */
+    private function renderLargeDetailedPrintHtml(array $data, Request $request): string
+    {
+        $totalDocs = number_format($data['grand_totals']['documents_count'] ?? 0);
+        $summaryUrl = $request->fullUrlWithQuery(['print_mode' => 'summary']);
+        $forceAllUrl = $request->fullUrlWithQuery(['force_all' => '1']);
+        $grandTot = number_format($data['grand_totals']['total'] ?? 0, 3);
+        $agentLabel = htmlspecialchars($data['agent_label'] ?? '', ENT_QUOTES, 'UTF-8');
+        $periodLabel = htmlspecialchars($data['period_label'] ?? '', ENT_QUOTES, 'UTF-8');
+
+        return <<<HTML
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>تنبيه حجم الطباعة - شركة المدار الليبي للتأمين</title>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@500;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Tajawal', Tahoma, sans-serif; background: #f8fafc; color: #0f172a; padding: 40px 20px; direction: rtl; }
+        .card { max-width: 750px; margin: 0 auto; background: #fff; border-radius: 16px; border: 1.5px solid #e2e8f0; padding: 32px; box-shadow: 0 10px 30px rgba(0,0,0,0.06); text-align: center; }
+        .icon { font-size: 48px; color: #d97706; margin-bottom: 16px; }
+        h2 { font-size: 22px; color: #1e293b; margin-bottom: 12px; }
+        p { font-size: 14px; color: #475569; line-height: 1.7; margin-bottom: 24px; }
+        .kpi-box { background: #f1f5f9; border-radius: 12px; padding: 16px; margin-bottom: 28px; display: flex; justify-content: space-around; }
+        .kpi-item { display: flex; flex-direction: column; }
+        .kpi-lbl { font-size: 12px; color: #64748b; font-weight: 700; }
+        .kpi-val { font-size: 18px; font-weight: 900; color: #0284c7; }
+        .actions { display: flex; flex-direction: column; gap: 12px; }
+        .btn { padding: 14px 24px; border-radius: 10px; font-weight: 800; font-size: 14px; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-family: inherit; transition: all 0.2s; }
+        .btn-summary { background: #10b981; color: #fff; box-shadow: 0 4px 14px rgba(16,185,129,0.3); }
+        .btn-summary:hover { background: #059669; }
+        .btn-force { background: #e2e8f0; color: #475569; border: 1px solid #cbd5e1; }
+        .btn-force:hover { background: #fee2e2; color: #b91c1c; border-color: #fca5a5; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="icon">⚠️</div>
+        <h2>كشف كبير الحجم ({$totalDocs} وثيقة)</h2>
+        <p>
+            يحتوي التقرير المحدد على <strong>{$totalDocs} وثيقة</strong> بإجمالي مالي <strong>{$grandTot} د.ل</strong>.<br>
+            طباعة هذا العدد الضخم من الوثائق الفردية يستهلك مئات الصفحات ويؤدي إلى بطء أو تجمّد المتصفح.<br>
+            <strong>يُوصى باعتماد وطباعة "الملخص المالي المعتمد" (صفحة واحدة)، أو تصدير الوثائق إلى Excel عبر الشاشة الرئيسية.</strong>
+        </p>
+
+        <div class="kpi-box">
+            <div class="kpi-item">
+                <span class="kpi-lbl">النطاق</span>
+                <span class="kpi-val" style="font-size:14px;">{$agentLabel}</span>
+            </div>
+            <div class="kpi-item">
+                <span class="kpi-lbl">الفترة</span>
+                <span class="kpi-val" style="font-size:14px;">{$periodLabel}</span>
+            </div>
+            <div class="kpi-item">
+                <span class="kpi-lbl">عدد الوثائق</span>
+                <span class="kpi-val">{$totalDocs}</span>
+            </div>
+            <div class="kpi-item">
+                <span class="kpi-lbl">المجموع الكلي</span>
+                <span class="kpi-val">{$grandTot} د.ل</span>
+            </div>
+        </div>
+
+        <div class="actions">
+            <a href="{$summaryUrl}" class="btn btn-summary">
+                📑 طباعة كشف الملخص المالي المعتمد (موصى به - صفحة واحدة جاهزة للاعتماد)
+            </a>
+            <a href="{$forceAllUrl}" class="btn btn-force" onclick="return confirm('تنبيه: طباعة كافة الوثائق قد يستغرق دقيقة ويستهلك مئات الصفحات. هل أنت متأكد؟')">
+                ⚠️ المتابعة لطباعة كشف كافة الوثائق التفصيلي ({$totalDocs} وثيقة)
+            </a>
+        </div>
+    </div>
+</body>
+</html>
+HTML;
+    }
 }
+
 

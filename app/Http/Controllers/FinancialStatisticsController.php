@@ -2406,8 +2406,10 @@ HTML;
     }
 
     /**
-     * High-speed, ultra-compact detailed print renderer for large datasets (e.g. 8,500+ records).
-     * Uses table-layout: fixed, compact 18px row height, system fonts, and 0 inline styles for maximum Chrome performance.
+     * High-speed, pre-paginated detailed print renderer for large datasets (e.g. 8,500+ records).
+     * Splits records into explicit per-page containers (.p-page) of fixed 198mm printable height.
+     * Uses table-layout: fixed, compact 15.5px rows, separated borders, and 0 inline styles.
+     * Guarantees instantaneous Chrome print preview without hanging on "Loading preview...".
      */
     private function renderFastDetailedPrintHtml(array $data, Request $request): string
     {
@@ -2434,108 +2436,246 @@ HTML;
             $logoBase64 = 'data:image/png;base64,' . base64_encode(file_get_contents(public_path('img/logo.png')));
         }
 
-        $sectionsHtml = '';
+        // 1. Filter / Slice documents across sections based on chunk parameters
         $globalItemCounter = 0;
-        $renderedCount = 0;
+        $filteredSections = [];
+        $totalRenderedDocs = 0;
 
         foreach ($sections as $sec) {
-            $secTitle = htmlspecialchars($sec['title'] ?? '', ENT_QUOTES, 'UTF-8');
-            $detailHeader = htmlspecialchars($sec['detail_header'] ?? 'التفاصيل', ENT_QUOTES, 'UTF-8');
-            $docs = $sec['documents'] ?? [];
-            $secTotalCount = count($docs);
+            $secDocs = $sec['documents'] ?? [];
+            $matchingDocs = [];
 
-            $rowsHtml = '';
-            foreach ($docs as $doc) {
+            foreach ($secDocs as $doc) {
                 $globalItemCounter++;
                 if ($isChunked) {
                     if ($globalItemCounter <= $globalOffset) continue;
-                    if ($renderedCount >= $maxItemsToRender) break 2;
+                    if ($totalRenderedDocs >= $maxItemsToRender) break 2;
+                }
+                $doc['_item_number'] = $globalItemCounter;
+                $matchingDocs[] = $doc;
+                $totalRenderedDocs++;
+            }
+
+            if (!empty($matchingDocs) || !$isChunked) {
+                $filteredSections[] = [
+                    'key' => $sec['key'] ?? '',
+                    'title' => $sec['title'] ?? '',
+                    'detail_header' => $sec['detail_header'] ?? 'التفاصيل',
+                    'totals' => $sec['totals'] ?? [],
+                    'documents' => $matchingDocs,
+                    'total_count' => count($secDocs),
+                ];
+            }
+        }
+
+        // 2. Pre-paginate into explicit page containers
+        $pages = [];
+        foreach ($filteredSections as $secIndex => $sec) {
+            $docs = $sec['documents'];
+            $secCount = count($docs);
+            $docIdx = 0;
+
+            if ($secCount === 0 && !$isChunked) {
+                // Empty section
+                $pages[] = [
+                    'is_first_report_page' => (count($pages) === 0),
+                    'is_first_sec_page' => true,
+                    'is_last_sec_page' => true,
+                    'section' => $sec,
+                    'documents' => [],
+                ];
+                continue;
+            }
+
+            while ($docIdx < $secCount) {
+                $isFirstReportPage = (count($pages) === 0);
+                $isFirstSecPage = ($docIdx === 0);
+
+                // Capacity calculation: Page 1 holds 32 rows, subsequent pages hold 38 rows
+                $capacity = $isFirstReportPage ? 32 : 38;
+                if (!$isFirstReportPage && $isFirstSecPage) {
+                    $capacity = 36;
                 }
 
-                $renderedCount++;
-                $docNum = htmlspecialchars($doc['document_number'] ?? '', ENT_QUOTES, 'UTF-8');
-                $name = htmlspecialchars($doc['insured_name'] ?? '', ENT_QUOTES, 'UTF-8');
-                $date = htmlspecialchars($doc['issue_date'] ?? '', ENT_QUOTES, 'UTF-8');
-                $plate = htmlspecialchars($doc['plate_number'] ?? '-', ENT_QUOTES, 'UTF-8');
-                $prem = number_format($doc['premium'] ?? 0, 3);
-                $tax = number_format($doc['tax'] ?? 0, 3);
-                $sup = number_format($doc['supervision_fees'] ?? 0, 3);
-                $stamp = number_format($doc['stamp'] ?? 0, 3);
-                $iss = number_format($doc['issue_fees'] ?? 0, 3);
-                $detail = htmlspecialchars($doc['extra_detail'] ?? '-', ENT_QUOTES, 'UTF-8');
-                $tot = number_format($doc['total'] ?? 0, 3);
-                $agency = htmlspecialchars($doc['agency_name'] ?? ($doc['user_name'] ?? '-'), ENT_QUOTES, 'UTF-8');
+                $remainingInSec = $secCount - $docIdx;
+                $isLastSecPage = ($remainingInSec <= $capacity);
 
-                $rowsHtml .= "<tr><td>{$globalItemCounter}</td><td class=\"c-doc\">{$docNum}</td><td class=\"c-name\">{$name}</td><td>{$date}</td><td>{$plate}</td><td class=\"c-num\">{$prem}</td><td class=\"c-num\">{$tax}</td><td class=\"c-num\">{$sup}</td><td class=\"c-num\">{$stamp}</td><td class=\"c-num\">{$iss}</td><td class=\"c-det\">{$detail}</td><td class=\"c-tot\">{$tot}</td><td class=\"c-agency\">{$agency}</td></tr>";
+                if ($isLastSecPage && $remainingInSec > ($capacity - 6) && $remainingInSec > 10) {
+                    $take = $capacity - 8;
+                    $isLastSecPage = false;
+                } else {
+                    $take = min($capacity, $remainingInSec);
+                }
+
+                $pageDocs = array_slice($docs, $docIdx, $take);
+                $docIdx += $take;
+
+                $pages[] = [
+                    'is_first_report_page' => $isFirstReportPage,
+                    'is_first_sec_page' => $isFirstSecPage,
+                    'is_last_sec_page' => $isLastSecPage,
+                    'section' => $sec,
+                    'documents' => $pageDocs,
+                ];
             }
+        }
 
-            if (empty($rowsHtml) && $renderedCount === 0 && !$isChunked) {
-                $rowsHtml = '<tr><td colspan="13" class="c-empty">لا توجد وثائق مسجلة في هذا القسم</td></tr>';
-            }
+        $totalPages = max(1, count($pages));
+        $cntTotal = number_format($grandTotals['documents_count'] ?? 0);
+        $grandTot = number_format($grandTotals['total'] ?? 0, 3);
+        $logoHtml = $logoBase64 ? "<img src=\"{$logoBase64}\" style=\"max-height:44px;max-width:80px;object-fit:contain;\">" : "<div style=\"font-weight:900;color:#139625;font-size:11px;\">المدار الليبي<br><span style=\"color:#0284c7;\">للتأمين</span></div>";
 
-            $premSec = number_format($sec['totals']['premium'] ?? 0, 3);
-            $taxSec = number_format($sec['totals']['tax'] ?? 0, 3);
-            $supSec = number_format($sec['totals']['supervision_fees'] ?? 0, 3);
-            $stampSec = number_format($sec['totals']['stamp'] ?? 0, 3);
-            $issSec = number_format($sec['totals']['issue_fees'] ?? 0, 3);
-            $totSec = number_format($sec['totals']['total'] ?? 0, 3);
+        // 3. Render HTML for each page block
+        $pagesHtml = '';
+        foreach ($pages as $pIdx => $pageData) {
+            $pageNum = $pIdx + 1;
+            $sec = $pageData['section'];
+            $secTitle = htmlspecialchars($sec['title'] ?? '', ENT_QUOTES, 'UTF-8');
+            $detailHeader = htmlspecialchars($sec['detail_header'] ?? 'التفاصيل', ENT_QUOTES, 'UTF-8');
+            $docs = $pageData['documents'];
 
-            $sectionsHtml .= <<<SEC
-            <div class="sec-card">
-                <div class="sec-banner">
-                    <span>حوافظ إنتاجية: {$secTitle}</span>
-                    <span>العدد: {$secTotalCount} | الإجمالي: {$totSec} د.ل</span>
+            // Header for this page
+            $pageHeaderHtml = '';
+            if ($pageData['is_first_report_page']) {
+                $pageHeaderHtml = <<<PHDR
+                <div class="hdr-full">
+                    <div class="hdr-top">
+                        <div>{$logoHtml}</div>
+                        <div style="text-align:center;">
+                            <h1>شركة المدار الليبي للتأمين</h1>
+                            <div class="badge">كشف حوافظ الإنتاجية التفصيلي المعتمد</div>
+                        </div>
+                        <div style="width:60px;"></div>
+                    </div>
+                    <div class="meta-grid">
+                        <div class="meta-cell"><span class="meta-lbl">نطاق الوكلاء والفروع:</span> <span class="meta-val">{$agentLabel}</span></div>
+                        <div class="meta-cell"><span class="meta-lbl">الفترة المحددة:</span> <span class="meta-val" style="color:#0284c7;">{$periodLabel}</span></div>
+                        <div class="meta-cell"><span class="meta-lbl">إجمالي الوثائق / المعروضة:</span> <span class="meta-val">{$cntTotal} (المعروض: {$totalRenderedDocs})</span></div>
+                    </div>
                 </div>
-                <table class="tbl">
-                    <colgroup>
-                        <col style="width:3%;">
-                        <col style="width:10%;">
-                        <col style="width:18%;">
-                        <col style="width:7%;">
-                        <col style="width:8%;">
-                        <col style="width:7%;">
-                        <col style="width:6%;">
-                        <col style="width:6%;">
-                        <col style="width:5%;">
-                        <col style="width:6%;">
-                        <col style="width:8%;">
-                        <col style="width:7%;">
-                        <col style="width:9%;">
-                    </colgroup>
-                    <thead>
-                        <tr>
-                            <th>#</th>
-                            <th>رقم الوثيقة</th>
-                            <th>اسم المؤمن له</th>
-                            <th>تاريخ الإصدار</th>
-                            <th>رقم اللوحة</th>
-                            <th>القسط الصافي</th>
-                            <th>الضريبة</th>
-                            <th>أ. ورقابة</th>
-                            <th>الدمغة</th>
-                            <th>م. الإصدار</th>
-                            <th>{$detailHeader}</th>
-                            <th>الإجمالي</th>
-                            <th>الوكالة / المستخدم</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {$rowsHtml}
-                    </tbody>
-                </table>
-                <div class="sec-sum">
-                    <table class="sum-tbl">
+PHDR;
+            } else {
+                $pageHeaderHtml = <<<PHDR
+                <div class="p-hdr-compact">
+                    <span class="p-hdr-title">شركة المدار الليبي للتأمين - تابع كشف حوافظ الإنتاجية: {$secTitle}</span>
+                    <span class="p-hdr-meta">{$periodLabel} | الوكلاء: {$agentLabel} | صفحة {$pageNum} من {$totalPages}</span>
+                </div>
+PHDR;
+            }
+
+            // Section Banner if starting a section
+            $secBannerHtml = '';
+            if ($pageData['is_first_sec_page'] || $pageData['is_first_report_page']) {
+                $secCount = $sec['total_count'] ?? count($sec['documents']);
+                $totSec = number_format($sec['totals']['total'] ?? 0, 3);
+                $secBannerHtml = <<<SBANNER
+                <div class="p-sec-banner">
+                    <span>حوافظ إنتاجية: {$secTitle}</span>
+                    <span>العدد: {$secCount} وثيقة | الإجمالي: {$totSec} د.ل</span>
+                </div>
+SBANNER;
+            }
+
+            // Rows HTML
+            $rowsHtml = '';
+            if (empty($docs)) {
+                $rowsHtml = '<tr><td colspan="13" class="c-empty">لا توجد وثائق مسجلة في هذا القسم</td></tr>';
+            } else {
+                foreach ($docs as $doc) {
+                    $itemNum = $doc['_item_number'] ?? '-';
+                    $docNum = htmlspecialchars($doc['document_number'] ?? '', ENT_QUOTES, 'UTF-8');
+                    $name = htmlspecialchars($doc['insured_name'] ?? '', ENT_QUOTES, 'UTF-8');
+                    $date = htmlspecialchars($doc['issue_date'] ?? '', ENT_QUOTES, 'UTF-8');
+                    $plate = htmlspecialchars($doc['plate_number'] ?? '-', ENT_QUOTES, 'UTF-8');
+                    $prem = number_format($doc['premium'] ?? 0, 3);
+                    $tax = number_format($doc['tax'] ?? 0, 3);
+                    $sup = number_format($doc['supervision_fees'] ?? 0, 3);
+                    $stamp = number_format($doc['stamp'] ?? 0, 3);
+                    $iss = number_format($doc['issue_fees'] ?? 0, 3);
+                    $detail = htmlspecialchars($doc['extra_detail'] ?? '-', ENT_QUOTES, 'UTF-8');
+                    $tot = number_format($doc['total'] ?? 0, 3);
+                    $agency = htmlspecialchars($doc['agency_name'] ?? ($doc['user_name'] ?? '-'), ENT_QUOTES, 'UTF-8');
+
+                    $rowsHtml .= "<tr><td>{$itemNum}</td><td class=\"c-doc\">{$docNum}</td><td class=\"c-name\">{$name}</td><td>{$date}</td><td>{$plate}</td><td class=\"c-num\">{$prem}</td><td class=\"c-num\">{$tax}</td><td class=\"c-num\">{$sup}</td><td class=\"c-num\">{$stamp}</td><td class=\"c-num\">{$iss}</td><td class=\"c-det\">{$detail}</td><td class=\"c-tot\">{$tot}</td><td class=\"c-agency\">{$agency}</td></tr>";
+                }
+            }
+
+            // Section Summary if this is the last page of the section
+            $secSummaryHtml = '';
+            if ($pageData['is_last_sec_page']) {
+                $premSec = number_format($sec['totals']['premium'] ?? 0, 3);
+                $taxSec = number_format($sec['totals']['tax'] ?? 0, 3);
+                $supSec = number_format($sec['totals']['supervision_fees'] ?? 0, 3);
+                $stampSec = number_format($sec['totals']['stamp'] ?? 0, 3);
+                $issSec = number_format($sec['totals']['issue_fees'] ?? 0, 3);
+                $totSec = number_format($sec['totals']['total'] ?? 0, 3);
+
+                $secSummaryHtml = <<<SSUM
+                <div class="p-sum-box">
+                    <table class="p-sum-tbl">
                         <tr>
                             <th>القسط الصافي</th><td>{$premSec} د.ل</td>
                             <th>الضريبة</th><td>{$taxSec} د.ل</td>
                             <th>إشراف ورقابة</th><td>{$supSec} د.ل</td>
                             <th>الدمغة وم. الإصدار</th><td>{$stampSec} + {$issSec} د.ل</td>
-                            <th class="tot-th">الإجمالي</th><td class="tot-td">{$totSec} د.ل</td>
+                            <th class="tot-th">إجمالي القسم</th><td class="tot-td">{$totSec} د.ل</td>
                         </tr>
                     </table>
                 </div>
+SSUM;
+            }
+
+            $pagesHtml .= <<<PAGEBLOCK
+            <div class="p-page">
+                <div class="p-page-top">
+                    {$pageHeaderHtml}
+                    {$secBannerHtml}
+                    <table class="p-tbl">
+                        <colgroup>
+                            <col style="width:3%;">
+                            <col style="width:10%;">
+                            <col style="width:18%;">
+                            <col style="width:7%;">
+                            <col style="width:8%;">
+                            <col style="width:7%;">
+                            <col style="width:6%;">
+                            <col style="width:6%;">
+                            <col style="width:5%;">
+                            <col style="width:6%;">
+                            <col style="width:8%;">
+                            <col style="width:8%;">
+                            <col style="width:8%;">
+                        </colgroup>
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>رقم الوثيقة</th>
+                                <th>اسم المؤمن له</th>
+                                <th>تاريخ الإصدار</th>
+                                <th>رقم اللوحة</th>
+                                <th>القسط الصافي</th>
+                                <th>الضريبة</th>
+                                <th>أ. ورقابة</th>
+                                <th>الدمغة</th>
+                                <th>م. الإصدار</th>
+                                <th>{$detailHeader}</th>
+                                <th>الإجمالي</th>
+                                <th>الوكالة</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {$rowsHtml}
+                        </tbody>
+                    </table>
+                    {$secSummaryHtml}
+                </div>
+                <div class="p-ftr">
+                    <span>منظومة شركة المدار الليبي للتأمين - تقرير الحوافظ التفصيلي</span>
+                    <span>صفحة {$pageNum} من {$totalPages}</span>
+                    <span>تاريخ الطباعة: {$dateStr}</span>
+                </div>
             </div>
-SEC;
+PAGEBLOCK;
         }
 
         // Top Chunk Navigation Bar (Screen Only)
@@ -2556,24 +2696,20 @@ SEC;
             $chunkNavHtml = <<<CHUNKS
             <div class="no-print chunk-bar">
                 <div class="chunk-title">
-                    ⚡ <strong>تجزئة الطباعة للسرعة الفائقة:</strong>
-                    <span>اختر حزمة لتوليد معاينة الطباعة فوراً في ثانيتين، أو اطبع كافة الـ {$totalDocsCount} وثيقة:</span>
+                    ⚡ <strong>تجزئة الطباعة الفائقة:</strong>
+                    <span>اختر حزمة لتوليد معاينة الطباعة فوراً في ثانية واحدة، أو اطبع كافة الـ {$totalDocsCount} وثيقة مقسمة تلقائياً إلى {$totalPages} صفحة:</span>
                 </div>
                 <div class="chunk-btns">
-                    <a href="{$allUrl}" class="chunk-btn {$allActive}">عرض الكل ({$totalDocsCount} وثيقة)</a>
+                    <a href="{$allUrl}" class="chunk-btn {$allActive}">عرض كافة الصفحات ({$totalDocsCount} وثيقة - {$totalPages} صفحة)</a>
                     {$chunkBtns}
                 </div>
                 <div class="chunk-actions">
                     <button onclick="window.print()" class="p-btn">🖨️ طباعة المستند الآن</button>
-                    <a href="{$request->fullUrlWithQuery(['print_mode' => 'summary'])}" class="s-btn">📄 طباعة كشف الملخص المالي المعتمد</a>
+                    <a href="{$request->fullUrlWithQuery(['print_mode' => 'summary'])}" class="s-btn">📄 طباعة كشف الملخص المالي المعتمد (صفحة واحدة)</a>
                 </div>
             </div>
 CHUNKS;
         }
-
-        $cntTotal = number_format($grandTotals['documents_count'] ?? 0);
-        $grandTot = number_format($grandTotals['total'] ?? 0, 3);
-        $logoHtml = $logoBase64 ? "<img src=\"{$logoBase64}\" style=\"max-height:48px;max-width:80px;object-fit:contain;\">" : "<div style=\"font-weight:900;color:#139625;font-size:11px;\">المدار الليبي<br><span style=\"color:#0284c7;\">للتأمين</span></div>";
 
         return <<<HTML
 <!DOCTYPE html>
@@ -2584,7 +2720,7 @@ CHUNKS;
     <style>
         @page {
             size: A4 landscape;
-            margin: 6mm 8mm;
+            margin: 5mm 6mm;
         }
         * {
             box-sizing: border-box;
@@ -2595,109 +2731,165 @@ CHUNKS;
         }
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Tahoma, Arial, sans-serif;
-            font-size: 8pt;
-            color: #000;
-            background: #fff;
-            line-height: 1.15;
+            font-size: 7.5pt;
+            color: #0f172a;
+            background: #525659;
             direction: rtl;
-            padding: 4px;
+            line-height: 1.15;
         }
-        .hdr {
+        @media screen {
+            body {
+                padding: 15px;
+            }
+            .p-page {
+                background: #fff;
+                width: 297mm;
+                min-height: 198mm;
+                margin: 0 auto 16px auto;
+                padding: 6mm 8mm;
+                box-shadow: 0 4px 15px rgba(0,0,0,0.25);
+                border-radius: 4px;
+                display: flex;
+                flex-direction: column;
+                justify-content: space-between;
+            }
+        }
+        @media print {
+            .no-print { display: none !important; }
+            html, body {
+                width: 297mm !important;
+                height: 100% !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                background: #fff !important;
+            }
+            .p-page {
+                page-break-after: always !important;
+                break-after: page !important;
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
+                width: 100% !important;
+                height: 198mm !important;
+                max-height: 198mm !important;
+                overflow: hidden !important;
+                display: flex !important;
+                flex-direction: column !important;
+                justify-content: space-between !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                background: #fff !important;
+                box-shadow: none !important;
+                border: none !important;
+            }
+            .p-page:last-child {
+                page-break-after: auto !important;
+                break-after: auto !important;
+            }
+        }
+
+        .hdr-full {
+            border-bottom: 2px solid #0284c7;
+            padding-bottom: 3px;
+            margin-bottom: 4px;
+        }
+        .hdr-top {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            border-bottom: 2px solid #0284c7;
-            padding-bottom: 4px;
-            margin-bottom: 6px;
+            margin-bottom: 4px;
         }
-        .hdr h1 {
-            font-size: 15px;
+        .hdr-top h1 {
+            font-size: 14px;
             color: #0284c7;
             font-weight: 900;
-            text-align: center;
         }
-        .hdr .badge {
+        .badge {
             background: #f0f9ff;
             border: 1px solid #bae6fd;
             color: #0369a1;
             padding: 2px 14px;
             border-radius: 4px;
-            font-size: 11px;
+            font-size: 10.5px;
             font-weight: 800;
             display: inline-block;
-            margin-top: 2px;
+            margin-top: 1px;
         }
         .meta-grid {
             display: grid;
             grid-template-columns: 1fr 1fr 1fr;
             background: #f8fafc;
             border: 1px solid #cbd5e1;
-            border-radius: 4px;
-            margin-bottom: 8px;
+            border-radius: 3px;
+            padding: 3px 6px;
         }
         .meta-cell {
-            padding: 4px 8px;
+            font-size: 8.5pt;
             text-align: center;
             border-left: 1px solid #cbd5e1;
-            font-size: 9.5px;
         }
         .meta-cell:last-child { border-left: none; }
-        .meta-lbl { color: #64748b; font-weight: 700; margin-bottom: 1px; }
-        .meta-val { font-weight: 800; color: #0f172a; font-size: 10.5px; }
+        .meta-lbl { color: #64748b; font-weight: 700; margin-left: 4px; }
+        .meta-val { font-weight: 800; color: #0f172a; }
 
-        .sec-card {
-            margin-bottom: 14px;
-            page-break-inside: auto;
+        .p-hdr-compact {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1.5px solid #0284c7;
+            padding-bottom: 2px;
+            margin-bottom: 3px;
         }
-        .sec-banner {
+        .p-hdr-title { font-size: 8pt; font-weight: 800; color: #0284c7; }
+        .p-hdr-meta { font-size: 7.5pt; color: #475569; font-weight: 700; }
+
+        .p-sec-banner {
             background: #f1f5f9;
             border: 1px solid #cbd5e1;
-            border-radius: 4px;
-            padding: 3px 8px;
-            margin-bottom: 4px;
+            border-radius: 3px;
+            padding: 2px 6px;
+            margin-bottom: 3px;
             display: flex;
             justify-content: space-between;
             font-weight: 800;
-            font-size: 9.5px;
+            font-size: 8pt;
             color: #0369a1;
         }
-        .tbl {
+
+        .p-tbl {
             width: 100%;
             table-layout: fixed !important;
-            border-collapse: collapse;
-            font-size: 8pt;
+            border-collapse: separate;
+            border-spacing: 0;
+            font-size: 7.5pt;
             text-align: center;
-            page-break-inside: auto;
-            border: 1px solid #94a3b8;
+            border-top: 1px solid #94a3b8;
+            border-right: 1px solid #94a3b8;
         }
-        .tbl thead {
-            display: table-header-group;
-        }
-        .tbl tr {
-            page-break-inside: avoid;
-            page-break-after: auto;
-            height: 18px;
-        }
-        .tbl th {
+        .p-tbl th {
             background: #e2e8f0;
             color: #0f172a;
             font-weight: 800;
-            border: 1px solid #94a3b8;
+            border-bottom: 1px solid #94a3b8;
+            border-left: 1px solid #94a3b8;
             padding: 2px 2px;
             font-size: 7.5pt;
+            height: 18px;
             white-space: nowrap;
             overflow: hidden;
         }
-        .tbl td {
-            border: 1px solid #cbd5e1;
-            padding: 1.5px 3px;
-            color: #0f172a;
+        .p-tbl td {
+            border-bottom: 1px solid #cbd5e1;
+            border-left: 1px solid #cbd5e1;
+            padding: 1px 2px;
+            height: 15.5px;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+            font-size: 7.5pt;
+            color: #0f172a;
         }
-        .tbl tr:nth-child(even) td {
-            background: #fafafa;
+        .p-tbl tr:nth-child(even) td {
+            background: #f8fafc;
         }
         .c-doc { font-weight: 800; color: #0369a1; font-family: Tahoma, monospace; font-size: 7.5pt; }
         .c-name { text-align: right !important; padding-right: 4px !important; font-weight: 600; }
@@ -2705,28 +2897,27 @@ CHUNKS;
         .c-tot { font-weight: 900; color: #15803d; font-family: Tahoma, monospace; font-size: 8pt; }
         .c-det { font-size: 7.5pt; color: #475569; }
         .c-agency { font-size: 7.5pt; }
-        .c-empty { padding: 12px; color: #94a3b8; }
+        .c-empty { padding: 10px; color: #94a3b8; font-weight: 700; }
 
-        .sec-sum {
+        .p-sum-box {
+            margin-top: 3px;
             display: flex;
             justify-content: center;
-            margin: 4px 0 10px 0;
-            page-break-inside: avoid;
         }
-        .sum-tbl {
-            width: 80%;
+        .p-sum-tbl {
+            width: 85%;
             border-collapse: collapse;
-            font-size: 8.5pt;
+            font-size: 7.5pt;
             text-align: center;
             border: 1px solid #94a3b8;
         }
-        .sum-tbl th {
+        .p-sum-tbl th {
             background: #f1f5f9;
             padding: 2px 4px;
             border: 1px solid #cbd5e1;
             font-weight: 700;
         }
-        .sum-tbl td {
+        .p-sum-tbl td {
             background: #fff;
             padding: 2px 4px;
             border: 1px solid #cbd5e1;
@@ -2734,7 +2925,18 @@ CHUNKS;
             color: #0369a1;
         }
         .tot-th { background: #0284c7 !important; color: #fff !important; }
-        .tot-td { color: #15803d !important; font-size: 9pt !important; }
+        .tot-td { color: #15803d !important; font-size: 8.5pt !important; }
+
+        .p-ftr {
+            display: flex;
+            justify-content: space-between;
+            border-top: 1px solid #cbd5e1;
+            padding-top: 2px;
+            font-size: 7.5pt;
+            color: #64748b;
+            font-weight: 600;
+            margin-top: 2px;
+        }
 
         .chunk-bar {
             background: #f8fafc;
@@ -2763,65 +2965,20 @@ CHUNKS;
         .chunk-actions { display: flex; gap: 8px; margin-top: 4px; }
         .p-btn { background: #10b981; color: #fff; border: none; padding: 6px 16px; border-radius: 6px; font-weight: 800; font-size: 12px; cursor: pointer; font-family: inherit; }
         .s-btn { background: #f0f9ff; color: #0284c7; border: 1px solid #bae6fd; padding: 6px 14px; border-radius: 6px; font-weight: 800; font-size: 12px; text-decoration: none; display: inline-flex; align-items: center; }
-
-        .ftr {
-            display: flex;
-            justify-content: space-between;
-            border-top: 1px solid #94a3b8;
-            padding-top: 4px;
-            font-size: 8.5pt;
-            color: #64748b;
-            font-weight: 700;
-            margin-top: 10px;
-        }
-
-        @media print {
-            .no-print { display: none !important; }
-            body { padding: 0 !important; }
-        }
     </style>
 </head>
 <body>
     {$chunkNavHtml}
-
-    <div class="hdr">
-        <div>{$logoHtml}</div>
-        <div>
-            <h1>شركة المدار الليبي للتأمين</h1>
-            <div class="badge">كشف حوافظ الإنتاجية التفصيلي</div>
-        </div>
-        <div style="width:60px;"></div>
-    </div>
-
-    <div class="meta-grid">
-        <div class="meta-cell">
-            <div class="meta-lbl">نطاق الوكلاء والفروع</div>
-            <div class="meta-val">{$agentLabel}</div>
-        </div>
-        <div class="meta-cell">
-            <div class="meta-lbl">الفترة المحددة</div>
-            <div class="meta-val" style="color:#0284c7;">{$periodLabel}</div>
-        </div>
-        <div class="meta-cell">
-            <div class="meta-lbl">إجمالي الوثائق / المعروضة</div>
-            <div class="meta-val">{$cntTotal} وثيقة (المعروض: {$renderedCount})</div>
-        </div>
-    </div>
-
-    {$sectionsHtml}
-
-    <div class="ftr">
-        <div>منظومة شركة المدار الليبي للتأمين - تقرير الحوافظ التفصيلي</div>
-        <div>تاريخ الاستخراج: {$dateStr}</div>
-    </div>
+    {$pagesHtml}
 
     <script>
         window.addEventListener('load', function() {
-            requestAnimationFrame(function() {
-                setTimeout(function() {
+            // Settle layout before triggering print dialog so Chrome doesn't freeze on Loading preview
+            setTimeout(function() {
+                if (!window.location.search.includes('no_auto_print=1')) {
                     window.print();
-                }, 700);
-            });
+                }
+            }, 1200);
         });
     </script>
 </body>

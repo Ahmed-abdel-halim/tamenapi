@@ -1722,8 +1722,8 @@ class FinancialStatisticsController extends Controller
     public function getComprehensiveProductionPortfolio(Request $request)
     {
         try {
-            @ini_set('memory_limit', '512M');
-            @set_time_limit(180);
+            @ini_set('memory_limit', '1024M');
+            @set_time_limit(300);
 
             $data = $this->buildComprehensiveProductionData($request);
             return response()->json([
@@ -1744,8 +1744,8 @@ class FinancialStatisticsController extends Controller
     public function printComprehensiveProductionPortfolio(Request $request)
     {
         try {
-            @ini_set('memory_limit', '512M');
-            @set_time_limit(180);
+            @ini_set('memory_limit', '1024M');
+            @set_time_limit(300);
 
             $data = $this->buildComprehensiveProductionData($request);
             return view('reports.comprehensive-production-portfolio-print', $data);
@@ -1759,8 +1759,8 @@ class FinancialStatisticsController extends Controller
      */
     private function buildComprehensiveProductionData(Request $request)
     {
-        @ini_set('memory_limit', '512M');
-        @set_time_limit(180);
+        @ini_set('memory_limit', '1024M');
+        @set_time_limit(300);
 
         $agentId = $request->get('agent_id');
         $year = $request->get('year');
@@ -2000,8 +2000,8 @@ class FinancialStatisticsController extends Controller
             $grandTotals['issue_fees'] += $issSum;
             $grandTotals['total'] += $totSum;
 
-            // Fetch records efficiently (limit to max 1000 for preview in UI to ensure instant response)
-            $docs = $query->orderBy($dateCol, 'desc')->limit(1000)->get();
+            // Fetch all records for report display, printing, and Excel export
+            $docs = $query->orderBy($dateCol, 'desc')->get();
 
             $docRows = [];
             $numField = $cfg['number_field'];

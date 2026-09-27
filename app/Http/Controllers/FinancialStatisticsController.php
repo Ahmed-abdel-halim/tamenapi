@@ -2711,6 +2711,9 @@ PAGEBLOCK;
 CHUNKS;
         }
 
+        $shouldAutoPrint = ($isChunked || $totalDocsCount <= 500) && !$request->boolean('no_auto_print');
+        $shouldAutoPrintJson = $shouldAutoPrint ? 'true' : 'false';
+
         return <<<HTML
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
@@ -2973,12 +2976,12 @@ CHUNKS;
 
     <script>
         window.addEventListener('load', function() {
-            // Settle layout before triggering print dialog so Chrome doesn't freeze on Loading preview
-            setTimeout(function() {
-                if (!window.location.search.includes('no_auto_print=1')) {
+            var shouldAutoPrint = {$shouldAutoPrintJson};
+            if (shouldAutoPrint) {
+                setTimeout(function() {
                     window.print();
-                }
-            }, 1200);
+                }, 800);
+            }
         });
     </script>
 </body>

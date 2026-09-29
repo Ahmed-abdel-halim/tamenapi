@@ -348,7 +348,7 @@
                         @foreach($docs as $index => $doc)
                             <tr>
                                 <td class="num-col">{{ $index + 1 }}</td>
-                                <td>{{ $doc }}</td>
+                                <td>{{ $doc === 'تأمين سيارات إجباري' || $doc === 'تأمين سيارات' ? 'تأمين السيارات الإجباري' : $doc }}</td>
                             </tr>
                         @endforeach
                     @else

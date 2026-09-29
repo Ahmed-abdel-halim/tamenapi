@@ -30,6 +30,7 @@ class InsuranceTypeService
     const ALIASES = [
         'تأمين إجباري سيارات' => 'car_mandatory',
         'تأمين سيارات إجباري' => 'car_mandatory',
+        'تأمين السيارات الإجباري' => 'car_mandatory',
         'تأمين سيارات اجباري' => 'car_mandatory',
         'تأمين السيارات الدولي' => 'car_international',
         'تأمين سيارات دولي' => 'car_international',

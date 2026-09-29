@@ -13,6 +13,7 @@ class DocumentRequestController extends Controller
         return [
             'تأمين سيارات' => \App\Models\InsuranceDocument::class,
             'تأمين إجباري سيارات' => \App\Models\InsuranceDocument::class,
+            'تأمين السيارات الإجباري' => \App\Models\InsuranceDocument::class,
             'تأمين سيارة جمرك' => \App\Models\InsuranceDocument::class,
             'تأمين طرف ثالث سيارات' => \App\Models\InsuranceDocument::class,
             'تأمين سيارات أجنبية' => \App\Models\InsuranceDocument::class,

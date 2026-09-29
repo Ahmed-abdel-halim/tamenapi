@@ -17,15 +17,26 @@ class AgentRequestController extends Controller
                 $query->where('branch_agent_id', $request->branch_agent_id);
             }
 
-            // If not admin, only show requests from their branch agent
+            // If not admin, check if employee with permission or branch agent
             $user = $request->user() ?? auth('sanctum')->user() ?? auth()->user();
             if ($user && !$user->is_admin) {
-                // Find the branch agent associated with this user
-                $branchAgent = \App\Models\BranchAgent::where('user_id', $user->id)->first();
-                if ($branchAgent) {
-                    $query->where('branch_agent_id', $branchAgent->id);
-                } else {
-                    return response()->json([]); // No agent associated
+                $authDocs = is_array($user->authorized_documents ?? null)
+                    ? $user->authorized_documents
+                    : (is_string($user->authorized_documents ?? null) ? json_decode($user->authorized_documents, true) : []);
+
+                $hasPermission = in_array('إدارة الفروع والوكلاء', $authDocs) ||
+                                 in_array('إدارة الوكلاء', $authDocs) ||
+                                 in_array('إدارة الوكيل', $authDocs) ||
+                                 in_array('طلبات الوكلاء', $authDocs) ||
+                                 in_array('طلبات الوكيل', $authDocs);
+
+                if (!$hasPermission) {
+                    $branchAgent = \App\Models\BranchAgent::where('user_id', $user->id)->first();
+                    if ($branchAgent) {
+                        $query->where('branch_agent_id', $branchAgent->id);
+                    } else {
+                        return response()->json([]);
+                    }
                 }
             }
 
@@ -108,8 +119,18 @@ class AgentRequestController extends Controller
     public function update(Request $request, AgentRequest $agentRequest)
     {
         $user = $request->user() ?? auth('sanctum')->user() ?? auth()->user();
-        if (!$user || !$user->is_admin) {
-            return response()->json(['message' => 'Only admins can process requests'], 403);
+        $authDocs = is_array($user->authorized_documents ?? null)
+            ? $user->authorized_documents
+            : (is_string($user->authorized_documents ?? null) ? json_decode($user->authorized_documents, true) : []);
+        $canProcess = $user && ($user->is_admin ||
+            in_array('إدارة الفروع والوكلاء', $authDocs) ||
+            in_array('إدارة الوكلاء', $authDocs) ||
+            in_array('إدارة الوكيل', $authDocs) ||
+            in_array('طلبات الوكلاء', $authDocs) ||
+            in_array('طلبات الوكيل', $authDocs)
+        );
+        if (!$canProcess) {
+            return response()->json(['message' => 'غير مصرح لك بمعالجة الطلبات'], 403);
         }
 
         $validated = $request->validate([

@@ -17,8 +17,21 @@ class ProfileUpdateRequestController extends Controller
     {
         try {
             $authUser = $request->user() ?? auth('sanctum')->user() ?? auth()->user();
-            // Only admins can see this list
-            if (!$authUser || !$authUser->is_admin) {
+            $authDocs = is_array($authUser->authorized_documents ?? null)
+                ? $authUser->authorized_documents
+                : (is_string($authUser->authorized_documents ?? null) ? json_decode($authUser->authorized_documents, true) : []);
+
+            $hasAccess = $authUser && ($authUser->is_admin ||
+                in_array('إدارة الفروع والوكلاء', $authDocs) ||
+                in_array('إدارة الوكلاء', $authDocs) ||
+                in_array('إدارة الوكيل', $authDocs) ||
+                in_array('إدارة الموظفين', $authDocs) ||
+                in_array('إدارة الموظف', $authDocs) ||
+                in_array('طلبات تعديل بيانات الوكلاء', $authDocs) ||
+                in_array('طلبات تعديل بيانات الموظفين', $authDocs)
+            );
+
+            if (!$hasAccess) {
                 return response()->json(['message' => 'غير مصرح لك بالوصول لهذا الإجراء'], 403);
             }
 
@@ -38,7 +51,18 @@ class ProfileUpdateRequestController extends Controller
                 $query->whereDoesntHave('user.branchAgent');
             }
 
-            $requests = $query->paginate(20);
+            if ($request->filled('user_id')) {
+                $query->where('user_id', $request->user_id);
+            }
+
+            if ($request->filled('branch_agent_id')) {
+                $query->whereHas('user.branchAgent', function ($q) use ($request) {
+                    $q->where('id', $request->branch_agent_id);
+                });
+            }
+
+            $perPage = $request->query('per_page', 20);
+            $requests = $query->paginate($perPage);
 
             // Add additional current details for visual comparison on frontend
             $requests->getCollection()->transform(function ($req) {
@@ -208,8 +232,20 @@ class ProfileUpdateRequestController extends Controller
      */
     public function approve($id)
     {
-        // Only admins can approve
-        if (!auth()->user()->is_admin) {
+        $authUser = auth()->user();
+        $authDocs = is_array($authUser->authorized_documents ?? null)
+            ? $authUser->authorized_documents
+            : (is_string($authUser->authorized_documents ?? null) ? json_decode($authUser->authorized_documents, true) : []);
+        $canApprove = $authUser && ($authUser->is_admin ||
+            in_array('إدارة الفروع والوكلاء', $authDocs) ||
+            in_array('إدارة الوكلاء', $authDocs) ||
+            in_array('إدارة الوكيل', $authDocs) ||
+            in_array('إدارة الموظفين', $authDocs) ||
+            in_array('إدارة الموظف', $authDocs) ||
+            in_array('طلبات تعديل بيانات الوكلاء', $authDocs) ||
+            in_array('طلبات تعديل بيانات الموظفين', $authDocs)
+        );
+        if (!$canApprove) {
             return response()->json(['message' => 'غير مصرح لك بالوصول لهذا الإجراء'], 403);
         }
 
@@ -354,8 +390,20 @@ class ProfileUpdateRequestController extends Controller
      */
     public function reject(Request $request, $id)
     {
-        // Only admins can reject
-        if (!auth()->user()->is_admin) {
+        $authUser = auth()->user();
+        $authDocs = is_array($authUser->authorized_documents ?? null)
+            ? $authUser->authorized_documents
+            : (is_string($authUser->authorized_documents ?? null) ? json_decode($authUser->authorized_documents, true) : []);
+        $canReject = $authUser && ($authUser->is_admin ||
+            in_array('إدارة الفروع والوكلاء', $authDocs) ||
+            in_array('إدارة الوكلاء', $authDocs) ||
+            in_array('إدارة الوكيل', $authDocs) ||
+            in_array('إدارة الموظفين', $authDocs) ||
+            in_array('إدارة الموظف', $authDocs) ||
+            in_array('طلبات تعديل بيانات الوكلاء', $authDocs) ||
+            in_array('طلبات تعديل بيانات الموظفين', $authDocs)
+        );
+        if (!$canReject) {
             return response()->json(['message' => 'غير مصرح لك بالوصول لهذا الإجراء'], 403);
         }
 

@@ -22,11 +22,24 @@ class AgencyCancellationController extends Controller
 
             $user = $request->user() ?? auth('sanctum')->user() ?? auth()->user();
             if ($user && !$user->is_admin) {
-                $branchAgent = BranchAgent::where('user_id', $user->id)->first();
-                if ($branchAgent) {
-                    $query->where('branch_agent_id', $branchAgent->id);
-                } else {
-                    return response()->json([]);
+                $authDocs = is_array($user->authorized_documents ?? null)
+                    ? $user->authorized_documents
+                    : (is_string($user->authorized_documents ?? null) ? json_decode($user->authorized_documents, true) : []);
+
+                $hasPermission = in_array('إدارة الفروع والوكلاء', $authDocs) ||
+                                 in_array('إدارة الوكلاء', $authDocs) ||
+                                 in_array('إدارة الوكيل', $authDocs) ||
+                                 in_array('إلغاء الوكالات', $authDocs) ||
+                                 in_array('إلغاء الوكيل', $authDocs) ||
+                                 in_array('الغاء الوكيل', $authDocs);
+
+                if (!$hasPermission) {
+                    $branchAgent = BranchAgent::where('user_id', $user->id)->first();
+                    if ($branchAgent) {
+                        $query->where('branch_agent_id', $branchAgent->id);
+                    } else {
+                        return response()->json([]);
+                    }
                 }
             }
 
@@ -112,8 +125,18 @@ class AgencyCancellationController extends Controller
             $cancellation = AgencyCancellation::findOrFail($id);
             
             $user = Auth::user();
-            // Admins can always update. Agents can only update if it's their request and still pending.
-            if (!$user->is_admin && ($cancellation->user_id !== $user->id || $cancellation->status !== 'pending')) {
+            $authDocs = is_array($user->authorized_documents ?? null)
+                ? $user->authorized_documents
+                : (is_string($user->authorized_documents ?? null) ? json_decode($user->authorized_documents, true) : []);
+            $hasManagePermission = $user && ($user->is_admin ||
+                in_array('إدارة الفروع والوكلاء', $authDocs) ||
+                in_array('إدارة الوكلاء', $authDocs) ||
+                in_array('إدارة الوكيل', $authDocs) ||
+                in_array('إلغاء الوكالات', $authDocs) ||
+                in_array('إلغاء الوكيل', $authDocs) ||
+                in_array('الغاء الوكيل', $authDocs)
+            );
+            if (!$hasManagePermission && ($cancellation->user_id !== $user->id || $cancellation->status !== 'pending')) {
                 return response()->json(['message' => 'Unauthorized or request locked'], 403);
             }
 

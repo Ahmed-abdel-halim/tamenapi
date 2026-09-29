@@ -18,9 +18,20 @@ class EmployeeRequestController extends Controller
                 $query->where('user_id', $request->user_id);
             }
 
-            // If user is not admin, only show own requests
+            // If user is not admin, only show own requests unless they have HR permissions
             if ($user && !$user->is_admin) {
-                $query->where('user_id', $user->id);
+                $authDocs = is_array($user->authorized_documents ?? null)
+                    ? $user->authorized_documents
+                    : (is_string($user->authorized_documents ?? null) ? json_decode($user->authorized_documents, true) : []);
+
+                $hasHRPermission = in_array('إدارة الموظفين', $authDocs) ||
+                                   in_array('إدارة الموظف', $authDocs) ||
+                                   in_array('طلبات الموظفين', $authDocs) ||
+                                   in_array('طلبات الموظف', $authDocs);
+
+                if (!$hasHRPermission) {
+                    $query->where('user_id', $user->id);
+                }
             }
 
             return response()->json($query->latest()->get());
@@ -102,8 +113,17 @@ class EmployeeRequestController extends Controller
     public function update(Request $request, EmployeeRequest $employeeRequest)
     {
         $user = $request->user() ?? auth('sanctum')->user() ?? auth()->user();
-        if (!$user || !$user->is_admin) {
-            return response()->json(['message' => 'Only admins can process requests'], 403);
+        $authDocs = is_array($user->authorized_documents ?? null)
+            ? $user->authorized_documents
+            : (is_string($user->authorized_documents ?? null) ? json_decode($user->authorized_documents, true) : []);
+        $canProcess = $user && ($user->is_admin ||
+            in_array('إدارة الموظفين', $authDocs) ||
+            in_array('إدارة الموظف', $authDocs) ||
+            in_array('طلبات الموظفين', $authDocs) ||
+            in_array('طلبات الموظف', $authDocs)
+        );
+        if (!$canProcess) {
+            return response()->json(['message' => 'غير مصرح لك بمعالجة الطلبات'], 403);
         }
 
         $validated = $request->validate([

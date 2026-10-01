@@ -82,10 +82,12 @@ class DocumentRequestController extends Controller
         $userId = $request->header('X-User-Id') ?? $request->input('user_id');
         $agentId = null;
         $applicantName = null;
+        $isAdmin = false;
 
         if ($userId) {
             $user = \App\Models\User::find($userId);
             if ($user) {
+                $isAdmin = (bool)($user->is_admin ?? false);
                 $applicantName = $user->name ?? $user->username;
                 $agent = \App\Models\BranchAgent::where('user_id', $userId)->first();
                 if ($agent) {
@@ -94,6 +96,31 @@ class DocumentRequestController extends Controller
                     $agentId = $user->branch_agent_id;
                 }
             }
+        }
+
+        // البحث عن الوثيقة المستهدفة مسبقاً لاستخراج الوكالة والتحقق من حالتها
+        $modelsMap = $this->getDocumentModels();
+        $targetDoc = null;
+        if (!empty($validated['document_id']) && !empty($validated['document_type']) && isset($modelsMap[$validated['document_type']])) {
+            $targetDoc = $modelsMap[$validated['document_type']]::find($validated['document_id']);
+        }
+        if (!$targetDoc && !empty($validated['document_number'])) {
+            $searchModels = (!empty($validated['document_type']) && isset($modelsMap[$validated['document_type']]))
+                ? [$modelsMap[$validated['document_type']]]
+                : array_unique(array_values($modelsMap));
+            foreach ($searchModels as $modelClass) {
+                $field = ($modelClass === \App\Models\InternationalInsuranceDocument::class) ? 'document_number' : 'insurance_number';
+                $found = $modelClass::where($field, $validated['document_number'])->first();
+                if ($found) {
+                    $targetDoc = $found;
+                    break;
+                }
+            }
+        }
+
+        // إذا لم يكن مقدم الطلب وكيلاً (مثل المشرف أو الإدارة)، نستخرج الوكالة من الوثيقة نفسها إن وجدت
+        if (!$agentId && $targetDoc && !empty($targetDoc->branch_agent_id)) {
+            $agentId = $targetDoc->branch_agent_id;
         }
 
         // منع تقديم أكثر من طلب إلغاء لنفس الوثيقة إذا كان هناك طلب معلق أو الوثيقة ملغية بالفعل
@@ -122,23 +149,11 @@ class DocumentRequestController extends Controller
                 ], 422);
             }
 
-            // 3. التحقق المباشر من جدول الوثيقة
-            $modelsMap = $this->getDocumentModels();
-            $checkModels = [];
-            if (!empty($validated['document_type']) && isset($modelsMap[$validated['document_type']])) {
-                $checkModels[] = $modelsMap[$validated['document_type']];
-            } else {
-                $checkModels = array_unique(array_values($modelsMap));
-            }
-
-            foreach ($checkModels as $modelClass) {
-                $field = ($modelClass === \App\Models\InternationalInsuranceDocument::class) ? 'document_number' : 'insurance_number';
-                $foundDoc = $modelClass::where($field, $validated['document_number'])->first();
-                if ($foundDoc && ($foundDoc->is_canceled ?? false)) {
-                    return response()->json([
-                        'message' => "هذه الوثيقة ملغية بالفعل في سجلات النظام ولا يمكن تقديم طلب إلغاء جديد لها."
-                    ], 422);
-                }
+            // 3. التحقق المباشر من سجل الوثيقة
+            if ($targetDoc && ($targetDoc->is_canceled ?? false)) {
+                return response()->json([
+                    'message' => "هذه الوثيقة ملغية بالفعل في سجلات النظام ولا يمكن تقديم طلب إلغاء جديد لها."
+                ], 422);
             }
         }
 
@@ -154,6 +169,13 @@ class DocumentRequestController extends Controller
 
         $subject = $validated['subject'] ?? ($validated['request_type'] === 'cancellation' ? 'طلب إلغاء وثيقة' : 'طلب تعديل وثيقة');
         $description = $validated['description'] ?? ($validated['cancellation_reason'] ?? $subject);
+
+        // إذا كان مقدم طلب الإلغاء مسؤولاً/أدمن بالشركة، يتم اعتماد وتنفيذ الإلغاء فوراً
+        $autoAccept = ($isAdmin && $validated['request_type'] === 'cancellation');
+        $initialStatus = $autoAccept ? 'accepted' : 'pending';
+        $reviewedBy = $autoAccept ? $userId : null;
+        $reviewedAt = $autoAccept ? now() : null;
+        $adminMessage = $autoAccept ? 'تم اعتماد الإلغاء مباشرة بواسطة الإدارة' : null;
 
         $documentRequest = DocumentRequest::create([
             'request_code' => $requestCode,
@@ -171,27 +193,36 @@ class DocumentRequestController extends Controller
             'description' => $description,
             'notes' => $validated['notes'] ?? null,
             'legal_acknowledged' => (bool)($validated['legal_acknowledged'] ?? false),
-            'status' => 'pending'
+            'status' => $initialStatus,
+            'admin_message' => $adminMessage,
+            'reviewed_by' => $reviewedBy,
+            'reviewed_at' => $reviewedAt,
         ]);
 
-        // إرسال إشعار للمشرفين
-        try {
-            $admins = \App\Models\User::where('is_admin', true)->get();
-            $agentName = $documentRequest->branchAgent?->agency_name ?? ($applicantName ?: 'الوكيل');
-            $reqTypeArabic = $documentRequest->request_type === 'cancellation' ? 'إلغاء وثيقة' : 'تعديل وثيقة';
-            $title = "طلب {$reqTypeArabic} جديد ({$requestCode})";
-            $message = "طلب جديد ({$reqTypeArabic}) للوثيقة رقم ({$documentRequest->document_number}) من: {$agentName}";
-            $url = "/document-requests";
-            foreach ($admins as $admin) {
-                $admin->notify(new \App\Notifications\SystemNotification($title, $message, 'info', $url));
+        if ($autoAccept) {
+            // تنفيذ الإلغاء الفعلي المباشر في جداول المنظومة
+            $this->cancelTargetDocument($documentRequest, $userId);
+        } else {
+            // إرسال إشعار للمشرفين في حال كان الطلب معلقاً من وكيل
+            try {
+                $admins = \App\Models\User::where('is_admin', true)->get();
+                $agentName = $documentRequest->branchAgent?->agency_name ?? ($applicantName ?: 'الوكيل');
+                $reqTypeArabic = $documentRequest->request_type === 'cancellation' ? 'إلغاء وثيقة' : 'تعديل وثيقة';
+                $title = "طلب {$reqTypeArabic} جديد ({$requestCode})";
+                $message = "طلب جديد ({$reqTypeArabic}) للوثيقة رقم ({$documentRequest->document_number}) من: {$agentName}";
+                $url = "/document-requests";
+                foreach ($admins as $admin) {
+                    $admin->notify(new \App\Notifications\SystemNotification($title, $message, 'info', $url));
+                }
+            } catch (\Exception $ne) {
+                \Illuminate\Support\Facades\Log::error('Notification error in DocumentRequest store: ' . $ne->getMessage());
             }
-        } catch (\Exception $ne) {
-            \Illuminate\Support\Facades\Log::error('Notification error in DocumentRequest store: ' . $ne->getMessage());
         }
 
-        return response()->json($documentRequest->load(['branchAgent', 'user']), 201);
+        return response()->json($documentRequest->load(['branchAgent', 'user', 'reviewer']), 201);
     }
 
+    
     public function update(Request $request, $id)
     {
         $documentRequest = DocumentRequest::findOrFail($id);

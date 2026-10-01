@@ -454,6 +454,9 @@ class InsuranceDocumentController extends Controller
     {
         try {
             $document = InsuranceDocument::with(['plate.city', 'vehicleType'])->findOrFail($id);
+            $transferCount = InsuranceOwnershipTransfer::where('insurance_document_id', $document->id)->count();
+            $document->ownership_transfer_count = $transferCount;
+            $document->has_ownership_transfer = $transferCount > 0;
             return response()->json($document);
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             return response()->json([
@@ -719,13 +722,15 @@ class InsuranceDocumentController extends Controller
             $newPlateId = ($isMandatoryInsurance || $isThirdPartyInsurance) ? ($validated['plate_id'] ?? null) : $document->plate_id;
             $newPlateManual = array_key_exists('plate_number_manual', $validated) ? $validated['plate_number_manual'] : $document->plate_number_manual;
 
-            // تحديث البيانات القابلة للتعديل فقط
+            // تحديث البيانات القابلة للتعديل وإلغاء وثيقة الهيئة القديمة
+            // لأن منظومة الهيئة لا تدعم نقل الملكية ولا تتغير بيانات المالك لديها، فتُعتمد طابعة المنظومة
             $document->update([
                 'plate_id' => $newPlateId,
                 'plate_number_manual' => $newPlateManual,
                 'insured_name' => $validated['insured_name'],
                 'phone' => $validated['phone'] ?? null,
                 'driving_license_number' => $validated['driving_license_number'] ?? null,
+                'eidc_pdf_url' => null, // إيقاف وثيقة الهيئة القديمة
             ]);
 
             // حفظ السجل التاريخي

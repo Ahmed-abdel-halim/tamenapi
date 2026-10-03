@@ -712,6 +712,26 @@ class FinancialStatisticsController extends Controller
                 'is_audited'      => 'nullable|boolean',
             ]);
 
+            $user = $request->user() ?? auth('sanctum')->user() ?? auth()->user();
+            if ($user && !$user->is_admin) {
+                $authDocs = is_array($user->authorized_documents ?? null)
+                    ? $user->authorized_documents
+                    : (is_string($user->authorized_documents ?? null) ? json_decode($user->authorized_documents, true) : []);
+
+                $canAudit = in_array('مدير الوكلاء', $authDocs) ||
+                            in_array('تدقيق كشف حساب الوكيل', $authDocs) ||
+                            in_array('إدارة الفروع والوكلاء', $authDocs) ||
+                            in_array('إدارة الوكلاء', $authDocs) ||
+                            in_array('إدارة الوكيل', $authDocs);
+
+                if (!$canAudit) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'غير مصرح لك باعتماد أو تدقيق حسابات الوكيل'
+                    ], 403);
+                }
+            }
+
             $fromDate = \Carbon\Carbon::create($validated['year'], $validated['month'], 1)->format('Y-m-d');
             $toDate   = \Carbon\Carbon::create($validated['year'], $validated['month'], 1)->endOfMonth()->format('Y-m-d');
             $monthPrefix = $validated['year'] . '-' . sprintf('%02d', $validated['month']);
@@ -804,6 +824,45 @@ class FinancialStatisticsController extends Controller
                 'transactions_count' => 'nullable|integer|min:1',
                 'report_file'        => 'nullable|file|mimes:pdf,xlsx,xls,csv,jpg,jpeg,png,webp|max:20480',
             ]);
+
+            $user = $request->user() ?? auth('sanctum')->user() ?? auth()->user();
+            if ($user && !$user->is_admin) {
+                $authDocs = is_array($user->authorized_documents ?? null)
+                    ? $user->authorized_documents
+                    : (is_string($user->authorized_documents ?? null) ? json_decode($user->authorized_documents, true) : []);
+
+                $canPay = in_array('تسديد كشف حساب الوكيل', $authDocs) ||
+                          in_array('مدير الوكلاء', $authDocs) ||
+                          in_array('المحاسب المالي', $authDocs) ||
+                          in_array('إدارة الفروع والوكلاء', $authDocs) ||
+                          in_array('إدارة الوكلاء', $authDocs) ||
+                          in_array('إدارة الوكيل', $authDocs);
+
+                if (!$canPay) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'غير مصرح لك بتسديد حسابات الوكيل'
+                    ], 403);
+                }
+
+                $canManageAgent = in_array('مدير الوكلاء', $authDocs) ||
+                                  in_array('إدارة الفروع والوكلاء', $authDocs) ||
+                                  in_array('إدارة الوكلاء', $authDocs) ||
+                                  in_array('إدارة الوكيل', $authDocs);
+
+                $isAudited = \App\Models\MonthlyAccountClosure::where('branch_agent_id', $validated['branch_agent_id'])
+                    ->where('year', $validated['year'])
+                    ->where('month', $validated['month'])
+                    ->where('is_audited', true)
+                    ->exists();
+
+                if ($isAudited && !$canManageAgent) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'هذا الشهر مدقق، لا يمكن التسديد إلا بعد إلغاء التدقيق من مدير الوكلاء'
+                    ], 403);
+                }
+            }
 
             $fromDate = \Carbon\Carbon::create($validated['year'], $validated['month'], 1)->format('Y-m-d');
             $toDate   = \Carbon\Carbon::create($validated['year'], $validated['month'], 1)->endOfMonth()->format('Y-m-d');
@@ -1000,6 +1059,34 @@ class FinancialStatisticsController extends Controller
             $agentId = (int)$validated['branch_agent_id'];
             $year    = (int)$validated['year'];
             $month   = (int)$validated['month'];
+
+            $user = $request->user() ?? auth('sanctum')->user() ?? auth()->user();
+            if ($user && !$user->is_admin) {
+                $authDocs = is_array($user->authorized_documents ?? null)
+                    ? $user->authorized_documents
+                    : (is_string($user->authorized_documents ?? null) ? json_decode($user->authorized_documents, true) : []);
+
+                $canManageAgent = in_array('مدير الوكلاء', $authDocs) ||
+                                  in_array('إدارة الفروع والوكلاء', $authDocs) ||
+                                  in_array('إدارة الوكلاء', $authDocs) ||
+                                  in_array('إدارة الوكيل', $authDocs);
+
+                $now = \Carbon\Carbon::now();
+                $isPastMonth = ($year < (int)$now->year) || ($year === (int)$now->year && $month < (int)$now->month);
+
+                $isAudited = \App\Models\MonthlyAccountClosure::where('branch_agent_id', $agentId)
+                    ->where('year', $year)
+                    ->where('month', $month)
+                    ->where('is_audited', true)
+                    ->exists();
+
+                if (($isAudited || $isPastMonth) && !$canManageAgent) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'غير مصرح للمحاسب بتعديل أو إلغاء استلامات الشهور السابقة أو المدققة، يلزم صلاحية مدير الوكلاء'
+                    ], 403);
+                }
+            }
 
             // 1. Find and reset all matching MonthlyAccountClosure records
             $fromDate = \Carbon\Carbon::create($year, $month, 1)->format('Y-m-d');

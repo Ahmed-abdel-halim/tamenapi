@@ -10,6 +10,16 @@ use App\Helpers\AgentPercentageHelper;
 
 class FinancialStatisticsController extends Controller
 {
+    public static function getCancellationFeeForDoc($tableName, $docType = '')
+    {
+        $tbl = strtolower($tableName ?? '');
+        $type = strtolower($docType ?? '');
+        if (strpos($tbl, 'international') !== false || mb_strpos($type, 'دولي') !== false || mb_strpos($type, 'lifo') !== false) {
+            return 30.0;
+        }
+        return 10.0; // Standard cancellation fee
+    }
+
     public function getStatistics(Request $request)
     {
         // Define all insurance tables
@@ -443,6 +453,7 @@ class FinancialStatisticsController extends Controller
                     'active_count'   => 0,
                     'expired_count'  => 0,
                     'canceled_count' => 0,
+                    'cancellation_fees' => 0.0,
                     'total_sales'    => 0.0,
                     'agent_share'    => 0.0,
                     'company_share'  => 0.0,
@@ -553,7 +564,10 @@ class FinancialStatisticsController extends Controller
 
                     if ($isCanceled) {
                         $months[$monthKey]['canceled_count']++;
-                        // Canceled documents DO NOT contribute to sales or agent/company shares!
+                        $cancelFee = self::getCancellationFeeForDoc($tableName, $rawDocType);
+                        $months[$monthKey]['cancellation_fees'] = ($months[$monthKey]['cancellation_fees'] ?? 0.0) + $cancelFee;
+                        // Add cancellation fee to company share!
+                        $months[$monthKey]['company_share'] += $cancelFee;
                     } else {
                         $isExpired = false;
                         if (!empty($doc->end_date) && \Carbon\Carbon::parse($doc->end_date)->format('Y-m-d') < $todayStr) {
@@ -638,6 +652,7 @@ class FinancialStatisticsController extends Controller
                     'active_count'    => $m['active_count'],
                     'expired_count'   => $m['expired_count'],
                     'canceled_count'  => $m['canceled_count'],
+                    'cancellation_fees' => round($m['cancellation_fees'] ?? 0.0, 2),
                     'total_sales'     => round($m['total_sales'], 2),
                     'agent_share'     => $agentShare,
                     'company_share'   => $companyShare,
@@ -655,6 +670,7 @@ class FinancialStatisticsController extends Controller
                 $grandTotalActiveDocs   += $m['active_count'];
                 $grandTotalExpiredDocs  += $m['expired_count'];
                 $grandTotalCanceledDocs += $m['canceled_count'];
+                $grandTotalCancellationFees = ($grandTotalCancellationFees ?? 0.0) + ($m['cancellation_fees'] ?? 0.0);
                 $grandTotalAgentShare   += $agentShare;
                 $grandTotalCompanyShare += $companyShare;
                 $grandTotalPaid         += $paidAmount;
@@ -1582,9 +1598,15 @@ class FinancialStatisticsController extends Controller
                         }
                     }
 
+                    $cancelFee = 0.0;
                     if ($isCanceled) {
                         $statusStr = 'ملغية';
                         $canceledCount++;
+                        $cancelFee = self::getCancellationFeeForDoc($tableName, $typeLabel);
+                        $totalCancellationFees = ($totalCancellationFees ?? 0.0) + $cancelFee;
+                        $totalCompanyShare += $cancelFee;
+                        $companyAmount = $cancelFee;
+                        $agentAmount = 0.0;
                     } elseif ($isExpired) {
                         $statusStr = 'منتهية';
                         $expiredCount++;
@@ -1614,7 +1636,8 @@ class FinancialStatisticsController extends Controller
                         'total'           => $total,
                         'percentage'      => $pct,
                         'agent_share'     => $agentAmount,
-                        'company_share'   => $companyAmount,
+                        'cancellation_fee' => $cancelFee,
+                        'company_share'   => $isCanceled ? $cancelFee : $companyAmount,
                         'is_old_document' => (bool)($doc->is_old_document ?? false),
                         'status'          => $statusStr,
                         'notes'           => $doc->notes ?? null,

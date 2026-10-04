@@ -45,6 +45,7 @@ class BranchAgent extends Model
         'activity_license',
         'user_id',
         'notes',
+        'debt_delay_notes',
         'status',
         'authorized_documents',
         'document_percentages',

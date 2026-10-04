@@ -193,6 +193,7 @@ Route::post('/branches-agents/{id}/toggle-block', [BranchAgentController::class,
 Route::post('/branches-agents/{id}/toggle-landing', [BranchAgentController::class, 'toggleShowOnLanding']);
 Route::post('/branches-agents/{id}/approve', [BranchAgentController::class, 'approveAgent']);
 Route::get('/reports/outstanding-debts', [\App\Http\Controllers\DebtReportController::class, 'getOutstandingDebts']);
+Route::post('/reports/outstanding-debts/note', [\App\Http\Controllers\DebtReportController::class, 'updateDebtNote']);
 
 // Financial Management Routes
 Route::apiResource('commissions', \App\Http\Controllers\CommissionController::class);

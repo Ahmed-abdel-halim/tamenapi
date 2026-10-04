@@ -11,11 +11,16 @@ use Illuminate\Support\Facades\Log;
 
 class DebtReportController extends Controller
 {
-    public function getOutstandingDebts()
+    public function getOutstandingDebts(Request $request)
     {
         try {
             @ini_set('memory_limit', '512M');
             @set_time_limit(120);
+
+            $selectedMonth = $request->input('month'); // 'all', or 1..12
+            $selectedYear = (int)($request->input('year') ?: date('Y'));
+            $isSpecificMonth = (!empty($selectedMonth) && $selectedMonth !== 'all');
+            $filterMonthNum = $isSpecificMonth ? (int)$selectedMonth : null;
 
             $insuranceTables = [
                 'insurance_documents',
@@ -35,10 +40,6 @@ class DebtReportController extends Controller
             if (empty($agentIds)) {
                 return response()->json([]);
             }
-            
-            $now = new \DateTime();
-            $currentYear = (int)$now->format('Y');
-            $currentMonth = (int)$now->format('m');
 
             $agentReport = [];
             foreach ($agents as $agent) {
@@ -46,21 +47,31 @@ class DebtReportController extends Controller
                 if (is_string($percentages)) {
                     $percentages = json_decode($percentages, true) ?: [];
                 }
+
                 $agentReport[$agent->id] = [
                     'id' => $agent->id,
                     'agent_id' => $agent->id,
                     'agency_name' => $agent->agency_name,
+                    'agent_code' => $agent->code ?? '',
+                    'agent_phone' => $agent->phone ?: ($agent->office_phone ?: ''),
+                    'delay_reason' => $agent->debt_delay_notes ?: ($agent->notes ?: ''),
                     'percentages' => $percentages,
                     'total_sales' => 0.0,
                     'total_commissions' => 0.0,
                     'current_month_sales' => 0.0,
                     'current_month_commissions' => 0.0,
+                    'month_sales' => 0.0,
+                    'month_commissions' => 0.0,
+                    'month_paid' => 0.0,
                     'total_paid' => 0.0,
                     'last_payment_date' => 'لا يوجد',
+                    'monthly_data' => [],
                 ];
             }
 
             $schema = DB::getSchemaBuilder();
+            $currentYear = (int)date('Y');
+            $currentMonth = (int)date('n');
 
             // 1. Calculate sales and commissions across insurance tables
             foreach ($insuranceTables as $table) {
@@ -84,6 +95,7 @@ class DebtReportController extends Controller
                         if ($hasIssueDate) $selects[] = 'issue_date';
                         elseif ($hasStartDate) $selects[] = 'start_date';
                         else $selects[] = 'created_at';
+
                         if ($table === 'international_insurance_documents') {
                             foreach (['document_number', 'chassis_number', 'phone', 'insured_name', 'external_policy_number'] as $extraCol) {
                                 if ($schema->hasColumn($table, $extraCol) && !in_array($extraCol, $selects)) {
@@ -124,16 +136,35 @@ class DebtReportController extends Controller
                             $agentReport[$agentId]['total_sales'] += $totalVal;
                             $agentReport[$agentId]['total_commissions'] += $commVal;
 
-                            $isCurrentMonth = false;
                             if ($docDate) {
                                 $time = strtotime($docDate);
                                 if ($time !== false) {
-                                    $isCurrentMonth = ((int)date('Y', $time) === $currentYear && (int)date('n', $time) === $currentMonth);
+                                    $dYear = (int)date('Y', $time);
+                                    $dMonth = (int)date('n', $time);
+                                    $mKey = "{$dYear}-{$dMonth}";
+
+                                    if (!isset($agentReport[$agentId]['monthly_data'][$mKey])) {
+                                        $agentReport[$agentId]['monthly_data'][$mKey] = [
+                                            'sales' => 0.0,
+                                            'commissions' => 0.0,
+                                            'company_share' => 0.0,
+                                            'paid' => 0.0
+                                        ];
+                                    }
+                                    $agentReport[$agentId]['monthly_data'][$mKey]['sales'] += $totalVal;
+                                    $agentReport[$agentId]['monthly_data'][$mKey]['commissions'] += $commVal;
+                                    $agentReport[$agentId]['monthly_data'][$mKey]['company_share'] += ($totalVal - $commVal);
+
+                                    if ($dYear === $currentYear && $dMonth === $currentMonth) {
+                                        $agentReport[$agentId]['current_month_sales'] += $totalVal;
+                                        $agentReport[$agentId]['current_month_commissions'] += $commVal;
+                                    }
+
+                                    if ($isSpecificMonth && $dYear === $selectedYear && $dMonth === $filterMonthNum) {
+                                        $agentReport[$agentId]['month_sales'] += $totalVal;
+                                        $agentReport[$agentId]['month_commissions'] += $commVal;
+                                    }
                                 }
-                            }
-                            if ($isCurrentMonth) {
-                                $agentReport[$agentId]['current_month_sales'] += $totalVal;
-                                $agentReport[$agentId]['current_month_commissions'] += $commVal;
                             }
                         }
                     }
@@ -142,7 +173,91 @@ class DebtReportController extends Controller
                 }
             }
 
-            // 2. Bulk Payments calculation using AgentPaymentHelper
+            // 2. Payments per month and overall
+            if ($schema->hasTable('monthly_account_closures')) {
+                try {
+                    $closures = DB::table('monthly_account_closures')
+                        ->whereIn('branch_agent_id', $agentIds)
+                        ->select('branch_agent_id', 'year', 'month', 'paid_amount', 'notes')
+                        ->get();
+
+                    foreach ($closures as $cl) {
+                        $aid = $cl->branch_agent_id;
+                        if (!isset($agentReport[$aid])) continue;
+                        $mKey = "{$cl->year}-{$cl->month}";
+                        if (!isset($agentReport[$aid]['monthly_data'][$mKey])) {
+                            $agentReport[$aid]['monthly_data'][$mKey] = [
+                                'sales' => 0.0,
+                                'commissions' => 0.0,
+                                'company_share' => 0.0,
+                                'paid' => 0.0
+                            ];
+                        }
+                        $clPaid = (float)($cl->paid_amount ?? 0);
+                        if ($clPaid > $agentReport[$aid]['monthly_data'][$mKey]['paid']) {
+                            $agentReport[$aid]['monthly_data'][$mKey]['paid'] = $clPaid;
+                        }
+
+                        if ($isSpecificMonth && (int)$cl->year === $selectedYear && (int)$cl->month === $filterMonthNum) {
+                            if ($clPaid > $agentReport[$aid]['month_paid']) {
+                                $agentReport[$aid]['month_paid'] = $clPaid;
+                            }
+                            if (!empty($cl->notes) && empty($agentReport[$aid]['delay_reason'])) {
+                                $agentReport[$aid]['delay_reason'] = $cl->notes;
+                            }
+                        }
+                    }
+                } catch (\Throwable $cle) {
+                    Log::error("DebtReportController closures error: " . $cle->getMessage());
+                }
+            }
+
+            if ($schema->hasTable('payment_vouchers')) {
+                try {
+                    $vouchers = DB::table('payment_vouchers')
+                        ->whereIn('branch_agent_id', $agentIds)
+                        ->select('branch_agent_id', 'amount', 'payment_date', 'year', 'month')
+                        ->get();
+
+                    foreach ($vouchers as $v) {
+                        $aid = $v->branch_agent_id;
+                        if (!isset($agentReport[$aid])) continue;
+                        $vDate = $v->payment_date;
+                        $vYear = $v->year;
+                        $vMonth = $v->month;
+                        if (!$vYear && $vDate) {
+                            $t = strtotime($vDate);
+                            if ($t !== false) {
+                                $vYear = (int)date('Y', $t);
+                                $vMonth = (int)date('n', $t);
+                            }
+                        }
+                        if ($vYear && $vMonth) {
+                            $mKey = "{$vYear}-{$vMonth}";
+                            if (!isset($agentReport[$aid]['monthly_data'][$mKey])) {
+                                $agentReport[$aid]['monthly_data'][$mKey] = [
+                                    'sales' => 0.0,
+                                    'commissions' => 0.0,
+                                    'company_share' => 0.0,
+                                    'paid' => 0.0
+                                ];
+                            }
+                            if ($agentReport[$aid]['monthly_data'][$mKey]['paid'] == 0) {
+                                $agentReport[$aid]['monthly_data'][$mKey]['paid'] += (float)($v->amount ?? 0);
+                            }
+                            if ($isSpecificMonth && (int)$vYear === $selectedYear && (int)$vMonth === $filterMonthNum) {
+                                if ($agentReport[$aid]['month_paid'] == 0) {
+                                    $agentReport[$aid]['month_paid'] += (float)($v->amount ?? 0);
+                                }
+                            }
+                        }
+                    }
+                } catch (\Throwable $ve) {
+                    Log::error("DebtReportController vouchers error: " . $ve->getMessage());
+                }
+            }
+
+            // Calculate total actual paid amount from AgentPaymentHelper
             foreach ($agentReport as $aid => $data) {
                 try {
                     $totalPaid = \App\Helpers\AgentPaymentHelper::getTotalPaid((int)$aid);
@@ -164,38 +279,88 @@ class DebtReportController extends Controller
             // 3. Build response
             $report = [];
             foreach ($agentReport as $data) {
-                $companyShare = $data['total_sales'] - $data['total_commissions'];
-                $outstandingDebt = $companyShare - $data['total_paid'];
+                $totalCompanyShare = $data['total_sales'] - $data['total_commissions'];
+                $totalCumulativeDebt = max(0, $totalCompanyShare - $data['total_paid']);
 
-                if ($outstandingDebt > 0.01) {
-                    $currentMonthShare = max(0, $data['current_month_sales'] - $data['current_month_commissions']);
-                    $pastShare = max(0, $companyShare - $currentMonthShare);
+                if ($isSpecificMonth) {
+                    $monthCompanyShare = max(0, $data['month_sales'] - $data['month_commissions']);
+                    $monthDebt = max(0, $monthCompanyShare - $data['month_paid']);
 
-                    $pastOverdue = max(0, $pastShare - $data['total_paid']);
-                    $currentMonthDebt = max(0, $outstandingDebt - $pastOverdue);
+                    if ($monthDebt > 0.01 || $monthCompanyShare > 0.01 || ($totalCumulativeDebt > 0.01 && $data['month_sales'] > 0)) {
+                        $status = 'normal';
+                        if ($monthDebt > 10000 || $totalCumulativeDebt > 10000) {
+                            $status = 'critical';
+                        } else if ($monthDebt > 0.01 || $totalCumulativeDebt > 0.01) {
+                            $status = 'warning';
+                        }
 
-                    $status = 'normal';
-                    if ($pastOverdue > 10000) {
-                        $status = 'critical';
-                    } else if ($pastOverdue > 0.01) {
-                        $status = 'warning';
+                        $report[] = [
+                            'id' => $data['id'],
+                            'agent_id' => $data['agent_id'],
+                            'agency_name' => $data['agency_name'],
+                            'agent_code' => $data['agent_code'],
+                            'agent_phone' => $data['agent_phone'],
+                            'delay_reason' => $data['delay_reason'],
+                            'selected_month' => $filterMonthNum,
+                            'selected_year' => $selectedYear,
+                            // Month specific figures
+                            'month_sales' => (float)round($data['month_sales'], 2),
+                            'month_commissions' => (float)round($data['month_commissions'], 2),
+                            'month_company_share' => (float)round($monthCompanyShare, 2),
+                            'month_paid' => (float)round($data['month_paid'], 2),
+                            'month_debt' => (float)round($monthDebt, 2),
+                            // Legacy & cumulative figures
+                            'total_sales' => (float)round($data['month_sales'], 2),
+                            'total_commissions' => (float)round($data['month_commissions'], 2),
+                            'company_share' => (float)round($monthCompanyShare, 2),
+                            'total_paid' => (float)round($data['month_paid'], 2),
+                            'total_debt' => (float)round($monthDebt > 0 ? $monthDebt : $totalCumulativeDebt, 2),
+                            'cumulative_debt' => (float)round($totalCumulativeDebt, 2),
+                            'past_overdue_debt' => (float)round(max(0, $totalCumulativeDebt - $monthDebt), 2),
+                            'current_month_debt' => (float)round($monthDebt, 2),
+                            'last_payment_date' => $data['last_payment_date'],
+                            'status' => $status,
+                            'notes' => !empty($data['delay_reason']) ? $data['delay_reason'] : ($monthDebt > 10000 ? 'يتطلب إجراء فوري' : ($monthDebt > 0.01 ? 'مديونية غير مسددة لهذا الشهر' : 'تم تسديد هذا الشهر'))
+                        ];
                     }
+                } else {
+                    // Cumulative / All Months
+                    if ($totalCumulativeDebt > 0.01) {
+                        $currentMonthShare = max(0, $data['current_month_sales'] - $data['current_month_commissions']);
+                        $pastShare = max(0, $totalCompanyShare - $currentMonthShare);
 
-                    $report[] = [
-                        'id' => $data['id'],
-                        'agent_id' => $data['agent_id'],
-                        'agency_name' => $data['agency_name'],
-                        'total_sales' => (float)round($data['total_sales'], 2),
-                        'total_commissions' => (float)round($data['total_commissions'], 2),
-                        'company_share' => (float)round($companyShare, 2),
-                        'total_paid' => (float)round($data['total_paid'], 2),
-                        'total_debt' => (float)round($outstandingDebt, 2),
-                        'past_overdue_debt' => (float)round($pastOverdue, 2),
-                        'current_month_debt' => (float)round($currentMonthDebt, 2),
-                        'last_payment_date' => $data['last_payment_date'],
-                        'status' => $status,
-                        'notes' => $pastOverdue > 10000 ? 'يتطلب إجراء فوري' : ($pastOverdue > 0.01 ? 'متأخرات سابقة قيد المتابعة' : 'إنتاج الشهر الحالي جاري')
-                    ];
+                        $pastOverdue = max(0, $pastShare - $data['total_paid']);
+                        $currentMonthDebt = max(0, $totalCumulativeDebt - $pastOverdue);
+
+                        $status = 'normal';
+                        if ($pastOverdue > 10000 || $totalCumulativeDebt > 10000) {
+                            $status = 'critical';
+                        } else if ($pastOverdue > 0.01 || $totalCumulativeDebt > 0.01) {
+                            $status = 'warning';
+                        }
+
+                        $report[] = [
+                            'id' => $data['id'],
+                            'agent_id' => $data['agent_id'],
+                            'agency_name' => $data['agency_name'],
+                            'agent_code' => $data['agent_code'],
+                            'agent_phone' => $data['agent_phone'],
+                            'delay_reason' => $data['delay_reason'],
+                            'selected_month' => 'all',
+                            'selected_year' => $selectedYear,
+                            'total_sales' => (float)round($data['total_sales'], 2),
+                            'total_commissions' => (float)round($data['total_commissions'], 2),
+                            'company_share' => (float)round($totalCompanyShare, 2),
+                            'total_paid' => (float)round($data['total_paid'], 2),
+                            'total_debt' => (float)round($totalCumulativeDebt, 2),
+                            'cumulative_debt' => (float)round($totalCumulativeDebt, 2),
+                            'past_overdue_debt' => (float)round($pastOverdue, 2),
+                            'current_month_debt' => (float)round($currentMonthDebt, 2),
+                            'last_payment_date' => $data['last_payment_date'],
+                            'status' => $status,
+                            'notes' => !empty($data['delay_reason']) ? $data['delay_reason'] : ($pastOverdue > 10000 ? 'يتطلب إجراء فوري' : ($pastOverdue > 0.01 ? 'متأخرات سابقة قيد المتابعة' : 'إنتاج الشهر الحالي جاري'))
+                        ];
+                    }
                 }
             }
 
@@ -203,6 +368,50 @@ class DebtReportController extends Controller
         } catch (\Throwable $e) {
             Log::error("Fatal error in getOutstandingDebts: " . $e->getMessage());
             return response()->json([], 200);
+        }
+    }
+
+    public function updateDebtNote(Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                'branch_agent_id' => 'required|integer|exists:branches_agents,id',
+                'note' => 'nullable|string|max:1000',
+                'year' => 'nullable|integer',
+                'month' => 'nullable',
+            ]);
+
+            $agent = BranchAgent::find($validated['branch_agent_id']);
+            if (!$agent) {
+                return response()->json(['success' => false, 'message' => 'الوكيل غير موجود'], 404);
+            }
+
+            $note = trim($validated['note'] ?? '');
+            $agent->debt_delay_notes = $note;
+            $agent->save();
+
+            // If a specific month & year are provided, update monthly_account_closures notes too
+            if (!empty($validated['year']) && !empty($validated['month']) && $validated['month'] !== 'all') {
+                $closure = \App\Models\MonthlyAccountClosure::where('branch_agent_id', $agent->id)
+                    ->where('year', (int)$validated['year'])
+                    ->where('month', (int)$validated['month'])
+                    ->first();
+
+                if ($closure) {
+                    $closure->notes = $note;
+                    $closure->save();
+                }
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'تم حفظ وتحديث سبب تأخير السداد والملاحظة بنجاح',
+                'delay_reason' => $note,
+                'agent_id' => $agent->id,
+            ]);
+        } catch (\Throwable $e) {
+            Log::error("Error in updateDebtNote: " . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'حدث خطأ أثناء حفظ الملاحظة: ' . $e->getMessage()], 500);
         }
     }
 

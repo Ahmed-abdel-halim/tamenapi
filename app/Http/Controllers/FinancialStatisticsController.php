@@ -850,18 +850,7 @@ class FinancialStatisticsController extends Controller
                                   in_array('إدارة الوكلاء', $authDocs) ||
                                   in_array('إدارة الوكيل', $authDocs);
 
-                $isAudited = \App\Models\MonthlyAccountClosure::where('branch_agent_id', $validated['branch_agent_id'])
-                    ->where('year', $validated['year'])
-                    ->where('month', $validated['month'])
-                    ->where('is_audited', true)
-                    ->exists();
-
-                if ($isAudited && !$canManageAgent) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'هذا الشهر مدقق، لا يمكن التسديد إلا بعد إلغاء التدقيق من مدير الوكلاء'
-                    ], 403);
-                }
+                // Audited status does not prevent accountant or authorized staff from recording monthly payment
             }
 
             $fromDate = \Carbon\Carbon::create($validated['year'], $validated['month'], 1)->format('Y-m-d');
@@ -1678,6 +1667,17 @@ class FinancialStatisticsController extends Controller
     public function updateAgentMonthDocument(Request $request)
     {
         try {
+            $user = $request->user() ?? auth('sanctum')->user() ?? auth()->user();
+            if (!$user && $request->header('X-User-Id')) {
+                $user = \App\Models\User::find($request->header('X-User-Id'));
+            }
+            if ($user && !$user->is_admin) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'عذراً، تعديل الوثائق مخصص لمدير النظام فقط'
+                ], 403);
+            }
+
             $tableName  = $request->input('table');
             $documentId = $request->input('id');
 
@@ -1772,6 +1772,17 @@ class FinancialStatisticsController extends Controller
     public function deleteAgentMonthDocument(Request $request)
     {
         try {
+            $user = $request->user() ?? auth('sanctum')->user() ?? auth()->user();
+            if (!$user && $request->header('X-User-Id')) {
+                $user = \App\Models\User::find($request->header('X-User-Id'));
+            }
+            if ($user && !$user->is_admin) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'عذراً، مسح/حذف الوثائق مخصص لمدير النظام فقط'
+                ], 403);
+            }
+
             $tableName  = $request->input('table');
             $documentId = $request->input('id');
 

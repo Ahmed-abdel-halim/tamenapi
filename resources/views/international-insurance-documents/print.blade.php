@@ -142,12 +142,43 @@
     <td class="lbl">رقم اللوحة (الموتور)</td>
     <td class="val" style="font-weight:900;font-size:15px;color:#cc0000;">{{ $document->plate_number ?? '-' }}</td>
     <td class="lbl">رقم المحرك (الموتور)</td>
-    <td class="val">{{ $document->plate_number ?? '-' }}</td>
+    <td class="val">{{ $document->motor_number ?? '-' }}</td>
 </tr>
 <tr>
     <td class="lbl">الغرض من الاستعمال</td>
     <td class="val">
-        @if($document->vehicleType && $document->vehicleType->category){{ $document->vehicleType->category }}@else خاصة @endif
+        @php
+            $usagePurpose = 'خاصة';
+            $rawItem = trim($document->item_type ?? '');
+            if (!empty($rawItem)) {
+                if (str_contains($rawItem, 'مقطور')) {
+                    $usagePurpose = 'مقطورة';
+                } elseif (str_contains($rawItem, 'تجار')) {
+                    $usagePurpose = 'تجارية';
+                } elseif (str_contains($rawItem, 'جرار')) {
+                    $usagePurpose = 'جرار';
+                } elseif (str_contains($rawItem, 'بضائع') || str_contains($rawItem, 'بضايع')) {
+                    $usagePurpose = 'نقل بضائع';
+                } elseif (str_contains($rawItem, 'حافلات') || str_contains($rawItem, 'ركوب')) {
+                    $usagePurpose = 'ركوبة عامة (حافلة)';
+                } elseif (str_contains($rawItem, 'دراجة')) {
+                    $usagePurpose = 'دراجة نارية';
+                } elseif (str_contains($rawItem, 'تعليم')) {
+                    $usagePurpose = 'تعليم قيادة';
+                } elseif (str_contains($rawItem, 'اسعاف') || str_contains($rawItem, 'إسعاف')) {
+                    $usagePurpose = 'إسعاف';
+                } elseif (str_contains($rawItem, 'موتى') || str_contains($rawItem, 'موتي')) {
+                    $usagePurpose = 'نقل موتى';
+                } elseif (str_contains($rawItem, 'خاص')) {
+                    $usagePurpose = 'خاصة';
+                } else {
+                    $usagePurpose = $rawItem;
+                }
+            } elseif ($document->vehicleType && $document->vehicleType->category) {
+                $usagePurpose = $document->vehicleType->category;
+            }
+        @endphp
+        {{ $usagePurpose }}
     </td>
     <td class="lbl">البلد المزار</td>
     <td class="val" style="font-weight:900;">{{ $document->visited_country ?? '-' }}</td>

@@ -717,21 +717,62 @@ class UnionSyncService
      */
     protected function mapClauseToItemType(?string $clause): string
     {
-        $clause = strtoupper(trim($clause));
+        if (!$clause) return 'سيارات خاصة ملاكي';
+        $clauseTrim = trim($clause);
+        $clauseUpper = strtoupper($clauseTrim);
         $map = [
             'PV' => 'سيارات خاصة ملاكي',
             '1'  => 'سيارات خاصة ملاكي',
             'MC' => 'دراجة نارية',
+            '2'  => 'دراجة نارية',
             'DT' => 'سيارة تعليم قيادة',
-            'AM' => 'سيارة اسعاف',
+            '3'  => 'سيارة تعليم قيادة',
             'HE' => 'سيارة نقل الموتى',
+            '4'  => 'سيارة نقل الموتى',
+            'AM' => 'سيارة اسعاف',
+            '5'  => 'سيارة اسعاف',
             'TR' => 'مقطورة',
+            '6'  => 'مقطورة',
             'CV' => 'السيارات التجارية',
+            '7'  => 'السيارات التجارية',
             'TC' => 'الجرارات',
+            '8'  => 'الجرارات',
             'GV' => 'سيارات نقل بضائع',
+            '9'  => 'سيارات نقل بضائع',
             'BS' => 'سيارات الركوبة الحافلات',
+            '10' => 'سيارات الركوبة الحافلات',
         ];
-        return $map[$clause] ?? 'سيارات خاصة ملاكي';
+        if (isset($map[$clauseUpper])) {
+            return $map[$clauseUpper];
+        }
+        if (str_contains($clauseTrim, 'مقطور')) {
+            return 'مقطورة';
+        }
+        if (str_contains($clauseTrim, 'تجار')) {
+            return 'السيارات التجارية';
+        }
+        if (str_contains($clauseTrim, 'جرار')) {
+            return 'الجرارات';
+        }
+        if (str_contains($clauseTrim, 'بضائع') || str_contains($clauseTrim, 'بضايع')) {
+            return 'سيارات نقل بضائع';
+        }
+        if (str_contains($clauseTrim, 'حافلات') || str_contains($clauseTrim, 'ركوب')) {
+            return 'سيارات الركوبة الحافلات';
+        }
+        if (str_contains($clauseTrim, 'دراجة')) {
+            return 'دراجة نارية';
+        }
+        if (str_contains($clauseTrim, 'تعليم')) {
+            return 'سيارة تعليم قيادة';
+        }
+        if (str_contains($clauseTrim, 'اسعاف') || str_contains($clauseTrim, 'إسعاف')) {
+            return 'سيارة اسعاف';
+        }
+        if (str_contains($clauseTrim, 'موتى') || str_contains($clauseTrim, 'موتي')) {
+            return 'سيارة نقل الموتى';
+        }
+        return 'سيارات خاصة ملاكي';
     }
 
     /**

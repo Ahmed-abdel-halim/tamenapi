@@ -220,6 +220,18 @@ Route::get('/union-balances', [App\Http\Controllers\UnionBalancePurchaseControll
 Route::post('/union-balances', [App\Http\Controllers\UnionBalancePurchaseController::class, 'store']);
 Route::put('/union-balances/{id}', [App\Http\Controllers\UnionBalancePurchaseController::class, 'update']);
 Route::delete('/union-balances/{id}', [App\Http\Controllers\UnionBalancePurchaseController::class, 'destroy']);
+
+// ─── Insurance Supervision Authority Routes (هيئة الإشراف على التأمين) ───
+Route::prefix('insurance-supervision')->group(function () {
+    Route::get('/summary', [\App\Http\Controllers\InsuranceSupervisionController::class, 'dashboardSummary']);
+    Route::get('/detailed-report', [\App\Http\Controllers\InsuranceSupervisionController::class, 'detailedReport']);
+    Route::get('/payments', [\App\Http\Controllers\InsuranceSupervisionController::class, 'getPayments']);
+    Route::post('/payments', [\App\Http\Controllers\InsuranceSupervisionController::class, 'storePayment']);
+    Route::put('/payments/{id}', [\App\Http\Controllers\InsuranceSupervisionController::class, 'updatePayment']);
+    Route::delete('/payments/{id}', [\App\Http\Controllers\InsuranceSupervisionController::class, 'deletePayment']);
+    Route::get('/settings', [\App\Http\Controllers\InsuranceSupervisionController::class, 'getSettings']);
+    Route::post('/settings', [\App\Http\Controllers\InsuranceSupervisionController::class, 'updateSettings']);
+});
 Route::get('/financial-statistics', [FinancialStatisticsController::class, 'getStatistics']);
 Route::get('/financial-statistics/all-agents-revenue', [FinancialStatisticsController::class, 'getAllAgentsRevenue']);
 Route::get('/financial-statistics/live-agents-production', [FinancialStatisticsController::class, 'getLiveAgentsProduction']);
@@ -448,6 +460,7 @@ Route::post('/lifo-reports/inventory-summary', [LifoReportController::class, 'in
 Route::post('/lifo-reports/offices-aggregated', [LifoReportController::class, 'officesAggregated']);
 Route::post('/lifo-reports/requests-list', [LifoReportController::class, 'requestsList']);
 Route::post('/lifo-reports/dashboard-summary', [LifoReportController::class, 'dashboardSummary']);
+Route::match(['get', 'post'], '/lifo-reports/reconciliation', [LifoReportController::class, 'reconciliation']);
 Route::get('/test-lifo-connection', [LifoReportController::class, 'testLifoConnection']);
 
 // â”€â”€â”€ Website Settings & Management Routes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€

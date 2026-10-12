@@ -1624,4 +1624,251 @@ class LifoReportController extends Controller
             'name' => "مكتب " . $officeId,
         ];
     }
+
+    /**
+     * Reconcile local Union balance purchases with cards in LIFO.
+     */
+    public function reconciliation(Request $request)
+    {
+        $forceRefresh = $request->boolean('force_refresh', false);
+
+        // 1. Get all local purchases from UnionBalancePurchase
+        $purchases = \App\Models\UnionBalancePurchase::orderBy('purchase_date', 'desc')->get();
+
+        // 2. Load LIFO cards list
+        $cardsCacheKey = "lifo_cards_adminmli_all";
+        $cardsList = null;
+
+        if (!$forceRefresh) {
+            $cardsList = Cache::get($cardsCacheKey);
+        }
+
+        if (!$cardsList) {
+            try {
+                $response = Http::timeout(180)->withoutVerifying()->post('https://prodapi.lifo.ly/api/cards/all', [
+                    'user_name' => 'adminmli',
+                    'pass_word' => '20232024',
+                ]);
+                if ($response->successful()) {
+                    $data = $response->json();
+                    if (isset($data['code']) && $data['code'] === 1 && is_array($data['data'])) {
+                        $cardsList = $data['data'];
+                        Cache::put($cardsCacheKey, $cardsList, 86400);
+                    }
+                }
+            } catch (\Exception $e) {}
+        }
+        $cardsList = $cardsList ?? [];
+
+        // 3. Aggregate LIFO cards by request_numberr
+        $lifoByRequest = [];
+        $totalLifoCards = count($cardsList);
+        $totalLifoIssued = 0;
+        $totalLifoAssigned = 0;
+        $totalLifoCanceled = 0;
+
+        foreach ($cardsList as $card) {
+            $reqNum = trim($card['request_numberr'] ?? '');
+            $status = $card['cardstautesname'] ?? '';
+
+            $isIssued = ($status === 'البطاقات المباعة' || $status === 'البطاقات المصدرة');
+            $isAssigned = ($status === 'البطاقات المعينة' || $status === 'البطاقات النشطة');
+            $isCanceled = ($status === 'البطاقات الملغية' || $status === 'الملغية');
+
+            if ($isIssued) $totalLifoIssued++;
+            if ($isAssigned) $totalLifoAssigned++;
+            if ($isCanceled) $totalLifoCanceled++;
+
+            if ($reqNum !== '') {
+                if (!isset($lifoByRequest[$reqNum])) {
+                    $lifoByRequest[$reqNum] = [
+                        'request_number' => $reqNum,
+                        'total_cards' => 0,
+                        'issued_cards' => 0,
+                        'assigned_cards' => 0,
+                        'canceled_cards' => 0,
+                        'min_card_number' => null,
+                        'max_card_number' => null,
+                        'created_at' => $card['created_at'] ?? null,
+                    ];
+                }
+                $lifoByRequest[$reqNum]['total_cards']++;
+                if ($isIssued) $lifoByRequest[$reqNum]['issued_cards']++;
+                if ($isAssigned) $lifoByRequest[$reqNum]['assigned_cards']++;
+                if ($isCanceled) $lifoByRequest[$reqNum]['canceled_cards']++;
+
+                $cardNum = $card['card_number'] ?? $card['card_serial'] ?? null;
+                if ($cardNum) {
+                    if (!$lifoByRequest[$reqNum]['min_card_number'] || $cardNum < $lifoByRequest[$reqNum]['min_card_number']) {
+                        $lifoByRequest[$reqNum]['min_card_number'] = $cardNum;
+                    }
+                    if (!$lifoByRequest[$reqNum]['max_card_number'] || $cardNum > $lifoByRequest[$reqNum]['max_card_number']) {
+                        $lifoByRequest[$reqNum]['max_card_number'] = $cardNum;
+                    }
+                }
+            }
+        }
+
+        // 4. Group local purchases by request_number
+        $localPurchasesAggregated = [];
+        $unassociatedPurchases = [];
+
+        $totalPaidAmount = 0.0;
+        $totalCardsPaid = 0;
+        $totalUnionFee = 0.0;
+        $totalCompanyDeposit = 0.0;
+
+        foreach ($purchases as $p) {
+            $totalPaidAmount += (float)$p->amount_paid;
+            $totalCardsPaid += (int)$p->cards_count;
+            $totalUnionFee += (float)$p->total_union_fee;
+            $totalCompanyDeposit += (float)$p->total_company_deposit;
+
+            $reqNum = trim($p->request_number ?? '');
+            if ($reqNum === '') {
+                $unassociatedPurchases[] = $p;
+                continue;
+            }
+
+            if (!isset($localPurchasesAggregated[$reqNum])) {
+                $localPurchasesAggregated[$reqNum] = [
+                    'request_number' => $reqNum,
+                    'amount_paid' => 0.0,
+                    'cards_count' => 0,
+                    'card_price' => (float)$p->card_price,
+                    'union_fee_per_card' => (float)$p->union_fee_per_card,
+                    'company_deposit_per_card' => (float)$p->company_deposit_per_card,
+                    'total_union_fee' => 0.0,
+                    'total_company_deposit' => 0.0,
+                    'payment_method' => $p->payment_method,
+                    'purchase_date' => $p->purchase_date ? (is_string($p->purchase_date) ? substr($p->purchase_date, 0, 10) : $p->purchase_date->format('Y-m-d')) : null,
+                    'receipt_image' => $p->receipt_image,
+                    'records' => [],
+                ];
+            }
+
+            $localPurchasesAggregated[$reqNum]['amount_paid'] += (float)$p->amount_paid;
+            $localPurchasesAggregated[$reqNum]['cards_count'] += (int)$p->cards_count;
+            $localPurchasesAggregated[$reqNum]['total_union_fee'] += (float)$p->total_union_fee;
+            $localPurchasesAggregated[$reqNum]['total_company_deposit'] += (float)$p->total_company_deposit;
+            $localPurchasesAggregated[$reqNum]['records'][] = $p;
+        }
+
+        // 5. Build reconciliation rows
+        $reconciliationRows = [];
+        $matchedRequestsCount = 0;
+        $discrepancyRequestsCount = 0;
+        $unmatchedInLifoCount = 0;
+
+        $processedLifoReqs = [];
+
+        foreach ($localPurchasesAggregated as $reqNum => $loc) {
+            $lifo = $lifoByRequest[$reqNum] ?? null;
+            if ($lifo) {
+                $processedLifoReqs[$reqNum] = true;
+            }
+
+            $lifoCardsCount = $lifo ? $lifo['total_cards'] : 0;
+            $cardsDiff = $lifoCardsCount - $loc['cards_count'];
+            $pricePerCard = $loc['card_price'] > 0 ? $loc['card_price'] : 20.0;
+            $financialDiff = $cardsDiff * $pricePerCard;
+
+            $status = 'matched';
+            if (!$lifo) {
+                $status = 'not_in_lifo'; // مدفوع ولكن غير مسجل في LIFO
+                $unmatchedInLifoCount++;
+            } elseif ($cardsDiff === 0) {
+                $status = 'matched'; // مطابق تماماً
+                $matchedRequestsCount++;
+            } else {
+                $status = 'diff'; // فرق في الكمية
+                $discrepancyRequestsCount++;
+            }
+
+            $reconciliationRows[] = [
+                'request_number' => $reqNum,
+                'purchase_date' => $loc['purchase_date'],
+                'payment_method' => $loc['payment_method'],
+                'receipt_image' => $loc['receipt_image'],
+                'amount_paid' => $loc['amount_paid'],
+                'local_cards_count' => $loc['cards_count'],
+                'lifo_cards_count' => $lifoCardsCount,
+                'cards_diff' => $cardsDiff,
+                'financial_diff' => $financialDiff,
+                'card_price' => $pricePerCard,
+                'lifo_issued_cards' => $lifo ? $lifo['issued_cards'] : 0,
+                'lifo_assigned_cards' => $lifo ? $lifo['assigned_cards'] : 0,
+                'lifo_canceled_cards' => $lifo ? $lifo['canceled_cards'] : 0,
+                'min_card_number' => $lifo['min_card_number'] ?? null,
+                'max_card_number' => $lifo['max_card_number'] ?? null,
+                'status' => $status,
+                'is_in_lifo' => (bool)$lifo,
+                'is_in_local' => true,
+            ];
+        }
+
+        // 6. Any requests in LIFO not recorded locally
+        $lifoOnlyCount = 0;
+        foreach ($lifoByRequest as $reqNum => $lifo) {
+            if (!isset($processedLifoReqs[$reqNum])) {
+                $lifoOnlyCount++;
+                $reconciliationRows[] = [
+                    'request_number' => $reqNum,
+                    'purchase_date' => $lifo['created_at'] ? substr($lifo['created_at'], 0, 10) : null,
+                    'payment_method' => 'غير مسجل بالدفاتر',
+                    'receipt_image' => null,
+                    'amount_paid' => 0.0,
+                    'local_cards_count' => 0,
+                    'lifo_cards_count' => $lifo['total_cards'],
+                    'cards_diff' => $lifo['total_cards'],
+                    'financial_diff' => $lifo['total_cards'] * 20.0,
+                    'card_price' => 20.0,
+                    'lifo_issued_cards' => $lifo['issued_cards'],
+                    'lifo_assigned_cards' => $lifo['assigned_cards'],
+                    'lifo_canceled_cards' => $lifo['canceled_cards'],
+                    'min_card_number' => $lifo['min_card_number'],
+                    'max_card_number' => $lifo['max_card_number'],
+                    'status' => 'only_in_lifo', // بطاقات موجودة بالاتحاد وبدون إيصال مسجل محلياً
+                    'is_in_lifo' => true,
+                    'is_in_local' => false,
+                ];
+            }
+        }
+
+        // Sort rows by purchase_date desc
+        usort($reconciliationRows, function($a, $b) {
+            return strcmp($b['purchase_date'] ?? '', $a['purchase_date'] ?? '');
+        });
+
+        // 7. Overall Summary Financials
+        $totalCardsDiff = $totalLifoCards - $totalCardsPaid;
+        $totalFinancialDiff = $totalCardsDiff * 20.0;
+        $avgDepositPerCard = $totalCardsPaid > 0 ? ($totalCompanyDeposit / $totalCardsPaid) : 15.0;
+        $remainingDepositValue = $totalLifoAssigned * $avgDepositPerCard;
+        $consumedDepositValue = $totalLifoIssued * $avgDepositPerCard;
+
+        return response()->json([
+            'success' => true,
+            'summary' => [
+                'total_amount_paid' => $totalPaidAmount,
+                'total_cards_paid' => $totalCardsPaid,
+                'total_lifo_cards' => $totalLifoCards,
+                'total_cards_diff' => $totalCardsDiff,
+                'total_financial_diff' => $totalFinancialDiff,
+                'total_lifo_issued' => $totalLifoIssued,
+                'total_lifo_assigned' => $totalLifoAssigned,
+                'total_lifo_canceled' => $totalLifoCanceled,
+                'total_company_deposit' => $totalCompanyDeposit,
+                'consumed_deposit_value' => $consumedDepositValue,
+                'remaining_deposit_value' => $remainingDepositValue,
+                'matched_requests_count' => $matchedRequestsCount,
+                'discrepancy_requests_count' => $discrepancyRequestsCount,
+                'unmatched_in_lifo_count' => $unmatchedInLifoCount,
+                'lifo_only_count' => $lifoOnlyCount,
+                'unassociated_purchases_count' => count($unassociatedPurchases),
+            ],
+            'reconciliation_rows' => $reconciliationRows,
+            'unassociated_purchases' => $unassociatedPurchases,
+        ]);
+    }
 }

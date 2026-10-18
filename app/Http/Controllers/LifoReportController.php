@@ -1722,6 +1722,7 @@ class LifoReportController extends Controller
             $totalPaidAmount += (float)$p->amount_paid;
             $totalCardsPaid += (int)$p->cards_count;
             $totalUnionFee += (float)$p->total_union_fee;
+            $totalSupervisionFee = ($totalSupervisionFee ?? 0.0) + (float)($p->total_supervision_fee ?? 0);
             $totalCompanyDeposit += (float)$p->total_company_deposit;
 
             $reqNum = trim($p->request_number ?? '');
@@ -1737,12 +1738,15 @@ class LifoReportController extends Controller
                     'cards_count' => 0,
                     'card_price' => (float)$p->card_price,
                     'union_fee_per_card' => (float)$p->union_fee_per_card,
+                    'supervision_fee_per_card' => (float)($p->supervision_fee_per_card ?? 0),
                     'company_deposit_per_card' => (float)$p->company_deposit_per_card,
                     'total_union_fee' => 0.0,
+                    'total_supervision_fee' => 0.0,
                     'total_company_deposit' => 0.0,
                     'payment_method' => $p->payment_method,
                     'purchase_date' => $p->purchase_date ? (is_string($p->purchase_date) ? substr($p->purchase_date, 0, 10) : $p->purchase_date->format('Y-m-d')) : null,
                     'receipt_image' => $p->receipt_image,
+                    'bank_deposit_image' => $p->bank_deposit_image ?? null,
                     'records' => [],
                 ];
             }
@@ -1750,6 +1754,7 @@ class LifoReportController extends Controller
             $localPurchasesAggregated[$reqNum]['amount_paid'] += (float)$p->amount_paid;
             $localPurchasesAggregated[$reqNum]['cards_count'] += (int)$p->cards_count;
             $localPurchasesAggregated[$reqNum]['total_union_fee'] += (float)$p->total_union_fee;
+            $localPurchasesAggregated[$reqNum]['total_supervision_fee'] += (float)($p->total_supervision_fee ?? 0);
             $localPurchasesAggregated[$reqNum]['total_company_deposit'] += (float)$p->total_company_deposit;
             $localPurchasesAggregated[$reqNum]['records'][] = $p;
         }

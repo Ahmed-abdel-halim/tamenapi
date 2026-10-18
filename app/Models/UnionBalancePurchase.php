@@ -1,9 +1,9 @@
 <?php
 
-namespace App\Models;
+namespace AppModels;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
+use IlluminateDatabaseEloquentFactoriesHasFactory;
+use IlluminateDatabaseEloquentModel;
 
 class UnionBalancePurchase extends Model
 {
@@ -16,13 +16,20 @@ class UnionBalancePurchase extends Model
         'amount_paid',
         'card_price',
         'union_fee_per_card',
+        'supervision_fee_per_card',
         'company_deposit_per_card',
         'cards_count',
         'total_union_fee',
+        'total_supervision_fee',
         'total_company_deposit',
         'payment_method',
+        'depositor_name',
+        'deposit_date',
+        'bank_account_number',
+        'deposit_amount',
         'purchase_date',
         'receipt_image',
+        'bank_deposit_image',
         'notes',
     ];
 
@@ -30,10 +37,14 @@ class UnionBalancePurchase extends Model
         'amount_paid' => 'float',
         'card_price' => 'float',
         'union_fee_per_card' => 'float',
+        'supervision_fee_per_card' => 'float',
         'company_deposit_per_card' => 'float',
         'cards_count' => 'integer',
         'total_union_fee' => 'float',
+        'total_supervision_fee' => 'float',
         'total_company_deposit' => 'float',
+        'deposit_amount' => 'float',
         'purchase_date' => 'date',
+        'deposit_date' => 'date',
     ];
 }

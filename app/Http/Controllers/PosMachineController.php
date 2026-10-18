@@ -46,9 +46,13 @@ class PosMachineController extends Controller
         if (!is_array($authorized)) {
             return false;
         }
+        if (in_array('المحاسب المالي (عرض فقط)', $authorized) && !in_array('المحاسب المالي', $authorized) && !in_array('المحاسب المالي (تعديل كامل)', $authorized)) {
+            return false;
+        }
         return in_array($permission, $authorized) || 
                in_array('المطابقة والتحصيلات المالية', $authorized) || 
                in_array('المحاسب المالي', $authorized) ||
+               in_array('المحاسب المالي (تعديل كامل)', $authorized) ||
                in_array('المصارف والخزنة', $authorized) ||
                in_array('إدخال مبيعات نقاط البيع (POS)', $authorized) ||
                in_array('مطابقة مبيعات نقاط البيع (POS)', $authorized);
@@ -69,6 +73,32 @@ class PosMachineController extends Controller
         }
         return in_array('المطابقة والتحصيلات المالية', $authorized) || 
                in_array('المحاسب المالي', $authorized) ||
+               in_array('المحاسب المالي (تعديل كامل)', $authorized) ||
+               in_array('المحاسب المالي (عرض فقط)', $authorized) ||
+               in_array('المصارف والخزنة', $authorized) ||
+               in_array('إدخال مبيعات نقاط البيع (POS)', $authorized) ||
+               in_array('مطابقة مبيعات نقاط البيع (POS)', $authorized);
+    }
+
+    private function hasPosMutationAccess()
+    {
+        $user = $this->resolveUser();
+        if (!$user) {
+            return true;
+        }
+        if ($user->is_admin) {
+            return true;
+        }
+        $authorized = $user->authorized_documents ?? [];
+        if (!is_array($authorized)) {
+            return false;
+        }
+        if (in_array('المحاسب المالي (عرض فقط)', $authorized) && !in_array('المحاسب المالي', $authorized) && !in_array('المحاسب المالي (تعديل كامل)', $authorized)) {
+            return false;
+        }
+        return in_array('المطابقة والتحصيلات المالية', $authorized) || 
+               in_array('المحاسب المالي', $authorized) ||
+               in_array('المحاسب المالي (تعديل كامل)', $authorized) ||
                in_array('المصارف والخزنة', $authorized) ||
                in_array('إدخال مبيعات نقاط البيع (POS)', $authorized) ||
                in_array('مطابقة مبيعات نقاط البيع (POS)', $authorized);
@@ -114,7 +144,7 @@ class PosMachineController extends Controller
 
     public function store(Request $request)
     {
-        if (!$this->hasPosAccess()) {
+        if (!$this->hasPosMutationAccess()) {
             return response()->json(['success' => false, 'message' => 'غير مصرح لك بتعريف أو تعديل ماكينات POS'], 403);
         }
         $request->validate([
@@ -146,7 +176,7 @@ class PosMachineController extends Controller
 
     public function update(Request $request, $id)
     {
-        if (!$this->hasPosAccess()) {
+        if (!$this->hasPosMutationAccess()) {
             return response()->json(['success' => false, 'message' => 'غير مصرح لك بتعريف أو تعديل ماكينات POS'], 403);
         }
         $machine = PosMachine::findOrFail($id);
@@ -175,7 +205,7 @@ class PosMachineController extends Controller
 
     public function destroy($id)
     {
-        if (!$this->hasPosAccess()) {
+        if (!$this->hasPosMutationAccess()) {
             return response()->json(['success' => false, 'message' => 'غير مصرح لك بحذف ماكينات POS'], 403);
         }
         PosMachine::findOrFail($id)->delete();
@@ -184,7 +214,7 @@ class PosMachineController extends Controller
 
     public function toggleActive($id)
     {
-        if (!$this->hasPosAccess()) {
+        if (!$this->hasPosMutationAccess()) {
             return response()->json(['success' => false, 'message' => 'غير مصرح لك بتعديل حالة ماكينات POS'], 403);
         }
         $machine = PosMachine::findOrFail($id);
@@ -469,7 +499,7 @@ class PosMachineController extends Controller
      */
     public function handover(Request $request, $id)
     {
-        if (!$this->hasPosAccess()) {
+        if (!$this->hasPosMutationAccess()) {
             return response()->json(['success' => false, 'message' => 'غير مصرح لك بتسليم عهدة ماكينات POS'], 403);
         }
 
@@ -531,7 +561,7 @@ class PosMachineController extends Controller
      */
     public function returnCustody(Request $request, $id)
     {
-        if (!$this->hasPosAccess()) {
+        if (!$this->hasPosMutationAccess()) {
             return response()->json(['success' => false, 'message' => 'غير مصرح لك باسترجاع عهدة ماكينات POS'], 403);
         }
 

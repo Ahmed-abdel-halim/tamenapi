@@ -850,6 +850,7 @@ class FinancialStatisticsController extends Controller
                 $canPay = in_array('تسديد كشف حساب الوكيل', $authDocs) ||
                           in_array('مدير الوكلاء', $authDocs) ||
                           in_array('المحاسب المالي', $authDocs) ||
+                          in_array('المحاسب المالي (تعديل كامل)', $authDocs) ||
                           in_array('إدارة الفروع والوكلاء', $authDocs) ||
                           in_array('إدارة الوكلاء', $authDocs) ||
                           in_array('إدارة الوكيل', $authDocs);

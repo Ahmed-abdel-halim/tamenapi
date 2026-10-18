@@ -1,10 +1,10 @@
 <?php
 
-namespace AppHttpControllers;
+namespace App\Http\Controllers;
 
-use AppModelsUnionBalancePurchase;
-use IlluminateHttpRequest;
-use IlluminateSupportFacadesStorage;
+use App\Models\UnionBalancePurchase;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class UnionBalancePurchaseController extends Controller
 {

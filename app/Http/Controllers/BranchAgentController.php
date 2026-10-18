@@ -3619,7 +3619,9 @@ class BranchAgentController extends Controller
             $hasAccess = $isAdmin || 
                          in_array('إدارة الفروع والوكلاء', $authorizedDocs) || 
                          in_array('إدارة الموظفين', $authorizedDocs) || 
-                         in_array('المحاسب المالي', $authorizedDocs);
+                         in_array('المحاسب المالي', $authorizedDocs) ||
+                         in_array('المحاسب المالي (تعديل كامل)', $authorizedDocs) ||
+                         in_array('المحاسب المالي (عرض فقط)', $authorizedDocs);
                          
             if (!$hasAccess) {
                 return response()->json(['message' => 'غير مصرح لك بالوصول لهذا الإجراء'], 403);

@@ -511,3 +511,11 @@ Route::middleware('auth:sanctum')->group(function () {
 Route::get('/insurance-conditions', [\App\Http\Controllers\InsuranceConditionController::class, 'index']);
 Route::get('/insurance-conditions/{type}', [\App\Http\Controllers\InsuranceConditionController::class, 'show']);
 Route::post('/insurance-conditions', [\App\Http\Controllers\InsuranceConditionController::class, 'store']);
+
+// Compulsory Document Supply Requests (هيئة الإشراف على التأمين)
+Route::get('/compulsory-document-requests', [\App\Http\Controllers\CompulsoryDocumentRequestController::class, 'index']);
+Route::post('/compulsory-document-requests', [\App\Http\Controllers\CompulsoryDocumentRequestController::class, 'store']);
+Route::put('/compulsory-document-requests/{id}', [\App\Http\Controllers\CompulsoryDocumentRequestController::class, 'update']);
+Route::delete('/compulsory-document-requests/{id}', [\App\Http\Controllers\CompulsoryDocumentRequestController::class, 'destroy']);
+Route::post('/compulsory-document-requests/{id}/receive', [\App\Http\Controllers\CompulsoryDocumentRequestController::class, 'receive']);
+Route::post('/compulsory-document-requests/{id}/status', [\App\Http\Controllers\CompulsoryDocumentRequestController::class, 'updateStatus']);

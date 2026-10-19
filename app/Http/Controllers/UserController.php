@@ -1379,28 +1379,17 @@ class UserController extends Controller
                 return response()->json(['message' => 'المستخدم غير موجود'], 404);
             }
 
-            $agentId = $user->branch_agent_id;
-            if (!$agentId) {
-                $agent = BranchAgent::where('user_id', $user->id)->first();
-                if ($agent) {
-                    $agentId = $agent->id;
-                }
-            }
-
+            $userId = (int) $user->id;
             $perPage = (int) $request->get('per_page', 1000);
             $allDocs = [];
 
             // 1. وثائق تأمين السيارات (إجباري / شامل)
             if (Schema::hasTable('insurance_documents')) {
                 $q = DB::table('insurance_documents');
-                $q->where(function ($sub) use ($user, $agentId) {
-                    $sub->where('user_id', $user->id);
-                    if ($agentId) {
-                        $sub->orWhere('branch_agent_id', $agentId);
-                    }
-                });
+                $q->where('user_id', $userId);
                 $docs = $q->select([
                     'id',
+                    'user_id',
                     'insurance_number as document_number',
                     'insurance_number',
                     DB::raw("'insurance_documents' as doc_category"),
@@ -1409,7 +1398,11 @@ class UserController extends Controller
                     'start_date',
                     'end_date',
                     'total as premium',
-                    DB::raw("CASE WHEN is_canceled = 1 THEN 'canceled' ELSE 'active' END as status"),
+                    DB::raw("CASE 
+                        WHEN is_canceled = 1 THEN 'canceled' 
+                        WHEN end_date IS NOT NULL AND DATE(end_date) < CURDATE() THEN 'expired' 
+                        ELSE 'active' 
+                    END as status"),
                     'created_at',
                     DB::raw("'/insurance-documents/' as view_url_prefix")
                 ])->orderByDesc('id')->take($perPage)->get();
@@ -1422,14 +1415,10 @@ class UserController extends Controller
             // 2. وثائق تأمين السيارات الدولي (البطاقة البرتقالية)
             if (Schema::hasTable('international_insurance_documents')) {
                 $q = DB::table('international_insurance_documents');
-                $q->where(function ($sub) use ($user, $agentId) {
-                    $sub->where('user_id', $user->id);
-                    if ($agentId) {
-                        $sub->orWhere('branch_agent_id', $agentId);
-                    }
-                });
+                $q->where('user_id', $userId);
                 $docs = $q->select([
                     'id',
+                    'user_id',
                     'document_number',
                     'document_number as insurance_number',
                     DB::raw("'international_insurance_documents' as doc_category"),
@@ -1438,7 +1427,11 @@ class UserController extends Controller
                     'start_date',
                     'end_date',
                     'total as premium',
-                    DB::raw("CASE WHEN is_canceled = 1 THEN 'canceled' ELSE 'active' END as status"),
+                    DB::raw("CASE 
+                        WHEN is_canceled = 1 THEN 'canceled' 
+                        WHEN end_date IS NOT NULL AND DATE(end_date) < CURDATE() THEN 'expired' 
+                        ELSE 'active' 
+                    END as status"),
                     'created_at',
                     DB::raw("'/international-insurance-documents/' as view_url_prefix")
                 ])->orderByDesc('id')->take($perPage)->get();
@@ -1451,14 +1444,10 @@ class UserController extends Controller
             // 3. وثائق تأمين السفر
             if (Schema::hasTable('travel_insurance_documents')) {
                 $q = DB::table('travel_insurance_documents');
-                $q->where(function ($sub) use ($user, $agentId) {
-                    $sub->where('user_id', $user->id);
-                    if ($agentId) {
-                        $sub->orWhere('branch_agent_id', $agentId);
-                    }
-                });
+                $q->where('user_id', $userId);
                 $docs = $q->select([
                     'id',
+                    'user_id',
                     'insurance_number as document_number',
                     'insurance_number',
                     DB::raw("'travel_insurance_documents' as doc_category"),
@@ -1467,7 +1456,11 @@ class UserController extends Controller
                     'start_date',
                     'end_date',
                     'total as premium',
-                    DB::raw("CASE WHEN is_canceled = 1 THEN 'canceled' ELSE 'active' END as status"),
+                    DB::raw("CASE 
+                        WHEN is_canceled = 1 THEN 'canceled' 
+                        WHEN end_date IS NOT NULL AND DATE(end_date) < CURDATE() THEN 'expired' 
+                        ELSE 'active' 
+                    END as status"),
                     'created_at',
                     DB::raw("'/travel-insurance-documents/' as view_url_prefix")
                 ])->orderByDesc('id')->take($perPage)->get();
@@ -1480,14 +1473,10 @@ class UserController extends Controller
             // 4. وثائق تأمين الوافدين / المقيمين
             if (Schema::hasTable('resident_insurance_documents')) {
                 $q = DB::table('resident_insurance_documents');
-                $q->where(function ($sub) use ($user, $agentId) {
-                    $sub->where('user_id', $user->id);
-                    if ($agentId) {
-                        $sub->orWhere('branch_agent_id', $agentId);
-                    }
-                });
+                $q->where('user_id', $userId);
                 $docs = $q->select([
                     'id',
+                    'user_id',
                     'insurance_number as document_number',
                     'insurance_number',
                     DB::raw("'resident_insurance_documents' as doc_category"),
@@ -1496,7 +1485,11 @@ class UserController extends Controller
                     'start_date',
                     'end_date',
                     'total as premium',
-                    DB::raw("CASE WHEN is_canceled = 1 THEN 'canceled' ELSE 'active' END as status"),
+                    DB::raw("CASE 
+                        WHEN is_canceled = 1 THEN 'canceled' 
+                        WHEN end_date IS NOT NULL AND DATE(end_date) < CURDATE() THEN 'expired' 
+                        ELSE 'active' 
+                    END as status"),
                     'created_at',
                     DB::raw("'/resident-insurance-documents/' as view_url_prefix")
                 ])->orderByDesc('id')->take($perPage)->get();
@@ -1509,14 +1502,10 @@ class UserController extends Controller
             // 5. وثائق تأمين الهياكل البحرية
             if (Schema::hasTable('marine_structure_insurance_documents')) {
                 $q = DB::table('marine_structure_insurance_documents');
-                $q->where(function ($sub) use ($user, $agentId) {
-                    $sub->where('user_id', $user->id);
-                    if ($agentId) {
-                        $sub->orWhere('branch_agent_id', $agentId);
-                    }
-                });
+                $q->where('user_id', $userId);
                 $docs = $q->select([
                     'id',
+                    'user_id',
                     'insurance_number as document_number',
                     'insurance_number',
                     DB::raw("'marine_structure_insurance_documents' as doc_category"),
@@ -1525,7 +1514,11 @@ class UserController extends Controller
                     'start_date',
                     'end_date',
                     'total as premium',
-                    DB::raw("CASE WHEN is_canceled = 1 THEN 'canceled' ELSE 'active' END as status"),
+                    DB::raw("CASE 
+                        WHEN is_canceled = 1 THEN 'canceled' 
+                        WHEN end_date IS NOT NULL AND DATE(end_date) < CURDATE() THEN 'expired' 
+                        ELSE 'active' 
+                    END as status"),
                     'created_at',
                     DB::raw("'/marine-structure-insurance-documents/' as view_url_prefix")
                 ])->orderByDesc('id')->take($perPage)->get();
@@ -1538,14 +1531,10 @@ class UserController extends Controller
             // 6. وثائق تأمين المسؤولية المهنية
             if (Schema::hasTable('professional_liability_insurance_documents')) {
                 $q = DB::table('professional_liability_insurance_documents');
-                $q->where(function ($sub) use ($user, $agentId) {
-                    $sub->where('user_id', $user->id);
-                    if ($agentId) {
-                        $sub->orWhere('branch_agent_id', $agentId);
-                    }
-                });
+                $q->where('user_id', $userId);
                 $docs = $q->select([
                     'id',
+                    'user_id',
                     'insurance_number as document_number',
                     'insurance_number',
                     DB::raw("'professional_liability_insurance_documents' as doc_category"),
@@ -1554,9 +1543,129 @@ class UserController extends Controller
                     'start_date',
                     'end_date',
                     'total as premium',
-                    DB::raw("CASE WHEN is_canceled = 1 THEN 'canceled' ELSE 'active' END as status"),
+                    DB::raw("CASE 
+                        WHEN is_canceled = 1 THEN 'canceled' 
+                        WHEN end_date IS NOT NULL AND DATE(end_date) < CURDATE() THEN 'expired' 
+                        ELSE 'active' 
+                    END as status"),
                     'created_at',
                     DB::raw("'/professional-liability-insurance-documents/' as view_url_prefix")
+                ])->orderByDesc('id')->take($perPage)->get();
+
+                foreach ($docs as $d) {
+                    $allDocs[] = (array) $d;
+                }
+            }
+
+            // 7. وثائق تأمين الحوادث الشخصية
+            if (Schema::hasTable('personal_accident_insurance_documents')) {
+                $q = DB::table('personal_accident_insurance_documents');
+                $q->where('user_id', $userId);
+                $docs = $q->select([
+                    'id',
+                    'user_id',
+                    'insurance_number as document_number',
+                    'insurance_number',
+                    DB::raw("'personal_accident_insurance_documents' as doc_category"),
+                    DB::raw("'تأمين الحوادث الشخصية' as insurance_type"),
+                    'insured_name',
+                    'start_date',
+                    'end_date',
+                    'total as premium',
+                    DB::raw("CASE 
+                        WHEN is_canceled = 1 THEN 'canceled' 
+                        WHEN end_date IS NOT NULL AND DATE(end_date) < CURDATE() THEN 'expired' 
+                        ELSE 'active' 
+                    END as status"),
+                    'created_at',
+                    DB::raw("'/personal-accident-insurance-documents/' as view_url_prefix")
+                ])->orderByDesc('id')->take($perPage)->get();
+
+                foreach ($docs as $d) {
+                    $allDocs[] = (array) $d;
+                }
+            }
+
+            // 8. وثائق تأمين نقل البضائع
+            if (Schema::hasTable('cargo_insurance_documents')) {
+                $q = DB::table('cargo_insurance_documents');
+                $q->where('user_id', $userId);
+                $docs = $q->select([
+                    'id',
+                    'user_id',
+                    'insurance_number as document_number',
+                    'insurance_number',
+                    DB::raw("'cargo_insurance_documents' as doc_category"),
+                    DB::raw("'تأمين نقل البضائع' as insurance_type"),
+                    'insured_name',
+                    'start_date',
+                    'end_date',
+                    'total as premium',
+                    DB::raw("CASE 
+                        WHEN is_canceled = 1 THEN 'canceled' 
+                        WHEN end_date IS NOT NULL AND DATE(end_date) < CURDATE() THEN 'expired' 
+                        ELSE 'active' 
+                    END as status"),
+                    'created_at',
+                    DB::raw("'/cargo-insurance-documents/' as view_url_prefix")
+                ])->orderByDesc('id')->take($perPage)->get();
+
+                foreach ($docs as $d) {
+                    $allDocs[] = (array) $d;
+                }
+            }
+
+            // 9. وثائق تأمين نقل الأموال
+            if (Schema::hasTable('cash_in_transit_insurance_documents')) {
+                $q = DB::table('cash_in_transit_insurance_documents');
+                $q->where('user_id', $userId);
+                $docs = $q->select([
+                    'id',
+                    'user_id',
+                    'insurance_number as document_number',
+                    'insurance_number',
+                    DB::raw("'cash_in_transit_insurance_documents' as doc_category"),
+                    DB::raw("'تأمين نقل الأموال' as insurance_type"),
+                    'insured_name',
+                    'start_date',
+                    'end_date',
+                    'total as premium',
+                    DB::raw("CASE 
+                        WHEN is_canceled = 1 THEN 'canceled' 
+                        WHEN end_date IS NOT NULL AND DATE(end_date) < CURDATE() THEN 'expired' 
+                        ELSE 'active' 
+                    END as status"),
+                    'created_at',
+                    DB::raw("'/cash-in-transit-insurance-documents/' as view_url_prefix")
+                ])->orderByDesc('id')->take($perPage)->get();
+
+                foreach ($docs as $d) {
+                    $allDocs[] = (array) $d;
+                }
+            }
+
+            // 10. وثائق تأمين طلبة المدارس
+            if (Schema::hasTable('school_student_insurance_documents')) {
+                $q = DB::table('school_student_insurance_documents');
+                $q->where('user_id', $userId);
+                $docs = $q->select([
+                    'id',
+                    'user_id',
+                    'insurance_number as document_number',
+                    'insurance_number',
+                    DB::raw("'school_student_insurance_documents' as doc_category"),
+                    DB::raw("'تأمين طلبة المدارس' as insurance_type"),
+                    DB::raw("COALESCE(school_name, '-') as insured_name"),
+                    'start_date',
+                    'end_date',
+                    'total as premium',
+                    DB::raw("CASE 
+                        WHEN is_canceled = 1 THEN 'canceled' 
+                        WHEN end_date IS NOT NULL AND DATE(end_date) < CURDATE() THEN 'expired' 
+                        ELSE 'active' 
+                    END as status"),
+                    'created_at',
+                    DB::raw("'/school-student-insurance-documents/' as view_url_prefix")
                 ])->orderByDesc('id')->take($perPage)->get();
 
                 foreach ($docs as $d) {

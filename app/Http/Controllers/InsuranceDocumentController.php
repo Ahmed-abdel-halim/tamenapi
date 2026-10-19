@@ -99,20 +99,7 @@ class InsuranceDocumentController extends Controller
             // فلتر الموظف أو المستخدم المصدر (user_id أو created_by)
             $filterUserId = $request->query('user_id') ?? $request->query('created_by');
             if ($filterUserId) {
-                $targetUser = User::find($filterUserId);
-                $targetBranchAgentId = $targetUser ? $targetUser->branch_agent_id : null;
-                if (!$targetBranchAgentId) {
-                    $targetAgent = BranchAgent::where('user_id', $filterUserId)->first();
-                    if ($targetAgent) {
-                        $targetBranchAgentId = $targetAgent->id;
-                    }
-                }
-                $query->where(function ($q) use ($filterUserId, $targetBranchAgentId) {
-                    $q->where('user_id', $filterUserId);
-                    if ($targetBranchAgentId) {
-                        $q->orWhere('branch_agent_id', $targetBranchAgentId);
-                    }
-                });
+                $query->where('user_id', $filterUserId);
             }
 
             // فلاتر التاريخ (السنة، الشهر، اليوم)

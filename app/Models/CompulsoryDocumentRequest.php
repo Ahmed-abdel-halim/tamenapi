@@ -22,6 +22,7 @@ class CompulsoryDocumentRequest extends Model
         'payment_method',
         'payment_reference',
         'payment_receipt_image',
+        'attachments',
         'status',
         'signatory_name',
         'signatory_title',
@@ -44,7 +45,27 @@ class CompulsoryDocumentRequest extends Model
         'received_quantity' => 'integer',
         'fee_per_document' => 'float',
         'total_amount' => 'float',
+        'attachments' => 'array',
     ];
+
+    protected $appends = ['attachments_list'];
+
+    public function getAttachmentsListAttribute()
+    {
+        $list = [];
+        if (!empty($this->attachments)) {
+            if (is_array($this->attachments)) {
+                $list = $this->attachments;
+            } elseif (is_string($this->attachments)) {
+                $decoded = json_decode($this->attachments, true);
+                $list = is_array($decoded) ? $decoded : [$this->attachments];
+            }
+        }
+        if (empty($list) && !empty($this->payment_receipt_image)) {
+            $list = [$this->payment_receipt_image];
+        }
+        return array_values(array_filter($list));
+    }
 
     public function storeItem()
     {

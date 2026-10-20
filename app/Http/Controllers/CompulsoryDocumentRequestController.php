@@ -8,6 +8,7 @@ use App\Models\InventoryStock;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class CompulsoryDocumentRequestController extends Controller
 {
@@ -90,6 +91,7 @@ class CompulsoryDocumentRequestController extends Controller
             'addressed_to' => 'nullable|string|max:255',
             'notes' => 'nullable|string',
             'payment_receipt_image' => 'nullable|file|mimes:jpeg,png,jpg,gif,webp,pdf|max:10240',
+            'attachments.*' => 'nullable|file|mimes:jpeg,png,jpg,gif,webp,pdf|max:10240',
         ]);
 
         $docsCount = (int)$validated['documents_count'];
@@ -108,12 +110,29 @@ class CompulsoryDocumentRequestController extends Controller
             $refNumber = sprintf("أ / %d - %s", (int)$month, $year);
         }
 
-        $imagePath = null;
-        if ($request->hasFile('payment_receipt_image')) {
-            $imagePath = $request->file('payment_receipt_image')->store('compulsory_requests', 'public');
+        $attachmentsList = [];
+        if ($request->hasFile('attachments')) {
+            $files = $request->file('attachments');
+            if (!is_array($files)) {
+                $files = [$files];
+            }
+            foreach ($files as $file) {
+                if ($file && $file->isValid()) {
+                    $attachmentsList[] = $file->store('compulsory_requests', 'public');
+                }
+            }
         }
 
-        $record = CompulsoryDocumentRequest::create([
+        if ($request->hasFile('payment_receipt_image')) {
+            $primary = $request->file('payment_receipt_image')->store('compulsory_requests', 'public');
+            if (!in_array($primary, $attachmentsList)) {
+                array_unshift($attachmentsList, $primary);
+            }
+        }
+
+        $imagePath = !empty($attachmentsList) ? $attachmentsList[0] : null;
+
+        $recordData = [
             'request_number' => $requestNumber,
             'reference_number' => $refNumber,
             'request_date' => $validated['request_date'],
@@ -131,7 +150,13 @@ class CompulsoryDocumentRequestController extends Controller
             'addressed_to' => $validated['addressed_to'] ?? 'السيد / مدير عام هيئة الإشراف على التأمين',
             'notes' => $validated['notes'] ?? null,
             'created_by' => auth()->id() ?? null,
-        ]);
+        ];
+
+        if (Schema::hasColumn('compulsory_document_requests', 'attachments')) {
+            $recordData['attachments'] = !empty($attachmentsList) ? $attachmentsList : null;
+        }
+
+        $record = CompulsoryDocumentRequest::create($recordData);
 
         return response()->json([
             'success' => true,
@@ -162,6 +187,8 @@ class CompulsoryDocumentRequestController extends Controller
             'addressed_to' => 'nullable|string|max:255',
             'notes' => 'nullable|string',
             'payment_receipt_image' => 'nullable|file|mimes:jpeg,png,jpg,gif,webp,pdf|max:10240',
+            'attachments.*' => 'nullable|file|mimes:jpeg,png,jpg,gif,webp,pdf|max:10240',
+            'existing_attachments' => 'nullable',
         ]);
 
         $docsCount = (int)$validated['documents_count'];
@@ -185,19 +212,62 @@ class CompulsoryDocumentRequestController extends Controller
             'notes' => $validated['notes'] ?? $record->notes,
         ];
 
-        // Handle image replacement or removal
+        // Manage attachments list
+        $currentList = $record->attachments_list ?: [];
+
+        if ($request->has('existing_attachments')) {
+            $existing = $request->input('existing_attachments');
+            if (is_string($existing)) {
+                $decoded = json_decode($existing, true);
+                $existing = is_array($decoded) ? $decoded : [];
+            }
+            if (!is_array($existing)) {
+                $existing = [];
+            }
+            // Delete removed files from disk
+            foreach ($currentList as $oldFile) {
+                if (!in_array($oldFile, $existing)) {
+                    Storage::disk('public')->delete($oldFile);
+                }
+            }
+            $currentList = $existing;
+        }
+
+        // Delete all receipt files if requested
         if ($request->boolean('delete_receipt_image') || $request->input('delete_receipt_image') == '1') {
+            foreach ($currentList as $file) {
+                Storage::disk('public')->delete($file);
+            }
             if ($record->payment_receipt_image) {
                 Storage::disk('public')->delete($record->payment_receipt_image);
             }
-            $data['payment_receipt_image'] = null;
+            $currentList = [];
+        }
+
+        // Upload any new attachments
+        if ($request->hasFile('attachments')) {
+            $newFiles = $request->file('attachments');
+            if (!is_array($newFiles)) {
+                $newFiles = [$newFiles];
+            }
+            foreach ($newFiles as $file) {
+                if ($file && $file->isValid()) {
+                    $currentList[] = $file->store('compulsory_requests', 'public');
+                }
+            }
         }
 
         if ($request->hasFile('payment_receipt_image')) {
-            if ($record->payment_receipt_image) {
-                Storage::disk('public')->delete($record->payment_receipt_image);
+            $newPrimary = $request->file('payment_receipt_image')->store('compulsory_requests', 'public');
+            if (!in_array($newPrimary, $currentList)) {
+                $currentList[] = $newPrimary;
             }
-            $data['payment_receipt_image'] = $request->file('payment_receipt_image')->store('compulsory_requests', 'public');
+        }
+
+        $data['payment_receipt_image'] = !empty($currentList) ? $currentList[0] : null;
+
+        if (Schema::hasColumn('compulsory_document_requests', 'attachments')) {
+            $data['attachments'] = !empty($currentList) ? array_values($currentList) : null;
         }
 
         $record->update($data);
@@ -301,6 +371,10 @@ class CompulsoryDocumentRequestController extends Controller
     {
         $record = CompulsoryDocumentRequest::findOrFail($id);
 
+        $files = $record->attachments_list ?: [];
+        foreach ($files as $file) {
+            Storage::disk('public')->delete($file);
+        }
         if ($record->payment_receipt_image) {
             Storage::disk('public')->delete($record->payment_receipt_image);
         }

@@ -2043,6 +2043,8 @@ class BranchAgentController extends Controller
 
             $statistics = [
                 'insurance_documents' => 0,
+                'third_party_insurance_documents' => 0,
+                'foreign_car_insurance_documents' => 0,
                 'travel_insurance_documents' => 0,
                 'resident_insurance_documents' => 0,
                 'marine_structure_insurance_documents' => 0,
@@ -2054,12 +2056,44 @@ class BranchAgentController extends Controller
                 'cash_in_transit_insurance_documents' => 0,
             ];
 
-            // Insurance Documents (Car Insurance)
+            // Insurance Documents (Car Compulsory Insurance)
             $insuranceQuery = InsuranceDocument::query();
             if (!$isAdmin) {
                 $insuranceQuery->where('branch_agent_id', $branchAgentId);
             }
+            $insuranceQuery->where(function ($q) {
+                $q->where('insurance_type', 'تأمين إجباري سيارات')
+                  ->orWhere('insurance_type', 'تأمين السيارات الإجباري')
+                  ->orWhere('insurance_type', 'إجباري')
+                  ->orWhere('insurance_type', 'تأمين سيارة جمرك')
+                  ->orWhereNull('insurance_type')
+                  ->orWhere('insurance_type', '');
+            });
             $statistics['insurance_documents'] = $applyCanceledFilter($insuranceQuery)->active()->count();
+
+            // Third Party Car Insurance Documents (تأمين طرف ثالث سيارات)
+            $thirdPartyQuery = InsuranceDocument::query();
+            if (!$isAdmin) {
+                $thirdPartyQuery->where('branch_agent_id', $branchAgentId);
+            }
+            $thirdPartyQuery->where(function ($q) {
+                $q->where('insurance_type', 'تأمين طرف ثالث سيارات')
+                  ->orWhere('insurance_type', 'طرف ثالث')
+                  ->orWhere('insurance_type', 'third_party');
+            });
+            $statistics['third_party_insurance_documents'] = $applyCanceledFilter($thirdPartyQuery)->active()->count();
+
+            // Foreign Car Insurance Documents (تأمين سيارات أجنبية)
+            $foreignQuery = InsuranceDocument::query();
+            if (!$isAdmin) {
+                $foreignQuery->where('branch_agent_id', $branchAgentId);
+            }
+            $foreignQuery->where(function ($q) {
+                $q->where('insurance_type', 'تأمين سيارات أجنبية')
+                  ->orWhere('insurance_type', 'أجنبية')
+                  ->orWhere('insurance_type', 'foreign');
+            });
+            $statistics['foreign_car_insurance_documents'] = $applyCanceledFilter($foreignQuery)->active()->count();
 
             // Travel Insurance Documents
             $travelQuery = TravelInsuranceDocument::query();

@@ -91,6 +91,32 @@ class InsuranceDocumentController extends Controller
                 });
             }
 
+            // فلتر نوع التأمين (إجباري / طرف ثالث / أجنبية)
+            if ($request->filled('insurance_type')) {
+                $type = trim($request->query('insurance_type'));
+                if ($type === 'compulsory' || $type === 'إجباري' || $type === 'تأمين إجباري سيارات' || $type === 'تأمين السيارات الإجباري') {
+                    $query->where(function ($q) {
+                        $q->where('insurance_type', 'تأمين إجباري سيارات')
+                          ->orWhere('insurance_type', 'تأمين السيارات الإجباري')
+                          ->orWhere('insurance_type', 'إجباري')
+                          ->orWhereNull('insurance_type')
+                          ->orWhere('insurance_type', '');
+                    });
+                } elseif ($type === 'third_party' || $type === 'طرف ثالث' || $type === 'تأمين طرف ثالث سيارات') {
+                    $query->where(function ($q) {
+                        $q->where('insurance_type', 'تأمين طرف ثالث سيارات')
+                          ->orWhere('insurance_type', 'طرف ثالث');
+                    });
+                } elseif ($type === 'foreign' || $type === 'أجنبية' || $type === 'تأمين سيارات أجنبية') {
+                    $query->where(function ($q) {
+                        $q->where('insurance_type', 'تأمين سيارات أجنبية')
+                          ->orWhere('insurance_type', 'أجنبية');
+                    });
+                } else {
+                    $query->where('insurance_type', $type);
+                }
+            }
+
             // فلتر الوكيل (للادمن)
             if ($isAdmin && $request->filled('branch_agent_id')) {
                 $query->where('branch_agent_id', $request->query('branch_agent_id'));

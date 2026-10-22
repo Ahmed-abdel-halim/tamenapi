@@ -3651,6 +3651,7 @@ class BranchAgentController extends Controller
             $authorizedDocs = $user->authorized_documents ?? [];
             
             $hasAccess = $isAdmin || 
+                         in_array('إدارة الوكلاء', $authorizedDocs) || 
                          in_array('إدارة الفروع والوكلاء', $authorizedDocs) || 
                          in_array('إدارة الموظفين', $authorizedDocs) || 
                          in_array('المحاسب المالي', $authorizedDocs) ||

@@ -19,7 +19,14 @@ class UserController extends Controller
         try {
             $perPage = $request->get('per_page', 50);
 
-            $query = User::with('branchAgent:id,user_id,type,agency_name,agent_name');
+                        $query = User::with(['branchAgent:id,user_id,type,agency_name,agent_name', 'branch:id,code,name,city']);
+            if ($request->filled('branch_id')) {
+                if ($request->branch_id === 'none') {
+                    $query->whereNull('branch_id');
+                } else {
+                    $query->where('branch_id', $request->branch_id);
+                }
+            }
 
             // استبعاد أي مستخدم مرتبط ببيانات وكيل أو فرع من قائمة الموظفين
             $query->whereNull('branch_agent_id')
@@ -72,6 +79,7 @@ class UserController extends Controller
                 $userData['authorized_documents'] = $user->authorized_documents ?? [];
                 $userData['user_type'] = 'مستخدم عادي';
                 $userData['branch_agent_info'] = null;
+                $userData['branch'] = $user->branch ? ['id' => $user->branch->id, 'code' => $user->branch->code, 'name' => $user->branch->name, 'city' => $user->branch->city] : null;
 
                 if ($user->is_admin) {
                     $userData['user_type'] = 'مدير';
@@ -131,6 +139,7 @@ class UserController extends Controller
 
         $rules = [
             'username' => 'required|string|max:191|unique:users,username',
+            'branch_id' => 'nullable|exists:branches,id',
             'name' => 'required|string|max:255',
             'email' => 'nullable|email|max:191',
             'password' => 'required|string|min:6',

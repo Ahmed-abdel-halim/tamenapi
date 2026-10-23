@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Artisan;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\BranchAgentController;
+use App\Http\Controllers\BranchController;
 use App\Http\Controllers\CityController;
 use App\Http\Controllers\PlateController;
 use App\Http\Controllers\VehicleTypeController;
@@ -137,6 +138,11 @@ Route::put('/financial-statistics/agent-month-document', [\App\Http\Controllers\
 Route::delete('/financial-statistics/agent-month-document', [\App\Http\Controllers\FinancialStatisticsController::class, 'deleteAgentMonthDocument']);
 Route::get('/financial-statistics/comprehensive-production-portfolio', [\App\Http\Controllers\FinancialStatisticsController::class, 'getComprehensiveProductionPortfolio']);
 Route::get('/financial-statistics/comprehensive-production-portfolio/print', [\App\Http\Controllers\FinancialStatisticsController::class, 'printComprehensiveProductionPortfolio']);
+// Branch Management Routes (إدارة الفروع المستقلة)
+Route::get('/branches/statistics', [BranchController::class, 'statistics']);
+Route::get('/branches/{id}/statistics', [BranchController::class, 'statistics']);
+Route::apiResource('branches', BranchController::class);
+
 Route::apiResource('branches-agents', BranchAgentController::class);
 Route::apiResource('payment-vouchers', 'App\Http\Controllers\PaymentVoucherController');
 Route::apiResource('expenses', 'App\Http\Controllers\ExpenseController');

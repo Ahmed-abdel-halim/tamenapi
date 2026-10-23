@@ -2033,12 +2033,24 @@ class BranchAgentController extends Controller
                 }
             }
 
+            $selectedBranchId = $request->header('X-Branch-Id') ?: $request->query('branch_id');
+            if (isset($user) && !$isAdmin && !empty($user->branch_id)) {
+                $selectedBranchId = $user->branch_id;
+            }
+
             $applyCanceledFilter = function ($query) {
                 return $query->where(function ($q) {
                     $q->whereNull('is_canceled')
                       ->orWhere('is_canceled', 0)
                       ->orWhere('is_canceled', false);
                 });
+            };
+
+            $applyBranchFilter = function ($query) use ($selectedBranchId) {
+                if ($selectedBranchId && $selectedBranchId !== 'all') {
+                    $query->where('branch_id', $selectedBranchId);
+                }
+                return $query;
             };
 
             $statistics = [
@@ -2069,7 +2081,7 @@ class BranchAgentController extends Controller
                   ->orWhereNull('insurance_type')
                   ->orWhere('insurance_type', '');
             });
-            $statistics['insurance_documents'] = $applyCanceledFilter($insuranceQuery)->active()->count();
+            $statistics['insurance_documents'] = $applyCanceledFilter($applyBranchFilter($insuranceQuery))->active()->count();
 
             // Third Party Car Insurance Documents (تأمين طرف ثالث سيارات)
             $thirdPartyQuery = InsuranceDocument::query();
@@ -2081,7 +2093,7 @@ class BranchAgentController extends Controller
                   ->orWhere('insurance_type', 'طرف ثالث')
                   ->orWhere('insurance_type', 'third_party');
             });
-            $statistics['third_party_insurance_documents'] = $applyCanceledFilter($thirdPartyQuery)->active()->count();
+            $statistics['third_party_insurance_documents'] = $applyCanceledFilter($applyBranchFilter($thirdPartyQuery))->active()->count();
 
             // Foreign Car Insurance Documents (تأمين سيارات أجنبية)
             $foreignQuery = InsuranceDocument::query();
@@ -2093,49 +2105,49 @@ class BranchAgentController extends Controller
                   ->orWhere('insurance_type', 'أجنبية')
                   ->orWhere('insurance_type', 'foreign');
             });
-            $statistics['foreign_car_insurance_documents'] = $applyCanceledFilter($foreignQuery)->active()->count();
+            $statistics['foreign_car_insurance_documents'] = $applyCanceledFilter($applyBranchFilter($foreignQuery))->active()->count();
 
             // Travel Insurance Documents
             $travelQuery = TravelInsuranceDocument::query();
             if (!$isAdmin) {
                 $travelQuery->where('branch_agent_id', $branchAgentId);
             }
-            $statistics['travel_insurance_documents'] = $applyCanceledFilter($travelQuery)->active()->count();
+            $statistics['travel_insurance_documents'] = $applyCanceledFilter($applyBranchFilter($travelQuery))->active()->count();
 
             // Resident Insurance Documents
             $residentQuery = ResidentInsuranceDocument::query();
             if (!$isAdmin) {
                 $residentQuery->where('branch_agent_id', $branchAgentId);
             }
-            $statistics['resident_insurance_documents'] = $applyCanceledFilter($residentQuery)->active()->count();
+            $statistics['resident_insurance_documents'] = $applyCanceledFilter($applyBranchFilter($residentQuery))->active()->count();
 
             // Marine Structure Insurance Documents
             $marineQuery = MarineStructureInsuranceDocument::query();
             if (!$isAdmin) {
                 $marineQuery->where('branch_agent_id', $branchAgentId);
             }
-            $statistics['marine_structure_insurance_documents'] = $applyCanceledFilter($marineQuery)->active()->count();
+            $statistics['marine_structure_insurance_documents'] = $applyCanceledFilter($applyBranchFilter($marineQuery))->active()->count();
 
             // Professional Liability Insurance Documents
             $professionalQuery = ProfessionalLiabilityInsuranceDocument::query();
             if (!$isAdmin) {
                 $professionalQuery->where('branch_agent_id', $branchAgentId);
             }
-            $statistics['professional_liability_insurance_documents'] = $applyCanceledFilter($professionalQuery)->active()->count();
+            $statistics['professional_liability_insurance_documents'] = $applyCanceledFilter($applyBranchFilter($professionalQuery))->active()->count();
 
             // Personal Accident Insurance Documents
             $personalQuery = PersonalAccidentInsuranceDocument::query();
             if (!$isAdmin) {
                 $personalQuery->where('branch_agent_id', $branchAgentId);
             }
-            $statistics['personal_accident_insurance_documents'] = $applyCanceledFilter($personalQuery)->active()->count();
+            $statistics['personal_accident_insurance_documents'] = $applyCanceledFilter($applyBranchFilter($personalQuery))->active()->count();
 
             // International Insurance Documents
             $internationalQuery = InternationalInsuranceDocument::query();
             if (!$isAdmin) {
                 $internationalQuery->where('branch_agent_id', $branchAgentId);
             }
-            $statistics['international_insurance_documents'] = $applyCanceledFilter($internationalQuery)->active()->count();
+            $statistics['international_insurance_documents'] = $applyCanceledFilter($applyBranchFilter($internationalQuery))->active()->count();
 
             // School Student Insurance Documents
             $schoolQuery = SchoolStudentInsuranceDocument::query();

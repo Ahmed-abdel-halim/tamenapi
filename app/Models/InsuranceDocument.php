@@ -46,6 +46,7 @@ class InsuranceDocument extends Model
         'total',
         'print_type',
         'branch_agent_id',
+        'branch_id',
         'email',
         'address',
         'engine_number',
@@ -105,6 +106,11 @@ class InsuranceDocument extends Model
     public function vehicleType()
     {
         return $this->belongsTo(VehicleType::class);
+    }
+
+        public function branch()
+    {
+        return $this->belongsTo(Branch::class, 'branch_id');
     }
 
     public function branchAgent()

@@ -28,6 +28,7 @@ class User extends Authenticatable
         'lifo_password',
         'lifo_office_id',
         'branch_agent_id',
+        'branch_id',
         'lifo_permissions',
         'lifo_user_id',
         'is_admin',
@@ -178,6 +179,11 @@ class User extends Authenticatable
     /**
      * Get the branch agent associated with the user.
      */
+        public function branch()
+    {
+        return $this->belongsTo(Branch::class, 'branch_id');
+    }
+
     public function branchAgent()
     {
         return $this->belongsTo(BranchAgent::class, 'branch_agent_id');

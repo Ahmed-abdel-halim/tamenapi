@@ -42,7 +42,7 @@ class InsuranceDocumentController extends Controller
             }
 
             // بناء الاستعلام
-            $query = InsuranceDocument::with(['plate.city', 'vehicleType', 'branchAgent', 'user']);
+            $query = InsuranceDocument::with(['plate.city', 'vehicleType', 'branchAgent', 'user', 'branch']);
             
             // استبعاد الوثائق الملغية من القائمة العادية (تظهر فقط في قسم الوثائق الملغية)
             $query->where(function ($q) {
@@ -391,7 +391,9 @@ class InsuranceDocumentController extends Controller
                 }
             }
 
-            Log::info('Final branch_agent_id to save:', ['branch_agent_id' => $branchAgentId]);
+                        $docBranchId = $request->input('branch_id') ?: ($request->header('X-Branch-Id') ?: ($user->branch_id ?? null));
+            Log::info('Final branch_agent_id to save:', ['branch_agent_id' => $branchAgentId,
+                'branch_id' => $docBranchId, 'branch_id' => $docBranchId]);
 
             $document = InsuranceDocument::create([
                 'insurance_type' => $validated['insurance_type'],
@@ -436,6 +438,7 @@ class InsuranceDocumentController extends Controller
                 'total' => $total,
                 'print_type' => $validated['print_type'] ?? 'A4',
                 'branch_agent_id' => $branchAgentId,
+                'branch_id' => $docBranchId,
                 'user_id' => $userId,
                 // EIDC vehicle classification fields
                 'eidc_vehicle_type_id' => $validated['eidc_vehicle_type_id'] ?? null,
@@ -625,6 +628,7 @@ class InsuranceDocumentController extends Controller
                 'foreign_car_purpose' => $validated['foreign_car_purpose'] ?? null,
                 'chassis_number' => $validated['chassis_number'] ?? null,
                 'branch_agent_id' => $branchAgentId,
+                'branch_id' => $docBranchId,
                 'user_id' => $userId,
                 'plate_number_manual' => $validated['plate_number_manual'] ?? null,
                 'vehicle_type_id' => $validated['vehicle_type_id'] ?? null,

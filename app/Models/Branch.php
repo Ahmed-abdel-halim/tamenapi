@@ -20,6 +20,7 @@ class Branch extends Model
         'email',
         'manager_name',
         'manager_phone',
+        'manager_user_id',
         'status',
         'is_main_branch',
         'commercial_registration',

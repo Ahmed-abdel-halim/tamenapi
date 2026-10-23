@@ -19,13 +19,26 @@ class UserController extends Controller
         try {
             $perPage = $request->get('per_page', 50);
 
-                        $query = User::with(['branchAgent:id,user_id,type,agency_name,agent_name', 'branch:id,code,name,city']);
-            if ($request->filled('branch_id')) {
+                        $authUser = $request->user();
+            if (!$authUser && $request->header('X-User-Id')) {
+                $authUser = User::find($request->header('X-User-Id'));
+            }
+            $isAdmin = (bool)($authUser?->is_admin ?? false);
+            $isBranchAdmin = (bool)($authUser?->is_branch_admin ?? false);
+
+            $query = User::with(['branchAgent:id,user_id,type,agency_name,agent_name', 'branch:id,code,name,city']);
+
+            // إذا كان المستخدم أدمن فرع (وليس أدمن عام)، يتم قصر القائمة حصراً على موظفي فرعه
+            if ($isBranchAdmin && !$isAdmin && $authUser?->branch_id) {
+                $query->where('branch_id', $authUser->branch_id);
+            } elseif ($request->filled('branch_id')) {
                 if ($request->branch_id === 'none') {
                     $query->whereNull('branch_id');
                 } else {
                     $query->where('branch_id', $request->branch_id);
                 }
+            } elseif ($request->header('X-Branch-Id')) {
+                $query->where('branch_id', $request->header('X-Branch-Id'));
             }
 
             // استبعاد أي مستخدم مرتبط ببيانات وكيل أو فرع من قائمة الموظفين
@@ -79,10 +92,13 @@ class UserController extends Controller
                 $userData['authorized_documents'] = $user->authorized_documents ?? [];
                 $userData['user_type'] = 'مستخدم عادي';
                 $userData['branch_agent_info'] = null;
+                $userData['is_branch_admin'] = (bool)($user->is_branch_admin ?? false);
                 $userData['branch'] = $user->branch ? ['id' => $user->branch->id, 'code' => $user->branch->code, 'name' => $user->branch->name, 'city' => $user->branch->city] : null;
 
                 if ($user->is_admin) {
                     $userData['user_type'] = 'مدير';
+                } elseif ($user->is_branch_admin) {
+                    $userData['user_type'] = 'أدمن فرع';
                 } elseif ($user->branchAgent) {
                     $userData['user_type'] = $user->branchAgent->type;
                     $userData['branch_agent_info'] = [
@@ -140,6 +156,7 @@ class UserController extends Controller
         $rules = [
             'username' => 'required|string|max:191|unique:users,username',
             'branch_id' => 'nullable|exists:branches,id',
+            'is_branch_admin' => 'nullable|boolean',
             'name' => 'required|string|max:255',
             'email' => 'nullable|email|max:191',
             'password' => 'required|string|min:6',

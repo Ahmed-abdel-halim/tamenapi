@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Models\InsuranceDocument;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Carbon\Carbon;
 
 class BranchController extends Controller
@@ -19,7 +20,7 @@ class BranchController extends Controller
         try {
             // If request is for dropdown/select or switcher
             if ($request->boolean('for_select') || $request->input('type') === 'dropdown') {
-                $branches = Branch::select('id', 'code', 'name', 'city', 'status', 'is_main_branch')
+                $branches = Branch::select('id', 'code', 'name', 'city', 'status', 'is_main_branch', 'manager_user_id')
                     ->orderBy('is_main_branch', 'desc')
                     ->orderBy('name')
                     ->get();
@@ -47,8 +48,9 @@ class BranchController extends Controller
                 $query->where('status', $request->input('status'));
             }
 
-            // Include counts
-            $query->withCount(['users', 'insuranceDocuments']);
+            // Include counts and manager user
+            $query->with(['managerUser:id,name,username,email,personal_phone,is_branch_admin'])
+                  ->withCount(['users', 'insuranceDocuments']);
 
             $perPage = $request->input('per_page', 15);
             $branches = $query->orderBy('is_main_branch', 'desc')
@@ -97,7 +99,7 @@ class BranchController extends Controller
     }
 
     /**
-     * Store a newly created branch.
+     * Store a newly created branch and optionally create its branch admin account.
      */
     public function store(Request $request)
     {
@@ -115,6 +117,11 @@ class BranchController extends Controller
             'commercial_registration' => 'nullable|string|max:100',
             'tax_number' => 'nullable|string|max:100',
             'notes' => 'nullable|string',
+            // Branch Admin Account fields
+            'create_admin_account' => 'nullable|boolean',
+            'admin_username' => 'nullable|string|min:3|max:191|unique:users,username',
+            'admin_password' => 'nullable|string|min:6',
+            'admin_email' => 'nullable|email|max:191|unique:users,email',
         ]);
 
         // Auto-generate code if not provided
@@ -127,9 +134,46 @@ class BranchController extends Controller
 
         $branch = Branch::create($validated);
 
+        // Create Branch Admin Account if requested
+        $adminUser = null;
+        if ($request->boolean('create_admin_account') && $request->filled('admin_username') && $request->filled('admin_password')) {
+            $adminUser = User::create([
+                'username' => trim($request->input('admin_username')),
+                'password' => Hash::make($request->input('admin_password')),
+                'name' => $validated['manager_name'] ?: ($validated['name'] . ' - مدير الفرع'),
+                'email' => $request->input('admin_email') ?: ($validated['email'] ?? null),
+                'job_title' => 'مدير فرع',
+                'personal_phone' => $validated['manager_phone'] ?: ($validated['phone'] ?? null),
+                'is_admin' => false,
+                'is_branch_admin' => true,
+                'branch_id' => $branch->id,
+                'is_active' => true,
+                'authorized_documents' => [
+                    'تأمين سيارات إجباري',
+                    'تأمين طرف ثالث سيارات',
+                    'تأمين سيارات أجنبية',
+                    'تأمين سيارات دولي',
+                    'وثيقة تأمين مسافرين',
+                    'تأمين الوافدين',
+                    'تأمين الهياكل البحرية',
+                    'تأمين المسؤولية المهنية (الطبية)',
+                    'تأمين الحوادث الشخصية',
+                    'تأمين حماية طلاب المدارس',
+                    'تأمين نقل النقدية',
+                    'تأمين شحن البضائع',
+                    'قائمة الموظفين',
+                    'إدارة الموظف',
+                    'طلبات الموظفين',
+                ],
+            ]);
+
+            $branch->manager_user_id = $adminUser->id;
+            $branch->save();
+        }
+
         return response()->json([
-            'message' => 'تم إنشاء الفرع بنجاح',
-            'branch' => $branch
+            'message' => 'تم إنشاء الفرع بنجاح' . ($adminUser ? ' وتم إنشاء حساب أدمن الفرع' : ''),
+            'branch' => $branch->load('managerUser:id,name,username,email,personal_phone,is_branch_admin')
         ], 201);
     }
 
@@ -138,7 +182,10 @@ class BranchController extends Controller
      */
     public function show($id)
     {
-        $branch = Branch::with(['users:id,name,username,job_title,personal_phone,branch_id,is_admin'])
+        $branch = Branch::with([
+                'managerUser:id,name,username,email,personal_phone,is_branch_admin',
+                'users:id,name,username,job_title,personal_phone,branch_id,is_admin,is_branch_admin'
+            ])
             ->withCount(['users', 'insuranceDocuments'])
             ->findOrFail($id);
 
@@ -223,13 +270,54 @@ class BranchController extends Controller
             'commercial_registration' => 'nullable|string|max:100',
             'tax_number' => 'nullable|string|max:100',
             'notes' => 'nullable|string',
+            'manager_user_id' => 'nullable|exists:users,id',
+            // Option to create branch admin if none exists
+            'create_admin_account' => 'nullable|boolean',
+            'admin_username' => 'nullable|string|min:3|max:191|unique:users,username',
+            'admin_password' => 'nullable|string|min:6',
         ]);
 
         $branch->update($validated);
 
+        // If requested to create a new admin account for this branch
+        if ($request->boolean('create_admin_account') && $request->filled('admin_username') && $request->filled('admin_password')) {
+            $adminUser = User::create([
+                'username' => trim($request->input('admin_username')),
+                'password' => Hash::make($request->input('admin_password')),
+                'name' => $validated['manager_name'] ?: ($branch->name . ' - مدير الفرع'),
+                'email' => $branch->email,
+                'job_title' => 'مدير فرع',
+                'personal_phone' => $validated['manager_phone'] ?: $branch->phone,
+                'is_admin' => false,
+                'is_branch_admin' => true,
+                'branch_id' => $branch->id,
+                'is_active' => true,
+                'authorized_documents' => [
+                    'تأمين سيارات إجباري',
+                    'تأمين طرف ثالث سيارات',
+                    'تأمين سيارات أجنبية',
+                    'تأمين سيارات دولي',
+                    'وثيقة تأمين مسافرين',
+                    'تأمين الوافدين',
+                    'تأمين الهياكل البحرية',
+                    'تأمين المسؤولية المهنية (الطبية)',
+                    'تأمين الحوادث الشخصية',
+                    'تأمين حماية طلاب المدارس',
+                    'تأمين نقل النقدية',
+                    'تأمين شحن البضائع',
+                    'قائمة الموظفين',
+                    'إدارة الموظف',
+                    'طلبات الموظفين',
+                ],
+            ]);
+
+            $branch->manager_user_id = $adminUser->id;
+            $branch->save();
+        }
+
         return response()->json([
             'message' => 'تم تحديث بيانات الفرع بنجاح',
-            'branch' => $branch
+            'branch' => $branch->load('managerUser:id,name,username,email,personal_phone,is_branch_admin')
         ]);
     }
 
@@ -240,12 +328,10 @@ class BranchController extends Controller
     {
         $branch = Branch::findOrFail($id);
 
-        // Check if there are documents or users attached
         $docsCount = InsuranceDocument::where('branch_id', $id)->count();
         $usersCount = User::where('branch_id', $id)->count();
 
         if ($docsCount > 0 || $usersCount > 0) {
-            // Cannot hard delete, deactivate instead
             $branch->status = 'موقف';
             $branch->save();
 

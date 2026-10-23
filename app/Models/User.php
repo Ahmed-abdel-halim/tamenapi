@@ -32,6 +32,7 @@ class User extends Authenticatable
         'lifo_permissions',
         'lifo_user_id',
         'is_admin',
+        'is_branch_admin',
         'authorized_documents',
         'salary',
         'national_id_number',
@@ -152,6 +153,7 @@ class User extends Authenticatable
     protected $casts = [
         'email_verified_at' => 'datetime',
         'is_admin' => 'boolean',
+        'is_branch_admin' => 'boolean',
         'authorized_documents' => 'array',
         'lifo_permissions' => 'array',
         'birth_date' => 'date',
@@ -179,7 +181,12 @@ class User extends Authenticatable
     /**
      * Get the branch agent associated with the user.
      */
-        public function branch()
+            public function managedBranch()
+    {
+        return $this->hasOne(Branch::class, 'manager_user_id');
+    }
+
+    public function branch()
     {
         return $this->belongsTo(Branch::class, 'branch_id');
     }

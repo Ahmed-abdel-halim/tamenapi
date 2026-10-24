@@ -50,4 +50,10 @@ class DocumentRequest extends Model
     {
         return $this->belongsTo(User::class, 'reviewed_by');
     }
+
+    public function branch()
+    {
+        return $this->belongsTo(\App\Models\Branch::class, 'branch_id');
+    }
 }
+

@@ -14,6 +14,8 @@ use Carbon\Carbon;
 
 class InsuranceDocumentController extends Controller
 {
+    use \App\Traits\HandlesBranchScope;
+
     /**
      * Display a listing of the resource.
      */
@@ -70,14 +72,20 @@ class InsuranceDocumentController extends Controller
 
             // إذا لم يكن admin، قم بتصفية الوثائق حسب branch_agent_id أو user_id للمستخدم
             if ($user && !$isAdmin) {
-                $query->where(function ($q) use ($branchAgentId, $userId) {
-                    if ($branchAgentId) {
-                        $q->where('branch_agent_id', $branchAgentId)
-                          ->orWhere('user_id', $userId);
-                    } else {
-                        $q->where('user_id', $userId);
-                    }
-                });
+                if ($user->is_branch_admin && $user->branch_id) {
+                    $query->where('branch_id', $user->branch_id);
+                } else {
+                    $query->where(function ($q) use ($branchAgentId, $userId) {
+                        if ($branchAgentId) {
+                            $q->where('branch_agent_id', $branchAgentId)
+                              ->orWhere('user_id', $userId);
+                        } else {
+                            $q->where('user_id', $userId);
+                        }
+                    });
+                }
+            } elseif ($isAdmin) {
+                $this->applyBranchScope($query, $request);
             }
 
             // إضافة ميزة البحث

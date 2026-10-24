@@ -10,9 +10,12 @@ use Illuminate\Support\Facades\Storage;
 
 class ClaimController extends Controller
 {
+    use \App\Traits\HandlesBranchScope;
+
     public function index(Request $request)
     {
-        $query = Claim::with(['document', 'transfers', 'reports']);
+        $query = Claim::with(['document', 'transfers', 'reports', 'branch']);
+        $this->applyBranchScope($query, $request);
 
         // Filter by branch agent if not admin
         $userId = $request->header('X-User-Id') ?? $request->query('user_id');
@@ -138,6 +141,7 @@ class ClaimController extends Controller
             $validated['damage_costs'] = json_decode($validated['damage_costs'], true);
         }
 
+        $validated['branch_id'] = $this->getResolvedBranchId($request) ?? $request->user()?->branch_id ?? 1;
         $claim = Claim::create($validated);
         $this->handleReports($request, $claim);
 

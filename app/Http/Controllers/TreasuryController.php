@@ -9,9 +9,12 @@ use Carbon\Carbon;
 
 class TreasuryController extends Controller
 {
+    use \App\Traits\HandlesBranchScope;
+
     public function index(Request $request)
     {
         $query = TreasuryTransaction::query();
+        $this->applyBranchScope($query, $request);
 
         if ($request->filled('type')) {
             $query->where('type', $request->type);
@@ -38,19 +41,27 @@ class TreasuryController extends Controller
         $transactions = $query->orderBy('transaction_date', 'desc')->get();
 
         // إحصائيات
-        $totalIncome  = TreasuryTransaction::where('type', 'income')->sum('amount');
-        $totalExpense = TreasuryTransaction::where('type', 'expense')->sum('amount');
+        $statsIncome = TreasuryTransaction::where('type', 'income');
+        $this->applyBranchScope($statsIncome, $request);
+        $totalIncome  = $statsIncome->sum('amount');
+
+        $statsExpense = TreasuryTransaction::where('type', 'expense');
+        $this->applyBranchScope($statsExpense, $request);
+        $totalExpense = $statsExpense->sum('amount');
         $balance      = $totalIncome - $totalExpense;
 
         // إحصائيات الشهر الحالي
         $startOfMonth = Carbon::now()->startOfMonth();
         $endOfMonth   = Carbon::now()->endOfMonth();
-        $monthIncome  = TreasuryTransaction::where('type', 'income')
-            ->whereBetween('transaction_date', [$startOfMonth, $endOfMonth])
-            ->sum('amount');
-        $monthExpense = TreasuryTransaction::where('type', 'expense')
-            ->whereBetween('transaction_date', [$startOfMonth, $endOfMonth])
-            ->sum('amount');
+        $monthIncomeQuery  = TreasuryTransaction::where('type', 'income')
+            ->whereBetween('transaction_date', [$startOfMonth, $endOfMonth]);
+        $this->applyBranchScope($monthIncomeQuery, $request);
+        $monthIncome = $monthIncomeQuery->sum('amount');
+
+        $monthExpenseQuery = TreasuryTransaction::where('type', 'expense')
+            ->whereBetween('transaction_date', [$startOfMonth, $endOfMonth]);
+        $this->applyBranchScope($monthExpenseQuery, $request);
+        $monthExpense = $monthExpenseQuery->sum('amount');
 
         return response()->json([
             'success' => true,
@@ -90,6 +101,7 @@ class TreasuryController extends Controller
             $data['voucher_image'] = $path;
         }
 
+        $data['branch_id'] = $this->getResolvedBranchId($request) ?? $request->user()?->branch_id ?? 1;
         $transaction = TreasuryTransaction::create($data);
 
         return response()->json([

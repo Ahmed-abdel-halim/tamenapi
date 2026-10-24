@@ -8,10 +8,13 @@ use Illuminate\Support\Facades\Auth;
 
 class AgentRequestController extends Controller
 {
+    use \App\Traits\HandlesBranchScope;
+
     public function index(Request $request)
     {
         try {
             $query = AgentRequest::with(['branchAgent', 'user']);
+            $this->applyBranchScope($query, $request);
 
             if ($request->filled('branch_agent_id')) {
                 $query->where('branch_agent_id', $request->branch_agent_id);

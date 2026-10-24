@@ -11,10 +11,13 @@ use Illuminate\Support\Facades\DB;
 
 class AgencyCancellationController extends Controller
 {
+    use \App\Traits\HandlesBranchScope;
+
     public function index(Request $request)
     {
         try {
             $query = AgencyCancellation::with(['branchAgent', 'creator']);
+            $this->applyBranchScope($query, $request);
 
             if ($request->filled('branch_agent_id')) {
                 $query->where('branch_agent_id', $request->branch_agent_id);

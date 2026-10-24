@@ -12,6 +12,8 @@ use Illuminate\Support\Facades\Schema;
 
 class CompulsoryDocumentRequestController extends Controller
 {
+    use \App\Traits\HandlesBranchScope;
+
     /**
      * List all compulsory document requests with stats and filters.
      */
@@ -47,6 +49,7 @@ class CompulsoryDocumentRequestController extends Controller
 
         // Calculate statistics across all requests (or filtered)
         $baseQuery = CompulsoryDocumentRequest::query();
+        $this->applyBranchScope($baseQuery, $request);
         $totalRequests = $baseQuery->count();
         $totalRequestedDocs = (int)$baseQuery->sum('documents_count');
         $totalAmountPaidOrDue = (float)$baseQuery->sum('total_amount');

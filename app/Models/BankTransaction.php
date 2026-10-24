@@ -36,4 +36,10 @@ class BankTransaction extends Model
         'reconciled' => 'boolean',
         'transaction_date' => 'date:Y-m-d',
     ];
+
+    public function branch()
+    {
+        return $this->belongsTo(\App\Models\Branch::class, 'branch_id');
+    }
 }
+

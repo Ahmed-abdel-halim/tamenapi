@@ -8,11 +8,14 @@ use Illuminate\Support\Facades\Auth;
 
 class EmployeeRequestController extends Controller
 {
+    use \App\Traits\HandlesBranchScope;
+
     public function index(Request $request)
     {
         try {
             $user = $request->user() ?? auth('sanctum')->user() ?? auth()->user();
             $query = EmployeeRequest::with(['user', 'approver']);
+            $this->applyBranchScope($query, $request);
 
             if ($request->filled('user_id')) {
                 $query->where('user_id', $request->user_id);

@@ -10,6 +10,8 @@ use Carbon\Carbon;
 
 class CashInTransitInsuranceDocumentController extends Controller
 {
+    use \App\Traits\HandlesBranchScope;
+
     public function index(Request $request)
     {
         try {
@@ -34,11 +36,15 @@ class CashInTransitInsuranceDocumentController extends Controller
             $query = CashInTransitInsuranceDocument::with(['branchAgent', 'user']);
             
             if (!$isAdmin) {
-                if ($branchAgentId) {
+                if (isset($user) && $user && $user->is_branch_admin && $user->branch_id) {
+                    $query->where('branch_id', $user->branch_id);
+                } elseif ($branchAgentId) {
                     $query->where('branch_agent_id', $branchAgentId);
                 } else {
                     $query->where('user_id', $userId);
                 }
+            } else {
+                $this->applyBranchScope($query, $request);
             }
 
             $statusParam = $request->query('status');

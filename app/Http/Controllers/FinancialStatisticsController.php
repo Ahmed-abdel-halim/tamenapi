@@ -10,6 +10,8 @@ use App\Helpers\AgentPercentageHelper;
 
 class FinancialStatisticsController extends Controller
 {
+    use \App\Traits\HandlesBranchScope;
+
     public static function getCancellationFeeForDoc($tableName, $docType = '')
     {
         $tbl = strtolower($tableName ?? '');
@@ -22,6 +24,7 @@ class FinancialStatisticsController extends Controller
 
     public function getStatistics(Request $request)
     {
+        $branchId = $this->getResolvedBranchId($request);
         // Define all insurance tables
         $insuranceTables = [
             'insurance_documents',
@@ -37,20 +40,32 @@ class FinancialStatisticsController extends Controller
         $totalRevenue = 0;
         foreach ($insuranceTables as $table) {
             if (DB::getSchemaBuilder()->hasColumn($table, 'total')) {
-                $totalRevenue += DB::table($table)->sum('total');
+                $tQuery = DB::table($table);
+                if ($branchId) {
+                    $tQuery->where('branch_id', $branchId);
+                }
+                $totalRevenue += $tQuery->sum('total');
             }
         }
 
         // 2. Total Employees Salaries
         $totalSalaries = 0;
         if (DB::getSchemaBuilder()->hasColumn('users', 'salary')) {
-            $totalSalaries = User::sum('salary');
+            $userSalQ = User::query();
+            if ($branchId) {
+                $userSalQ->where('branch_id', $branchId);
+            }
+            $totalSalaries = $userSalQ->sum('salary');
         }
 
         // 3. Fixed Expenses
         $totalExpenses = 0;
         if (DB::getSchemaBuilder()->hasTable('expenses')) {
-            $totalExpenses = DB::table('expenses')->sum('amount');
+            $expQ = DB::table('expenses');
+            if ($branchId) {
+                $expQ->where('branch_id', $branchId);
+            }
+            $totalExpenses = $expQ->sum('amount');
         }
 
         // 4. Net Profit (Simple calculation)
@@ -67,8 +82,14 @@ class FinancialStatisticsController extends Controller
             $hasCreatedAt = DB::getSchemaBuilder()->hasColumn($table, 'created_at');
 
             if ($hasTotal && $hasCreatedAt) {
-                $currentMonthRevenue += DB::table($table)->whereMonth('created_at', $currentMonth)->sum('total');
-                $lastMonthRevenue += DB::table($table)->whereMonth('created_at', $lastMonth)->sum('total');
+                $cmQ = DB::table($table)->whereMonth('created_at', $currentMonth);
+                $lmQ = DB::table($table)->whereMonth('created_at', $lastMonth);
+                if ($branchId) {
+                    $cmQ->where('branch_id', $branchId);
+                    $lmQ->where('branch_id', $branchId);
+                }
+                $currentMonthRevenue += $cmQ->sum('total');
+                $lastMonthRevenue += $lmQ->sum('total');
             }
         }
 

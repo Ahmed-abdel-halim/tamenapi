@@ -41,4 +41,10 @@ class Expense extends Model
         'is_indemnity' => 'boolean',
         'items' => 'json',
     ];
+
+    public function branch()
+    {
+        return $this->belongsTo(\App\Models\Branch::class, 'branch_id');
+    }
 }
+

@@ -30,4 +30,10 @@ class TreasuryTransaction extends Model
     {
         return $this->belongsTo(BranchAgent::class);
     }
+
+    public function branch()
+    {
+        return $this->belongsTo(\App\Models\Branch::class, 'branch_id');
+    }
 }
+

@@ -8,9 +8,13 @@ use Illuminate\Support\Facades\Storage;
 
 class BankTransactionController extends Controller
 {
-    public function index()
+    use \App\Traits\HandlesBranchScope;
+
+    public function index(Request $request)
     {
-        return response()->json(BankTransaction::orderBy('transaction_date', 'desc')->get());
+        $query = BankTransaction::query();
+        $this->applyBranchScope($query, $request);
+        return response()->json($query->orderBy('transaction_date', 'desc')->get());
     }
 
     public function store(Request $request)
@@ -48,6 +52,7 @@ class BankTransactionController extends Controller
             $data['voucher_image'] = $path;
         }
 
+        $data['branch_id'] = $this->getResolvedBranchId($request) ?? $request->user()?->branch_id ?? 1;
         $transaction = BankTransaction::create($data);
         return response()->json($transaction, 201);
     }

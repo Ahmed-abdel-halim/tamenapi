@@ -79,4 +79,10 @@ class AgentTransfer extends Model
     {
         return $this->belongsTo(PosTransaction::class, 'pos_transaction_id');
     }
+
+    public function branch()
+    {
+        return $this->belongsTo(\App\Models\Branch::class, 'branch_id');
+    }
 }
+

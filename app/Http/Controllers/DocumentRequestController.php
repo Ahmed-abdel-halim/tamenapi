@@ -8,6 +8,8 @@ use Illuminate\Support\Facades\Auth;
 
 class DocumentRequestController extends Controller
 {
+    use \App\Traits\HandlesBranchScope;
+
     private function getDocumentModels(): array
     {
         return [
@@ -40,6 +42,7 @@ class DocumentRequestController extends Controller
     public function index(Request $request)
     {
         $query = DocumentRequest::with(['branchAgent', 'user', 'reviewer']);
+        $this->applyBranchScope($query, $request);
 
         // If not admin, only show requests for their branch agent
         $userId = $request->header('X-User-Id') ?? $request->query('user_id');

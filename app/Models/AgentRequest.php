@@ -34,4 +34,10 @@ class AgentRequest extends Model
     {
         return $this->belongsTo(User::class);
     }
+
+    public function branch()
+    {
+        return $this->belongsTo(\App\Models\Branch::class, 'branch_id');
+    }
 }
+

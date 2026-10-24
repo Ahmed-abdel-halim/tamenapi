@@ -12,6 +12,8 @@ use Carbon\Carbon;
 
 class MarineStructureInsuranceDocumentController extends Controller
 {
+    use \App\Traits\HandlesBranchScope;
+
     /**
      * Display a listing of the resource.
      */
@@ -65,11 +67,15 @@ class MarineStructureInsuranceDocumentController extends Controller
 
             // إذا لم يكن admin، قم بتصفية الوثائق حسب branch_agent_id
             if (!$isAdmin) {
-                if ($branchAgentId) {
+                if (isset($user) && $user && $user->is_branch_admin && $user->branch_id) {
+                    $query->where('branch_id', $user->branch_id);
+                } elseif ($branchAgentId) {
                     $query->where('branch_agent_id', $branchAgentId);
                 } else {
                     $query->where('user_id', $userId);
                 }
+            } else {
+                $this->applyBranchScope($query, $request);
             }
 
             // إضافة ميزة البحث

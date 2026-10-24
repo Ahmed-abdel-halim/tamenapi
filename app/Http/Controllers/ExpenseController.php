@@ -11,9 +11,12 @@ use Carbon\Carbon;
 
 class ExpenseController extends Controller
 {
+    use \App\Traits\HandlesBranchScope;
+
     public function index(Request $request)
     {
         $query = Expense::query();
+        $this->applyBranchScope($query, $request);
 
         if ($request->has('search')) {
             $search = $request->search;
@@ -38,8 +41,10 @@ class ExpenseController extends Controller
         $startOfMonth = Carbon::now()->startOfMonth();
         $endOfMonth = Carbon::now()->endOfMonth();
         
-        $monthlyTotal = Expense::whereBetween('expense_date', [$startOfMonth, $endOfMonth])->sum('amount');
-        $monthlyCount = Expense::whereBetween('expense_date', [$startOfMonth, $endOfMonth])->count();
+        $statsQuery = Expense::whereBetween('expense_date', [$startOfMonth, $endOfMonth]);
+        $this->applyBranchScope($statsQuery, $request);
+        $monthlyTotal = $statsQuery->sum('amount');
+        $monthlyCount = (clone $statsQuery)->count();
 
         return response()->json([
             'success' => true,
@@ -87,6 +92,7 @@ class ExpenseController extends Controller
         ]);
 
         $data = $request->all();
+        $data['branch_id'] = $this->getResolvedBranchId($request) ?? $request->user()?->branch_id ?? 1;
 
         if ($request->hasFile('receipt_image')) {
             $path = $request->file('receipt_image')->store('expense_receipts', 'public');
@@ -145,6 +151,7 @@ class ExpenseController extends Controller
         ]);
 
         $data = $request->all();
+        $data['branch_id'] = $this->getResolvedBranchId($request) ?? $request->user()?->branch_id ?? 1;
 
         if ($request->hasFile('receipt_image')) {
             if ($expense->receipt_image) {
@@ -241,6 +248,7 @@ class ExpenseController extends Controller
                 'source' => $expense->recipient,
                 'notes' => $expense->notes,
                 'payment_source' => 'treasury',
+                'branch_id' => $expense->branch_id ?? 1,
             ]);
         } else {
             // Calculate bank balance
@@ -266,6 +274,7 @@ class ExpenseController extends Controller
                 'reconciled' => true,
                 'notes' => "مصروف رقم: {$expense->id} - {$expense->name}",
                 'transaction_type' => 'مصروفات تشغيلية',
+                'branch_id' => $expense->branch_id ?? 1,
             ]);
         }
     }

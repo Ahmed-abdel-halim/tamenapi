@@ -9,9 +9,13 @@ use Illuminate\Support\Facades\Storage;
 
 class RentalVoucherController extends Controller
 {
-    public function index()
+    use \App\Traits\HandlesBranchScope;
+
+    public function index(Request $request)
     {
-        $vouchers = RentalVoucher::withCount('records')
+        $query = RentalVoucher::query();
+        $this->applyBranchScope($query, $request);
+        $vouchers = $query->withCount('records')
             ->withSum('records', 'total_amount')
             ->orderBy('created_at', 'desc')
             ->get()
@@ -65,6 +69,7 @@ class RentalVoucherController extends Controller
         }
         $data['contract_photos'] = $contractPhotos;
 
+        $data['branch_id'] = $this->getResolvedBranchId($request) ?? $request->user()?->branch_id ?? 1;
         $voucher = RentalVoucher::create($data);
 
         // حفظ السجلات

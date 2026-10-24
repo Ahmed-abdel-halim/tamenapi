@@ -29,4 +29,10 @@ class PaymentVoucher extends Model
     {
         return $this->belongsTo(BranchAgent::class, 'branch_agent_id');
     }
+
+    public function branch()
+    {
+        return $this->belongsTo(\App\Models\Branch::class, 'branch_id');
+    }
 }
+

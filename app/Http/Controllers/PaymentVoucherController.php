@@ -9,6 +9,8 @@ use Illuminate\Support\Facades\DB;
 
 class PaymentVoucherController extends Controller
 {
+    use \App\Traits\HandlesBranchScope;
+
     /**
      * Get all payment vouchers.
      */
@@ -16,6 +18,7 @@ class PaymentVoucherController extends Controller
     {
         $vouchers = PaymentVoucher::with('agent')
             ->orderBy('created_at', 'desc');
+        $this->applyBranchScope($vouchers, $request);
 
         if ($request->has('branch_agent_id')) {
             $vouchers->where('branch_agent_id', $request->branch_agent_id);
@@ -42,7 +45,11 @@ class PaymentVoucherController extends Controller
         ]);
 
         try {
-            $voucher = PaymentVoucher::create($request->all());
+            $agent = BranchAgent::find($request->branch_agent_id);
+            $branchId = $agent?->branch_id ?? $this->getResolvedBranchId($request) ?? 1;
+            $data = $request->all();
+            $data['branch_id'] = $branchId;
+            $voucher = PaymentVoucher::create($data);
 
             // Sync with Treasury Transactions for Treasury & Revenue Management
             $agent = BranchAgent::find($request->branch_agent_id);
@@ -57,6 +64,7 @@ class PaymentVoucherController extends Controller
                 'reference_number' => $request->reference_number ?? $request->voucher_number,
                 'branch_agent_id'  => $request->branch_agent_id,
                 'payment_source'   => $request->payment_method ?? 'نقدي',
+                'branch_id'        => $branchId,
                 'notes'            => $request->notes ?? null,
             ]);
 

@@ -36,4 +36,10 @@ class EmployeeRequest extends Model
     {
         return $this->belongsTo(User::class, 'approver_id');
     }
+
+    public function branch()
+    {
+        return $this->belongsTo(\App\Models\Branch::class, 'branch_id');
+    }
 }
+

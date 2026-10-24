@@ -15,6 +15,8 @@ use Carbon\Carbon;
 
 class AgentTransferController extends Controller
 {
+    use \App\Traits\HandlesBranchScope;
+
     /**
      * Display a listing of the resource.
      */
@@ -27,6 +29,7 @@ class AgentTransferController extends Controller
             $branchAgentId = $user?->branchAgent?->id;
             
             $query = AgentTransfer::with(['agent', 'posMachine', 'creator', 'approver']);
+            $this->applyBranchScope($query, $request);
             
             if ($branchAgentId) {
                 // Agent sees only their own transfers
@@ -114,6 +117,8 @@ class AgentTransferController extends Controller
             $data['approval_date'] = Carbon::now();
         }
         
+        $agent = \App\Models\BranchAgent::find($data['branch_agent_id'] ?? null);
+        $data['branch_id'] = $agent?->branch_id ?? $this->getResolvedBranchId($request) ?? $user?->branch_id ?? 1;
         $data['created_by'] = $user->id;
         
         if ($request->hasFile('voucher_image')) {

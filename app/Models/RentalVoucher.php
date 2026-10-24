@@ -28,4 +28,10 @@ class RentalVoucher extends Model
     {
         return $this->hasMany(RentalRecord::class)->orderBy('from_date', 'asc');
     }
+
+    public function branch()
+    {
+        return $this->belongsTo(\App\Models\Branch::class, 'branch_id');
+    }
 }
+

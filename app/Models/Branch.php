@@ -33,6 +33,14 @@ class Branch extends Model
     ];
 
     /**
+     * Get the manager user account for this branch.
+     */
+    public function managerUser()
+    {
+        return $this->belongsTo(User::class, 'manager_user_id');
+    }
+
+    /**
      * Get the users/employees assigned to this branch.
      */
     public function users()

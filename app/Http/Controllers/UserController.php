@@ -999,11 +999,14 @@ class UserController extends Controller
                 }
             }
 
+            $branchId = $branchAgent->branch_id ?? $agentUser->branch_id;
+
             // Create local user
             $user = User::create([
                 'username' => $request->username,
                 'name' => $request->name,
                 'password' => Hash::make($request->password),
+                'branch_id' => $branchId,
                 'branch_agent_id' => $branchAgent->id,
                 'lifo_username' => $request->username,
                 'lifo_password' => $request->password,

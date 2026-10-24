@@ -40,22 +40,47 @@ class BranchAgentController extends Controller
             $isLight = $request->boolean('light');
             $status = $request->input('status');
 
-            $cacheKey = 'branches_agents_index_' . ($isLight ? 'light_' : 'full_') . ($status ?? 'all');
+            $authUser = $request->user();
+            if (!$authUser && $request->header('X-User-Id')) {
+                $authUser = \App\Models\User::find($request->header('X-User-Id'));
+            }
+            $isBranchAdmin = (bool)($authUser?->is_branch_admin ?? false);
+            $isAdmin = (bool)($authUser?->is_admin ?? false);
 
-            $branchesAgents = Cache::remember($cacheKey, 120, function () use ($isLight, $status) {
+            $branchId = null;
+            if ($isBranchAdmin && !$isAdmin && $authUser?->branch_id) {
+                $branchId = (string)$authUser->branch_id;
+            } elseif ($request->filled('branch_id')) {
+                $branchId = (string)$request->input('branch_id');
+            } elseif ($request->header('X-Branch-Id')) {
+                $branchId = (string)$request->header('X-Branch-Id');
+            }
+
+            $cacheKey = 'branches_agents_index_' . ($isLight ? 'light_' : 'full_') . ($status ?? 'all') . ($branchId ? "_branch_$branchId" : '_all');
+
+            $branchesAgents = Cache::remember($cacheKey, 120, function () use ($isLight, $status, $branchId) {
                 $query = BranchAgent::query();
 
                 if ($status) {
                     $query->where('status', $status);
                 }
 
+                if ($branchId) {
+                    if ($branchId === 'none') {
+                        $query->whereNull('branch_id');
+                    } else {
+                        $query->where('branch_id', $branchId);
+                    }
+                }
+
                 if ($isLight) {
-                    return $query->select('id', 'code', 'agency_name', 'agent_name', 'status', 'user_id', 'city', 'phone')
+                    return $query->select('id', 'code', 'agency_name', 'agent_name', 'status', 'user_id', 'city', 'phone', 'branch_id')
+                        ->with('branch:id,code,name,city')
                         ->orderBy('agency_name', 'asc')
                         ->get();
                 } else {
                     $listColumns = [
-                        'id', 'type', 'code', 'agency_name', 'agent_name', 'activity', 'agency_number', 
+                        'id', 'type', 'branch_id', 'code', 'agency_name', 'agent_name', 'activity', 'agency_number', 
                         'stamp_number', 'contract_date', 'renewal_date', 'contract_end_date', 'contract_duration', 
                         'city', 'address', 'phone', 'nationality', 'national_id', 'identity_number', 
                         'consumed_custodies', 'fixed_custodies', 'personal_photo', 'user_id', 'notes', 
@@ -64,7 +89,7 @@ class BranchAgentController extends Controller
                         'office_facade_photo', 'office_phone', 'office_location'
                     ];
                     return $query->select($listColumns)
-                        ->with('user:id,username,name,is_blocked,eidc_username,eidc_password')
+                        ->with(['user:id,username,name,is_blocked,eidc_username,eidc_password', 'branch:id,code,name,city'])
                         ->orderBy('created_at', 'desc')
                         ->get();
                 }
@@ -86,6 +111,7 @@ class BranchAgentController extends Controller
     {
         try {
             $validated = $request->validate([
+                'branch_id' => 'nullable|exists:branches,id',
                 'type' => 'required|in:وكيل,فرع من شركة',
                 'agency_name' => 'required|string',
                 'agent_name' => 'required|string',
@@ -166,11 +192,27 @@ class BranchAgentController extends Controller
             }
 
             // إنشاء المستخدم مع الصلاحيات
+            $authUser = $request->user();
+            if (!$authUser && $request->header('X-User-Id')) {
+                $authUser = \App\Models\User::find($request->header('X-User-Id'));
+            }
+            $isBranchAdmin = (bool)($authUser?->is_branch_admin ?? false);
+            $isAdmin = (bool)($authUser?->is_admin ?? false);
+
+            $branchId = null;
+            if ($isBranchAdmin && !$isAdmin && $authUser?->branch_id) {
+                $branchId = $authUser->branch_id;
+            } elseif ($request->filled('branch_id')) {
+                $branchId = $request->input('branch_id');
+            }
+
             $user = User::create([
                 'username' => $request->username,
                 'name' => $request->agent_name,
                 'password' => Hash::make($request->password),
                 'is_admin' => false,
+                'is_branch_admin' => false,
+                'branch_id' => $branchId,
                 'authorized_documents' => $authorizedDocuments,
                 'eidc_username' => $request->eidc_username,
                 'eidc_password' => $request->eidc_password,
@@ -268,6 +310,7 @@ class BranchAgentController extends Controller
             // إنشاء الفرع أو الوكيل
             $branchAgent = BranchAgent::create([
                 'type' => $request->type,
+                'branch_id' => $branchId,
                 'code' => $code,
                 'agency_name' => $request->agency_name,
                 'agent_name' => $request->agent_name,
@@ -313,8 +356,9 @@ class BranchAgentController extends Controller
             $user->save();
 
             DB::commit();
+            \Illuminate\Support\Facades\Cache::flush();
 
-            return response()->json($branchAgent->load('user'), 201);
+            return response()->json($branchAgent->load(['user', 'branch:id,code,name,city']), 201);
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json([
@@ -328,6 +372,7 @@ class BranchAgentController extends Controller
     {
         try {
             $validated = $request->validate([
+                'branch_id' => 'nullable|exists:branches,id',
                 'type' => 'required|in:وكيل,فرع من شركة',
                 'agency_name' => 'required|string',
                 'agent_name' => 'required|string',
@@ -503,6 +548,18 @@ class BranchAgentController extends Controller
         DB::beginTransaction();
         try {
             $branchAgent = BranchAgent::findOrFail($id);
+            $authUser = $request->user();
+            if (!$authUser && $request->header('X-User-Id')) {
+                $authUser = \App\Models\User::find($request->header('X-User-Id'));
+            }
+            $isBranchAdmin = (bool)($authUser?->is_branch_admin ?? false);
+            $isAdmin = (bool)($authUser?->is_admin ?? false);
+
+            if ($isBranchAdmin && !$isAdmin) {
+                if ($branchAgent->branch_id && $branchAgent->branch_id != $authUser?->branch_id) {
+                    return response()->json(['message' => 'غير مصرح لك بتعديل بيانات وكيل تابع لفرع آخر'], 403);
+                }
+            }
             
             if ($branchAgent->status !== 'قيد الانتظار') {
                 return response()->json(['message' => 'هذا الوكيل ليس في حالة انتظار'], 400);
@@ -564,7 +621,7 @@ class BranchAgentController extends Controller
     public function show($id)
     {
         try {
-            $branchAgent = BranchAgent::with('user')->findOrFail($id);
+            $branchAgent = BranchAgent::with(['user', 'branch:id,code,name,city'])->findOrFail($id);
             
             // جلب العهد من نظام المخازن الجديد
             $inventoryCustodies = \App\Models\FixedCustody::with('item')
@@ -614,6 +671,18 @@ class BranchAgentController extends Controller
     {
         try {
             $branchAgent = BranchAgent::findOrFail($id);
+            $authUser = $request->user();
+            if (!$authUser && $request->header('X-User-Id')) {
+                $authUser = \App\Models\User::find($request->header('X-User-Id'));
+            }
+            $isBranchAdmin = (bool)($authUser?->is_branch_admin ?? false);
+            $isAdmin = (bool)($authUser?->is_admin ?? false);
+
+            if ($isBranchAdmin && !$isAdmin) {
+                if ($branchAgent->branch_id && $branchAgent->branch_id != $authUser?->branch_id) {
+                    return response()->json(['message' => 'غير مصرح لك بتعديل بيانات وكيل تابع لفرع آخر'], 403);
+                }
+            }
         } catch (\Exception $e) {
             return response()->json([
                 'message' => 'السجل غير موجود',
@@ -877,11 +946,19 @@ class BranchAgentController extends Controller
             // إذا لم يتم إرسال البيانات، لا نحدثها (نحتفظ بالبيانات السابقة)
 
             // تحديث البيانات مباشرة بدون array_filter للحفاظ على arrays فارغة
+            if ($isAdmin && $request->has('branch_id')) {
+                $updateData['branch_id'] = $request->branch_id ? $request->branch_id : null;
+                if ($branchAgent->user) {
+                    $branchAgent->user->update(['branch_id' => $updateData['branch_id']]);
+                }
+            }
+
             $branchAgent->update($updateData);
 
             DB::commit();
+            \Illuminate\Support\Facades\Cache::flush();
 
-            return response()->json($branchAgent->load('user'));
+            return response()->json($branchAgent->load(['user', 'branch:id,code,name,city']));
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json(['message' => 'حدث خطأ أثناء تحديث السجل: ' . $e->getMessage()], 500);
@@ -902,6 +979,18 @@ class BranchAgentController extends Controller
         DB::beginTransaction();
         try {
             $branchAgent = BranchAgent::findOrFail($id);
+            $authUser = $request->user();
+            if (!$authUser && $request->header('X-User-Id')) {
+                $authUser = \App\Models\User::find($request->header('X-User-Id'));
+            }
+            $isBranchAdmin = (bool)($authUser?->is_branch_admin ?? false);
+            $isAdmin = (bool)($authUser?->is_admin ?? false);
+
+            if ($isBranchAdmin && !$isAdmin) {
+                if ($branchAgent->branch_id && $branchAgent->branch_id != $authUser?->branch_id) {
+                    return response()->json(['message' => 'غير مصرح لك بتعديل بيانات وكيل تابع لفرع آخر'], 403);
+                }
+            }
             
             // حذف الصور
             if ($branchAgent->personal_photo && Storage::disk('public')->exists($branchAgent->personal_photo)) {
@@ -942,7 +1031,7 @@ class BranchAgentController extends Controller
     public function print($id)
     {
         try {
-            $branchAgent = BranchAgent::with('user')->findOrFail($id);
+            $branchAgent = BranchAgent::with(['user', 'branch:id,code,name,city'])->findOrFail($id);
             return view('branches-agents.print', compact('branchAgent'));
         } catch (\Exception $e) {
             abort(404, 'السجل غير موجود');
@@ -955,7 +1044,7 @@ class BranchAgentController extends Controller
     public function printPermit($id)
     {
         try {
-            $branchAgent = BranchAgent::with('user')->findOrFail($id);
+            $branchAgent = BranchAgent::with(['user', 'branch:id,code,name,city'])->findOrFail($id);
             return view('branches-agents.permit', compact('branchAgent'));
         } catch (\Exception $e) {
             abort(404, 'السجل غير موجود');
@@ -968,7 +1057,7 @@ class BranchAgentController extends Controller
     public function accountReport(Request $request, $id)
     {
         try {
-            $branchAgent = BranchAgent::with('user')->findOrFail($id);
+            $branchAgent = BranchAgent::with(['user', 'branch:id,code,name,city'])->findOrFail($id);
             $type = $request->get('type', 'full'); // 'range' or 'full'
             $year = $request->get('year');
             $month = $request->get('month');
@@ -2612,7 +2701,7 @@ class BranchAgentController extends Controller
                 abort(400, 'يجب تحديد تاريخ البداية والنهاية');
             }
 
-            $branchAgent = BranchAgent::with('user')->findOrFail($id);
+            $branchAgent = BranchAgent::with(['user', 'branch:id,code,name,city'])->findOrFail($id);
             $documentPercentages = $branchAgent->document_percentages ?? [];
 
             $documentsByCategory = [];
@@ -3104,6 +3193,18 @@ class BranchAgentController extends Controller
     {
         try {
             $branchAgent = BranchAgent::findOrFail($id);
+            $authUser = $request->user();
+            if (!$authUser && $request->header('X-User-Id')) {
+                $authUser = \App\Models\User::find($request->header('X-User-Id'));
+            }
+            $isBranchAdmin = (bool)($authUser?->is_branch_admin ?? false);
+            $isAdmin = (bool)($authUser?->is_admin ?? false);
+
+            if ($isBranchAdmin && !$isAdmin) {
+                if ($branchAgent->branch_id && $branchAgent->branch_id != $authUser?->branch_id) {
+                    return response()->json(['message' => 'غير مصرح لك بتعديل بيانات وكيل تابع لفرع آخر'], 403);
+                }
+            }
             if (!$branchAgent->user_id) {
                 return response()->json(['message' => 'هذا الوكيل ليس لديه حساب مستخدم مرتبط'], 404);
             }
@@ -3135,6 +3236,18 @@ class BranchAgentController extends Controller
     {
         try {
             $branchAgent = BranchAgent::findOrFail($id);
+            $authUser = $request->user();
+            if (!$authUser && $request->header('X-User-Id')) {
+                $authUser = \App\Models\User::find($request->header('X-User-Id'));
+            }
+            $isBranchAdmin = (bool)($authUser?->is_branch_admin ?? false);
+            $isAdmin = (bool)($authUser?->is_admin ?? false);
+
+            if ($isBranchAdmin && !$isAdmin) {
+                if ($branchAgent->branch_id && $branchAgent->branch_id != $authUser?->branch_id) {
+                    return response()->json(['message' => 'غير مصرح لك بتعديل بيانات وكيل تابع لفرع آخر'], 403);
+                }
+            }
             $branchAgent->show_on_landing = !$branchAgent->show_on_landing;
             $branchAgent->save();
 
@@ -3157,7 +3270,7 @@ class BranchAgentController extends Controller
     public function revenueReport(Request $request, $id)
     {
         try {
-            $branchAgent = BranchAgent::with('user')->findOrFail($id);
+            $branchAgent = BranchAgent::with(['user', 'branch:id,code,name,city'])->findOrFail($id);
             $type = $request->get('type', 'full'); // 'range' or 'full'
             $year = $request->get('year');
             $month = $request->get('month');
@@ -3336,6 +3449,18 @@ class BranchAgentController extends Controller
     {
         try {
             $branchAgent = BranchAgent::findOrFail($id);
+            $authUser = $request->user();
+            if (!$authUser && $request->header('X-User-Id')) {
+                $authUser = \App\Models\User::find($request->header('X-User-Id'));
+            }
+            $isBranchAdmin = (bool)($authUser?->is_branch_admin ?? false);
+            $isAdmin = (bool)($authUser?->is_admin ?? false);
+
+            if ($isBranchAdmin && !$isAdmin) {
+                if ($branchAgent->branch_id && $branchAgent->branch_id != $authUser?->branch_id) {
+                    return response()->json(['message' => 'غير مصرح لك بتعديل بيانات وكيل تابع لفرع آخر'], 403);
+                }
+            }
             $documentPercentages = $branchAgent->document_percentages ?? [];
 
             $totalDocuments  = 0;
@@ -3706,7 +3831,7 @@ class BranchAgentController extends Controller
     public function printProductionPortfolioReport(Request $request, $id)
     {
         try {
-            $branchAgent = BranchAgent::with('user')->findOrFail($id);
+            $branchAgent = BranchAgent::with(['user', 'branch:id,code,name,city'])->findOrFail($id);
             $year = $request->get('year');
             $month = $request->get('month');
             $fromDate = $request->get('from_date');

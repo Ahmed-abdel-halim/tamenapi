@@ -13,6 +13,7 @@ class BranchAgent extends Model
 
     protected $fillable = [
         'type',
+        'branch_id',
         'code',
         'agency_name',
         'agent_name',
@@ -76,6 +77,11 @@ class BranchAgent extends Model
         'show_on_landing' => 'boolean',
         'is_audited' => 'boolean',
     ];
+
+    public function branch()
+    {
+        return $this->belongsTo(Branch::class, 'branch_id');
+    }
 
     public function user()
     {

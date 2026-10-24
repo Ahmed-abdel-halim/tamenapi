@@ -41,6 +41,14 @@ class Branch extends Model
     }
 
     /**
+     * Get agents affiliated with this branch.
+     */
+    public function agents()
+    {
+        return $this->hasMany(BranchAgent::class, 'branch_id');
+    }
+
+    /**
      * Get the compulsory/third-party documents issued under this branch.
      */
     public function insuranceDocuments()

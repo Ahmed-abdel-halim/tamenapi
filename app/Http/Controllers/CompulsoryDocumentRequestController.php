@@ -101,11 +101,31 @@ class CompulsoryDocumentRequestController extends Controller
         $feePerDoc = isset($validated['fee_per_document']) ? (float)$validated['fee_per_document'] : 5.00;
         $totalAmount = $docsCount * $feePerDoc;
 
-        // Auto generate request number if not passed
+        // Auto generate unique request number
         $year = date('Y', strtotime($validated['request_date']));
         $month = date('m', strtotime($validated['request_date']));
-        $count = CompulsoryDocumentRequest::whereYear('request_date', $year)->count() + 1;
-        $requestNumber = sprintf("REQ-%s-%04d", $year, $count);
+
+        $existingNumbers = CompulsoryDocumentRequest::where('request_number', 'like', "REQ-{$year}-%")
+            ->pluck('request_number')
+            ->toArray();
+
+        $maxSeq = 0;
+        foreach ($existingNumbers as $existingNumber) {
+            if (preg_match('/REQ-\d{4}-(\d+)/', $existingNumber, $m)) {
+                $maxSeq = max($maxSeq, (int)$m[1]);
+            }
+        }
+
+        $nextSeq = max($maxSeq, count($existingNumbers)) + 1;
+
+        do {
+            $requestNumber = sprintf("REQ-%s-%04d", $year, $nextSeq);
+            $exists = in_array($requestNumber, $existingNumbers)
+                || CompulsoryDocumentRequest::where('request_number', $requestNumber)->exists();
+            if ($exists) {
+                $nextSeq++;
+            }
+        } while ($exists);
 
         // Auto generate reference number if empty (e.g. أ / 9 - 2026)
         $refNumber = $validated['reference_number'] ?? null;
@@ -157,6 +177,10 @@ class CompulsoryDocumentRequestController extends Controller
 
         if (Schema::hasColumn('compulsory_document_requests', 'attachments')) {
             $recordData['attachments'] = !empty($attachmentsList) ? $attachmentsList : null;
+        }
+
+        if (Schema::hasColumn('compulsory_document_requests', 'branch_id')) {
+            $recordData['branch_id'] = $this->getResolvedBranchId($request) ?? auth()->user()?->branch_id ?? 1;
         }
 
         $record = CompulsoryDocumentRequest::create($recordData);

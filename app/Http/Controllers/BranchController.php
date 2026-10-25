@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Models\InsuranceDocument;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Hash;
 use Carbon\Carbon;
 
@@ -50,40 +51,21 @@ class BranchController extends Controller
 
             // Include counts and manager user
             $query->with(['managerUser:id,name,username,email,personal_phone,is_branch_admin'])
-                  ->withCount(['users', 'insuranceDocuments']);
+                  ->withCount(['users']);
 
             $perPage = $request->input('per_page', 15);
             $branches = $query->orderBy('is_main_branch', 'desc')
                               ->orderBy('created_at', 'desc')
                               ->paginate($perPage);
 
-            // Calculate additional financial summaries per branch
+            // Calculate additional financial summaries per branch across ALL 10 document tables
             $branchItems = $branches->getCollection()->map(function ($branch) {
-                $totalRevenue = InsuranceDocument::where('branch_id', $branch->id)
-                    ->where(function ($q) {
-                        $q->where('is_canceled', 0)
-                          ->orWhere('is_canceled', false)
-                          ->orWhereNull('is_canceled');
-                    })
-                    ->sum('total');
+                $stats = $this->getBranchAggregatedStats($branch->id);
 
-                $monthRevenue = InsuranceDocument::where('branch_id', $branch->id)
-                    ->where(function ($q) {
-                        $q->where('is_canceled', 0)
-                          ->orWhere('is_canceled', false)
-                          ->orWhereNull('is_canceled');
-                    })
-                    ->whereMonth('issue_date', Carbon::now()->month)
-                    ->whereYear('issue_date', Carbon::now()->year)
-                    ->sum('total');
-
-                $todayDocuments = InsuranceDocument::where('branch_id', $branch->id)
-                    ->whereDate('issue_date', Carbon::today())
-                    ->count();
-
-                $branch->total_revenue = round($totalRevenue, 2);
-                $branch->month_revenue = round($monthRevenue, 2);
-                $branch->today_documents_count = $todayDocuments;
+                $branch->insurance_documents_count = $stats['total_documents'];
+                $branch->total_revenue = $stats['total_revenue'];
+                $branch->month_revenue = $stats['month_revenue'];
+                $branch->today_documents_count = $stats['today_documents_count'];
 
                 return $branch;
             });
@@ -463,63 +445,129 @@ class BranchController extends Controller
     public function statistics(Request $request, $id = null)
     {
         $branchId = $id ?: $request->input('branch_id');
-        $now = Carbon::now();
+        $isAll = !$branchId || $branchId === 'all';
+        $stats = $this->getBranchAggregatedStats($isAll ? null : (int)$branchId);
 
-        $query = InsuranceDocument::query();
-        if ($branchId && $branchId !== 'all') {
-            $query->where('branch_id', $branchId);
+        $employeesCount = $isAll 
+            ? User::count()
+            : User::where('branch_id', (int)$branchId)->count();
+
+        return response()->json(array_merge([
+            'branch_id' => $branchId,
+            'employees_count' => $employeesCount,
+        ], $stats));
+    }
+
+    /**
+     * Compute comprehensive document stats across all 10 insurance tables for a branch.
+     */
+    protected function getBranchAggregatedStats(?int $branchId = null): array
+    {
+        $tables = [
+            'insurance_documents',
+            'international_insurance_documents',
+            'travel_insurance_documents',
+            'resident_insurance_documents',
+            'marine_structure_insurance_documents',
+            'professional_liability_insurance_documents',
+            'personal_accident_insurance_documents',
+            'school_student_insurance_documents',
+            'cargo_insurance_documents',
+            'cash_in_transit_insurance_documents',
+        ];
+
+        $totalDocs = 0;
+        $activeDocs = 0;
+        $expiredDocs = 0;
+        $canceledDocs = 0;
+        $totalRevenue = 0;
+        $monthRevenue = 0;
+        $todayDocs = 0;
+
+        $now = Carbon::now();
+        $currentMonthStart = $now->copy()->startOfMonth()->toDateString();
+        $currentMonthEnd   = $now->copy()->endOfMonth()->toDateString();
+        $todayDate         = $now->toDateString();
+
+        foreach ($tables as $table) {
+            if (!Schema::hasTable($table)) continue;
+
+            $hasBranch = Schema::hasColumn($table, 'branch_id');
+            $hasTotal = Schema::hasColumn($table, 'total');
+            $hasSumInsured = Schema::hasColumn($table, 'sum_insured');
+            $hasPremium = Schema::hasColumn($table, 'premium');
+            $hasEndDate = Schema::hasColumn($table, 'end_date');
+            $hasIssueDate = Schema::hasColumn($table, 'issue_date');
+            $hasStartDate = Schema::hasColumn($table, 'start_date');
+            $hasCreatedAt = Schema::hasColumn($table, 'created_at');
+            $hasCanceled = Schema::hasColumn($table, 'is_canceled');
+
+            $revCol  = $hasTotal ? 'total' : ($hasSumInsured ? 'sum_insured' : ($hasPremium ? 'premium' : null));
+            $dateCol = $hasIssueDate ? 'issue_date' : ($hasStartDate ? 'start_date' : ($hasCreatedAt ? 'created_at' : null));
+
+            $selects = ['COUNT(*) as cnt'];
+
+            if ($revCol) {
+                $selects[] = "COALESCE(SUM(`$revCol`), 0) as rev";
+            } else {
+                $selects[] = "0 as rev";
+            }
+
+            if ($revCol && $dateCol) {
+                $selects[] = "COALESCE(SUM(CASE WHEN `$dateCol` >= '$currentMonthStart' AND `$dateCol` <= '$currentMonthEnd' THEN `$revCol` ELSE 0 END), 0) as m_rev";
+            } else {
+                $selects[] = "0 as m_rev";
+            }
+
+            if ($dateCol) {
+                $selects[] = "COALESCE(SUM(CASE WHEN DATE(`$dateCol`) = '$todayDate' THEN 1 ELSE 0 END), 0) as t_docs";
+            } else {
+                $selects[] = "0 as t_docs";
+            }
+
+            if ($hasEndDate) {
+                $canceledCond = $hasCanceled ? " AND (is_canceled = 0 OR is_canceled IS NULL)" : "";
+                $selects[] = "COALESCE(SUM(CASE WHEN `end_date` >= '$todayDate'$canceledCond THEN 1 ELSE 0 END), 0) as a_docs";
+                $selects[] = "COALESCE(SUM(CASE WHEN `end_date` < '$todayDate' THEN 1 ELSE 0 END), 0) as e_docs";
+            } else {
+                $selects[] = "0 as a_docs";
+                $selects[] = "0 as e_docs";
+            }
+
+            if ($hasCanceled) {
+                $selects[] = "COALESCE(SUM(CASE WHEN `is_canceled` = 1 THEN 1 ELSE 0 END), 0) as c_docs";
+            } else {
+                $selects[] = "0 as c_docs";
+            }
+
+            $q = DB::table($table);
+            if ($branchId !== null && $hasBranch) {
+                $q->where('branch_id', $branchId);
+            }
+
+            $row = $q->selectRaw(implode(', ', $selects))->first();
+
+            if ($row) {
+                $totalDocs    += (int)$row->cnt;
+                $totalRevenue += (float)$row->rev;
+                $monthRevenue += (float)$row->m_rev;
+                $todayDocs    += (int)$row->t_docs;
+                $activeDocs   += (int)$row->a_docs;
+                $expiredDocs  += (int)$row->e_docs;
+                $canceledDocs += (int)$row->c_docs;
+            }
         }
 
-        $totalDocs = (clone $query)->count();
-        $activeDocs = (clone $query)
-            ->where(function ($q) {
-                $q->where('is_canceled', 0)
-                  ->orWhere('is_canceled', false)
-                  ->orWhereNull('is_canceled');
-            })
-            ->where('end_date', '>=', $now->toDateString())
-            ->count();
-
-        $todayDocs = (clone $query)
-            ->whereDate('issue_date', Carbon::today())
-            ->count();
-
-        $monthDocs = (clone $query)
-            ->whereMonth('issue_date', $now->month)
-            ->whereYear('issue_date', $now->year)
-            ->count();
-
-        $totalRevenue = (clone $query)
-            ->where(function ($q) {
-                $q->where('is_canceled', 0)
-                  ->orWhere('is_canceled', false)
-                  ->orWhereNull('is_canceled');
-            })
-            ->sum('total');
-
-        $monthRevenue = (clone $query)
-            ->where(function ($q) {
-                $q->where('is_canceled', 0)
-                  ->orWhere('is_canceled', false)
-                  ->orWhereNull('is_canceled');
-            })
-            ->whereMonth('issue_date', $now->month)
-            ->whereYear('issue_date', $now->year)
-            ->sum('total');
-
-        $employeesCount = $branchId && $branchId !== 'all' 
-            ? User::where('branch_id', $branchId)->count()
-            : User::count();
-
-        return response()->json([
-            'branch_id' => $branchId,
+        return [
             'total_documents' => $totalDocs,
             'active_documents' => $activeDocs,
-            'today_documents' => $todayDocs,
-            'month_documents' => $monthDocs,
+            'expired_documents' => $expiredDocs,
+            'canceled_documents' => $canceledDocs,
             'total_revenue' => round($totalRevenue, 2),
             'month_revenue' => round($monthRevenue, 2),
-            'employees_count' => $employeesCount,
-        ]);
+            'today_documents' => $todayDocs,
+            'today_documents_count' => $todayDocs,
+        ];
     }
+
 }

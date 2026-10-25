@@ -4,11 +4,101 @@ namespace App\Http\Controllers;
 
 use App\Models\EmployeePayroll;
 use App\Models\User;
+use App\Models\BranchAgent;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class EmployeePayrollController extends Controller
 {
+    /**
+     * Apply branch and agent isolation to a query targeting User or having 'user' relation.
+     */
+    private function applyBranchScope($query, Request $request, bool $isUserQuery = false)
+    {
+        $authUser = $request->user();
+        if (!$authUser && $request->header('X-User-Id')) {
+            $authUser = User::find($request->header('X-User-Id'));
+        }
+        $isAdmin = (bool)($authUser?->is_admin ?? false);
+        $isBranchAdmin = (bool)($authUser?->is_branch_admin ?? false);
+
+        // 1. If user is locked to a branch (Branch Admin or non-admin with branch_id)
+        if ($authUser?->branch_id && (!$isAdmin || $isBranchAdmin)) {
+            $userBranchId = (int)$authUser->branch_id;
+            if ($isUserQuery) {
+                $query->where('branch_id', $userBranchId);
+            } else {
+                $query->whereHas('user', function ($q) use ($userBranchId) {
+                    $q->where('branch_id', $userBranchId);
+                });
+            }
+            return;
+        }
+
+        // 2. Query param branch_id
+        if ($request->filled('branch_id')) {
+            $branchParam = $request->input('branch_id');
+            if ($branchParam === 'all') {
+                return; // All branches + HQ
+            } elseif ($branchParam === 'hq' || $branchParam === 'none') {
+                if ($isUserQuery) {
+                    $query->whereNull('branch_id')->whereNull('branch_agent_id');
+                } else {
+                    $query->whereHas('user', function ($q) {
+                        $q->whereNull('branch_id')->whereNull('branch_agent_id');
+                    });
+                }
+                return;
+            } else {
+                $bId = (int)$branchParam;
+                if ($isUserQuery) {
+                    $query->where('branch_id', $bId);
+                } else {
+                    $query->whereHas('user', function ($q) use ($bId) {
+                        $q->where('branch_id', $bId);
+                    });
+                }
+                return;
+            }
+        }
+
+        // 3. X-Branch-Id header from client context
+        if ($request->header('X-Branch-Id')) {
+            $headerBranchId = (int)$request->header('X-Branch-Id');
+            if ($isUserQuery) {
+                $query->where('branch_id', $headerBranchId);
+            } else {
+                $query->whereHas('user', function ($q) use ($headerBranchId) {
+                    $q->where('branch_id', $headerBranchId);
+                });
+            }
+            return;
+        }
+
+        // 4. Scope parameter
+        if ($request->input('scope') === 'all') {
+            return;
+        } elseif ($request->input('scope') === 'hq') {
+            if ($isUserQuery) {
+                $query->whereNull('branch_id')->whereNull('branch_agent_id');
+            } else {
+                $query->whereHas('user', function ($q) {
+                    $q->whereNull('branch_id')->whereNull('branch_agent_id');
+                });
+            }
+            return;
+        }
+
+        // 5. Default fallback: If no branch or scope specified, default to HQ for backwards compatibility
+        if ($isUserQuery) {
+            $query->whereNull('branch_id')->whereNull('branch_agent_id');
+        } else {
+            $query->whereHas('user', function ($q) {
+                $q->whereNull('branch_id')->whereNull('branch_agent_id');
+            });
+        }
+    }
+
     public function index(Request $request)
     {
         $validated = $request->validate([
@@ -20,10 +110,11 @@ class EmployeePayrollController extends Controller
             'to_date' => 'nullable|date',
             'user_id' => 'nullable|integer|exists:users,id',
             'branch_agent_id' => 'nullable|integer',
+            'branch_id' => 'nullable|string|max:50',
             'scope' => 'nullable|string|max:50',
         ]);
 
-        $query = EmployeePayroll::with(['user:id,name,username,email,salary,job_title,branch_agent_id', 'processor:id,name']);
+        $query = EmployeePayroll::with(['user:id,name,username,email,salary,job_title,branch_agent_id,branch_id', 'processor:id,name']);
 
         if (!empty($validated['year'])) {
             $query->where('year', $validated['year']);
@@ -102,20 +193,22 @@ class EmployeePayrollController extends Controller
                 });
             });
         }
+
+        // Agent filter takes precedence if specified
         if (!empty($validated['branch_agent_id'])) {
             $agentId = (int) $validated['branch_agent_id'];
-            $agent = \App\Models\BranchAgent::find($agentId);
+            $agent = BranchAgent::find($agentId);
             $query->whereHas('user', function ($q) use ($agentId, $agent) {
                 $q->where('branch_agent_id', $agentId);
                 if ($agent && $agent->user_id) {
                     $q->orWhere('id', $agent->user_id);
                 }
             });
-        } elseif (($validated['scope'] ?? '') === 'hq') {
-            $query->whereHas('user', function ($q) {
-                $q->whereNull('branch_agent_id');
-            });
+        } else {
+            // Apply Branch & Headquarters Isolation
+            $this->applyBranchScope($query, $request, false);
         }
+
         if (!empty($validated['from_date']) || !empty($validated['to_date'])) {
             $query->whereHas('user', function ($q) use ($validated) {
                 $q->where('is_active', true);
@@ -171,7 +264,6 @@ class EmployeePayrollController extends Controller
         $advance = (float) ($validated['advance_amount'] ?? 0);
         $penalty = (float) ($validated['penalty_amount'] ?? 0);
         
-        // allowance_amount can be used for any additional miscellaneous allowances if needed
         $misc_allowance = (float) ($validated['allowance_amount'] ?? 0);
 
         $extra_total = 0;
@@ -221,7 +313,7 @@ class EmployeePayrollController extends Controller
             ]
         );
 
-        return response()->json($payroll->fresh(['user:id,name,username,email,salary,job_title,branch_agent_id', 'processor:id,name']));
+        return response()->json($payroll->fresh(['user:id,name,username,email,salary,job_title,branch_agent_id,branch_id', 'processor:id,name']));
     }
 
     public function employees(Request $request)
@@ -230,18 +322,16 @@ class EmployeePayrollController extends Controller
 
         if ($request->filled('branch_agent_id')) {
             $agentId = (int) $request->input('branch_agent_id');
-            $agent = \App\Models\BranchAgent::find($agentId);
+            $agent = BranchAgent::find($agentId);
             $query->where(function ($q) use ($agentId, $agent) {
                 $q->where('branch_agent_id', $agentId);
                 if ($agent && $agent->user_id) {
                     $q->orWhere('id', $agent->user_id);
                 }
             });
-        } elseif ($request->input('scope') === 'all') {
-            // Return all users (HQ + branches)
         } else {
-            // Default to HQ users for backwards compatibility
-            $query->whereNull('branch_agent_id');
+            // Apply Branch & Headquarters Isolation
+            $this->applyBranchScope($query, $request, true);
         }
 
         if ($request->filled('year') && $request->filled('month')) {
@@ -282,7 +372,7 @@ class EmployeePayrollController extends Controller
                 'id', 'name', 'username', 'email', 'salary', 'is_admin', 
                 'tax_percentage', 'social_security_percentage', 'apply_tax', 'apply_social_security',
                 'housing_allowance', 'transportation_allowance', 'communication_allowance', 'fixed_bonuses', 'fixed_fines',
-                'hire_date', 'work_start_date', 'start_date', 'end_date', 'resignation_date', 'branch_agent_id', 'job_title'
+                'hire_date', 'work_start_date', 'start_date', 'end_date', 'resignation_date', 'branch_agent_id', 'branch_id', 'job_title'
             )
             ->get();
 
@@ -290,7 +380,7 @@ class EmployeePayrollController extends Controller
     }
 
     /**
-     * Mark payroll as paid for employees (filtered by branch_agent_id or non-branch-agent) for a given month.
+     * Mark payroll as paid for employees (filtered by branch or agent) for a given month.
      * Creates payroll rows from user salary when none exist yet.
      */
     public function bulkPay(Request $request)
@@ -299,6 +389,8 @@ class EmployeePayrollController extends Controller
             'year' => 'required|integer|min:2000|max:2100',
             'month' => 'required|integer|min:1|max:12',
             'branch_agent_id' => 'nullable|integer',
+            'branch_id' => 'nullable|string|max:50',
+            'scope' => 'nullable|string|max:50',
         ]);
 
         $year = $validated['year'];
@@ -311,7 +403,7 @@ class EmployeePayrollController extends Controller
 
         if (!empty($validated['branch_agent_id'])) {
             $agentId = (int) $validated['branch_agent_id'];
-            $agent = \App\Models\BranchAgent::find($agentId);
+            $agent = BranchAgent::find($agentId);
             $query->where(function ($q) use ($agentId, $agent) {
                 $q->where('branch_agent_id', $agentId);
                 if ($agent && $agent->user_id) {
@@ -319,7 +411,8 @@ class EmployeePayrollController extends Controller
                 }
             });
         } else {
-            $query->whereNull('branch_agent_id');
+            // Apply Branch & Headquarters Isolation
+            $this->applyBranchScope($query, $request, true);
         }
 
         $employees = $query
@@ -355,7 +448,7 @@ class EmployeePayrollController extends Controller
                 'id', 'name', 'username', 'email', 'salary', 'is_admin', 
                 'tax_percentage', 'social_security_percentage', 'apply_tax', 'apply_social_security',
                 'housing_allowance', 'transportation_allowance', 'communication_allowance', 'fixed_bonuses', 'fixed_fines',
-                'hire_date', 'work_start_date', 'start_date', 'end_date', 'resignation_date', 'branch_agent_id', 'job_title'
+                'hire_date', 'work_start_date', 'start_date', 'end_date', 'resignation_date', 'branch_agent_id', 'branch_id', 'job_title'
             )
             ->get();
 
@@ -440,9 +533,11 @@ class EmployeePayrollController extends Controller
             'month' => 'nullable|integer|min:1|max:12',
             'from_date' => 'nullable|date',
             'to_date' => 'nullable|date',
+            'branch_id' => 'nullable|string|max:50',
+            'scope' => 'nullable|string|max:50',
         ]);
 
-        $query = EmployeePayroll::with(['user:id,name,job_title,national_id_number,nationality,start_date,tax_percentage,social_security_percentage,tax_file_number,social_security_file_number,apply_tax,apply_social_security']);
+        $query = EmployeePayroll::with(['user:id,name,job_title,national_id_number,nationality,start_date,tax_percentage,social_security_percentage,tax_file_number,social_security_file_number,apply_tax,apply_social_security,branch_id']);
 
         if (!empty($validated['year'])) {
             $query->where('year', $validated['year']);
@@ -461,6 +556,9 @@ class EmployeePayrollController extends Controller
             $q->where('is_active', true)
               ->whereDoesntHave('branchAgent');
         });
+
+        // Apply Branch Scope
+        $this->applyBranchScope($query, $request, false);
 
         return response()->json($query->orderByDesc('year')->orderByDesc('month')->get());
     }

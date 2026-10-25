@@ -10,6 +10,7 @@ class EmployeePayroll extends Model
     use HasFactory;
 
     protected $fillable = [
+        'branch_id',
         'user_id',
         'year',
         'month',
@@ -58,4 +59,10 @@ class EmployeePayroll extends Model
     {
         return $this->belongsTo(User::class, 'processed_by');
     }
+
+    public function branch()
+    {
+        return $this->belongsTo(\App\Models\Branch::class, 'branch_id');
+    }
 }
+

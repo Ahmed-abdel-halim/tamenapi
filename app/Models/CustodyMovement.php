@@ -10,6 +10,7 @@ class CustodyMovement extends Model
     use HasFactory;
 
     protected $fillable = [
+        'branch_id',
         'item_id',
         'recipient_id',
         'recipient_type',
@@ -32,5 +33,10 @@ class CustodyMovement extends Model
     public function processor()
     {
         return $this->belongsTo(User::class, 'processed_by');
+    }
+
+    public function branch()
+    {
+        return $this->belongsTo(Branch::class, 'branch_id');
     }
 }

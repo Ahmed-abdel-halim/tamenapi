@@ -10,6 +10,7 @@ class FinancialArchive extends Model
     use HasFactory;
 
     protected $fillable = [
+        'branch_id',
         'document_name',
         'category',
         'file_path',
@@ -19,4 +20,10 @@ class FinancialArchive extends Model
         'related_entity', // agent/bank name
         'status' // active, archived
     ];
+
+    public function branch()
+    {
+        return $this->belongsTo(\App\Models\Branch::class, 'branch_id');
+    }
 }
+

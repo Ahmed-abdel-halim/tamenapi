@@ -10,6 +10,7 @@ class InsuranceSupervisionPayment extends Model
     use HasFactory;
 
     protected $fillable = [
+        'branch_id',
         'voucher_number',
         'payment_date',
         'amount',
@@ -34,4 +35,10 @@ class InsuranceSupervisionPayment extends Model
     {
         return $this->belongsTo(User::class, 'created_by');
     }
+
+    public function branch()
+    {
+        return $this->belongsTo(\App\Models\Branch::class, 'branch_id');
+    }
 }
+

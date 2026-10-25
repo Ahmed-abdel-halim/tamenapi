@@ -12,6 +12,7 @@ class UnionBalancePurchase extends Model
     protected $table = 'union_balance_purchases';
 
     protected $fillable = [
+        'branch_id',
         'request_number',
         'amount_paid',
         'card_price',
@@ -47,4 +48,10 @@ class UnionBalancePurchase extends Model
         'purchase_date' => 'date',
         'deposit_date' => 'date',
     ];
+
+    public function branch()
+    {
+        return $this->belongsTo(\App\Models\Branch::class, 'branch_id');
+    }
 }
+

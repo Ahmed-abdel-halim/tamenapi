@@ -8,9 +8,12 @@ use Illuminate\Support\Facades\Storage;
 
 class MailDocumentController extends Controller
 {
+    use \App\Traits\HandlesBranchScope;
+
     public function index(Request $request)
     {
         $query = MailDocument::with(['entity', 'employee']);
+        $this->applyBranchScope($query, $request);
 
         if ($request->has('type')) {
             $query->where('type', $request->type);
@@ -87,6 +90,7 @@ class MailDocumentController extends Controller
             $validated['attachment_path'] = $path;
         }
 
+        $validated['branch_id'] = $this->getResolvedBranchId($request) ?? $request->user()?->branch_id ?? 1;
         $document = MailDocument::create($validated);
 
         // إرسال البريد الإلكتروني إذا طلب المستخدم وكان هناك بريد إلكتروني للجهة

@@ -11,15 +11,32 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use App\Traits\HandlesBranchScope;
 
 class InventoryController extends Controller
 {
+    use HandlesBranchScope;
+
     // --- Store Items Management ---
 
-    public function itemsIndex()
+    public function itemsIndex(Request $request)
     {
-        $items = StoreItem::with('stocks')->get()->map(function ($item) {
+        $query = StoreItem::with('stocks');
+        $branchId = $this->getResolvedBranchId($request);
+        if ($branchId) {
+            $query->where(function ($q) use ($branchId) {
+                $q->where('branch_id', $branchId)
+                  ->orWhereNull('branch_id');
+            });
+        }
+
+        $items = $query->get()->map(function ($item) use ($branchId) {
             $stocks = $item->stocks ?? collect();
+            if ($branchId) {
+                $stocks = $stocks->filter(function ($s) use ($branchId) {
+                    return $s->branch_id == $branchId || is_null($s->branch_id);
+                });
+            }
             $totalQuantity = (int) $stocks->sum('quantity');
             $latestStock = $stocks->sortByDesc('updated_at')->first();
 
@@ -49,10 +66,13 @@ class InventoryController extends Controller
             'min_threshold' => 'integer',
         ]);
 
+        $branchId = $this->getResolvedBranchId($request) ?? $request->user()?->branch_id ?? 1;
+        $validated['branch_id'] = $branchId;
         $item = StoreItem::create($validated);
         
         // Initialize stock
         InventoryStock::create([
+            'branch_id' => $branchId,
             'item_id' => $item->id,
             'quantity' => 0
         ]);
@@ -155,6 +175,16 @@ class InventoryController extends Controller
     {
         $query = FixedCustody::with(['item', 'recipient']);
         
+        $branchId = $this->getResolvedBranchId($request);
+        if ($branchId) {
+            $query->where(function ($q) use ($branchId) {
+                $q->where('branch_id', $branchId)
+                  ->orWhereHasMorph('recipient', [User::class, BranchAgent::class], function ($m) use ($branchId) {
+                      $m->where('branch_id', $branchId);
+                  });
+            });
+        }
+
         if ($request->has('recipient_type')) {
             $type = $request->recipient_type === 'agent' ? BranchAgent::class : User::class;
             $query->where('recipient_type', $type);
@@ -170,6 +200,16 @@ class InventoryController extends Controller
     public function movementsIndex(Request $request)
     {
         $query = CustodyMovement::with(['item', 'recipient', 'processor'])->latest();
+
+        $branchId = $this->getResolvedBranchId($request);
+        if ($branchId) {
+            $query->where(function ($q) use ($branchId) {
+                $q->where('branch_id', $branchId)
+                  ->orWhereHasMorph('recipient', [User::class, BranchAgent::class], function ($m) use ($branchId) {
+                      $m->where('branch_id', $branchId);
+                  });
+            });
+        }
 
         if ($request->filled('type')) {
             $query->where('type', $request->string('type'));
@@ -262,7 +302,9 @@ class InventoryController extends Controller
 
             $recipientType = $validated['recipient_type'] === 'agent' ? BranchAgent::class : User::class;
 
+            $branchId = $this->getResolvedBranchId($request) ?? $request->user()?->branch_id ?? 1;
             $custody = FixedCustody::create([
+                'branch_id' => $branchId,
                 'item_id' => $validated['item_id'],
                 'recipient_id' => $validated['recipient_id'],
                 'recipient_type' => $recipientType,
@@ -283,6 +325,7 @@ class InventoryController extends Controller
 
             // Record movement
             CustodyMovement::create([
+                'branch_id' => $branchId,
                 'item_id' => $validated['item_id'],
                 'recipient_id' => $validated['recipient_id'],
                 'recipient_type' => $recipientType,
@@ -342,7 +385,9 @@ class InventoryController extends Controller
             $stock->save();
 
             // Record movement
+            $returnBranchId = $custody->branch_id ?? $this->getResolvedBranchId($request) ?? 1;
             CustodyMovement::create([
+                'branch_id' => $returnBranchId,
                 'item_id' => $custody->item_id,
                 'recipient_id' => $custody->recipient_id,
                 'recipient_type' => $custody->recipient_type,

@@ -3,6 +3,7 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\DB;
 
 return new class extends Migration
 {
@@ -29,6 +30,21 @@ return new class extends Migration
                 $table->text('notes')->nullable();
                 $table->timestamps();
             });
+        }
+
+        // Ensure default Main Branch (ID: 1) exists so existing records are seamlessly linked
+        if (DB::table('branches')->count() === 0) {
+            DB::table('branches')->insert([
+                'id' => 1,
+                'code' => 'BR-01',
+                'name' => 'الفرع الرئيسي',
+                'city' => 'طرابلس',
+                'address' => 'الإدارة العامة - طرابلس',
+                'status' => 'نشط',
+                'is_main_branch' => true,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
         }
 
         // Add branch_id to users

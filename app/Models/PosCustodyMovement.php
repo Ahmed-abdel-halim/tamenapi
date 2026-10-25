@@ -10,6 +10,7 @@ class PosCustodyMovement extends Model
     use HasFactory;
 
     protected $fillable = [
+        'branch_id',
         'reference_no',
         'pos_machine_id',
         'branch_agent_id',
@@ -95,4 +96,10 @@ class PosCustodyMovement extends Model
             default         => $this->financial_clearance,
         };
     }
+
+    public function branch()
+    {
+        return $this->belongsTo(\App\Models\Branch::class, 'branch_id');
+    }
 }
+

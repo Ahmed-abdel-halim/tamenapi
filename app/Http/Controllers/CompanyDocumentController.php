@@ -8,9 +8,13 @@ use Illuminate\Support\Facades\Storage;
 
 class CompanyDocumentController extends Controller
 {
-    public function index()
+    use \App\Traits\HandlesBranchScope;
+
+    public function index(Request $request)
     {
-        $documents = CompanyDocument::orderBy('created_at', 'desc')->get();
+        $query = CompanyDocument::query();
+        $this->applyBranchScope($query, $request);
+        $documents = $query->orderBy('created_at', 'desc')->get();
         return response()->json($documents);
     }
 
@@ -34,7 +38,10 @@ class CompanyDocumentController extends Controller
             }
         }
 
+        $branchId = $this->getResolvedBranchId($request) ?? $request->user()?->branch_id ?? 1;
+
         $document = CompanyDocument::create([
+            'branch_id' => $branchId,
             'name' => $validated['name'],
             'type' => $validated['type'] ?? null,
             'document_number' => $validated['document_number'],

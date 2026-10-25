@@ -10,6 +10,7 @@ class FixedCustody extends Model
     use HasFactory;
 
     protected $fillable = [
+        'branch_id',
         'item_id',
         'quantity',
         'serial_start',
@@ -38,4 +39,10 @@ class FixedCustody extends Model
     {
         return $this->morphTo();
     }
+
+    public function branch()
+    {
+        return $this->belongsTo(\App\Models\Branch::class, 'branch_id');
+    }
 }
+

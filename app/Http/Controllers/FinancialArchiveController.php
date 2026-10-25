@@ -10,11 +10,14 @@ use Illuminate\Support\Facades\Log;
 
 class FinancialArchiveController extends Controller
 {
+    use \App\Traits\HandlesBranchScope;
+
     public function index(Request $request)
     {
         \Log::info("FinancialArchive index called");
         try {
             $query = \App\Models\FinancialArchive::query();
+            $this->applyBranchScope($query, $request);
 
             if ($request->has('category') && $request->category !== 'all') {
                 $query->where('category', $request->category);
@@ -66,7 +69,8 @@ class FinancialArchiveController extends Controller
                 'file_type' => strtoupper($type),
                 'uploaded_by' => auth()->user()->name ?? 'System',
                 'related_entity' => $request->related_entity,
-                'status' => 'active'
+                'status' => 'active',
+                'branch_id' => $this->getResolvedBranchId($request) ?? $request->user()?->branch_id ?? 1
             ]);
 
             return response()->json($archive, 201);

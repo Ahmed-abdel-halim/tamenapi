@@ -10,6 +10,7 @@ class Commission extends Model
     use HasFactory;
 
     protected $fillable = [
+        'branch_id',
         'branch_agent_id',
         'document_type',
         'document_number',
@@ -25,4 +26,10 @@ class Commission extends Model
     {
         return $this->belongsTo(BranchAgent::class, 'branch_agent_id');
     }
+
+    public function branch()
+    {
+        return $this->belongsTo(\App\Models\Branch::class, 'branch_id');
+    }
 }
+

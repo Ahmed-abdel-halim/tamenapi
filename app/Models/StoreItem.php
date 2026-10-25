@@ -10,6 +10,7 @@ class StoreItem extends Model
     use HasFactory;
 
     protected $fillable = [
+        'branch_id',
         'name',
         'serial_prefix',
         'category',
@@ -35,4 +36,10 @@ class StoreItem extends Model
     {
         return $this->hasMany(FixedCustody::class, 'item_id');
     }
+
+    public function branch()
+    {
+        return $this->belongsTo(\App\Models\Branch::class, 'branch_id');
+    }
 }
+

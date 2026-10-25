@@ -141,6 +141,7 @@ Route::get('/financial-statistics/comprehensive-production-portfolio/print', [\A
 // Branch Management Routes (إدارة الفروع المستقلة)
 Route::get('/branches/statistics', [BranchController::class, 'statistics']);
 Route::get('/branches/{id}/statistics', [BranchController::class, 'statistics']);
+Route::post('/branches/{id}/toggle-status', [BranchController::class, 'toggleStatus']);
 Route::apiResource('branches', BranchController::class);
 
 Route::apiResource('branches-agents', BranchAgentController::class);

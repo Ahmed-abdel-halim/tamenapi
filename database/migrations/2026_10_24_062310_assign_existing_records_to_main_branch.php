@@ -12,16 +12,26 @@ return new class extends Migration
      */
     public function up(): void
     {
-        // 1. Get the main branch ID (either is_main_branch = true, or ID 1, or the first branch)
+        // 1. Get or create the main branch ID (either is_main_branch = true, or ID 1, or the first branch)
         $mainBranch = Branch::where('is_main_branch', true)->first()
             ?? Branch::where('id', 1)->first()
             ?? Branch::first();
 
         if (!$mainBranch) {
-            return;
+            $mainBranchId = DB::table('branches')->insertGetId([
+                'id' => 1,
+                'code' => 'BR-01',
+                'name' => 'الفرع الرئيسي',
+                'city' => 'طرابلس',
+                'address' => 'الإدارة العامة - طرابلس',
+                'status' => 'نشط',
+                'is_main_branch' => true,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        } else {
+            $mainBranchId = $mainBranch->id;
         }
-
-        $mainBranchId = $mainBranch->id;
 
         // 2. Assign all existing agents with NULL branch_id to main branch
         if (Schema::hasTable('branches_agents') && Schema::hasColumn('branches_agents', 'branch_id')) {

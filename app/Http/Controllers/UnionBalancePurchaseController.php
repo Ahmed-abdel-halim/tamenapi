@@ -8,9 +8,13 @@ use Illuminate\Support\Facades\Storage;
 
 class UnionBalancePurchaseController extends Controller
 {
-    public function index()
+    use \App\Traits\HandlesBranchScope;
+
+    public function index(Request $request)
     {
-        $purchases = UnionBalancePurchase::orderBy('purchase_date', 'desc')->get();
+        $query = UnionBalancePurchase::query();
+        $this->applyBranchScope($query, $request);
+        $purchases = $query->orderBy('purchase_date', 'desc')->get();
         return response()->json([
             'success' => true,
             'data' => $purchases
@@ -53,6 +57,7 @@ class UnionBalancePurchaseController extends Controller
             $data['bank_deposit_image'] = $path;
         }
 
+        $data['branch_id'] = $this->getResolvedBranchId($request) ?? $request->user()?->branch_id ?? 1;
         $purchase = UnionBalancePurchase::create($data);
 
         return response()->json([

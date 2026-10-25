@@ -6,15 +6,22 @@ use App\Models\Department;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use App\Traits\HandlesBranchScope;
 
 class DepartmentController extends Controller
 {
-    public function index()
+    use HandlesBranchScope;
+
+    public function index(Request $request)
     {
         try {
-            $departments = Department::with(['users' => function ($query) {
-                $query->select('id', 'name', 'job_title', 'personal_phone', 'gender', 'profile_photo_path', 'is_active', 'show_on_landing', 'department_id');
-            }])->get();
+            $query = Department::with(['users' => function ($q) {
+                $q->select('id', 'name', 'job_title', 'personal_phone', 'gender', 'profile_photo_path', 'is_active', 'show_on_landing', 'department_id', 'branch_id');
+            }, 'branch']);
+
+            $this->applyBranchScope($query, $request);
+
+            $departments = $query->get();
 
             return response()->json($departments);
         } catch (\Throwable $e) {
@@ -31,21 +38,25 @@ class DepartmentController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
+            'branch_id' => 'nullable|exists:branches,id',
             'user_ids' => 'nullable|array',
             'user_ids.*' => 'exists:users,id',
         ]);
 
-        return DB::transaction(function () use ($validated) {
+        $branchId = $validated['branch_id'] ?? $this->getResolvedBranchId($request) ?? $request->user()?->branch_id ?? 1;
+
+        return DB::transaction(function () use ($validated, $branchId) {
             $department = Department::create([
                 'name' => $validated['name'],
                 'description' => $validated['description'] ?? null,
+                'branch_id' => $branchId,
             ]);
 
             if (!empty($validated['user_ids'])) {
                 User::whereIn('id', $validated['user_ids'])->update(['department_id' => $department->id]);
             }
 
-            return response()->json($department->load('users'), 201);
+            return response()->json($department->load(['users', 'branch']), 201);
         });
     }
 
@@ -53,7 +64,7 @@ class DepartmentController extends Controller
     {
         $department = Department::with(['users' => function ($query) {
             $query->where('is_active', true);
-        }])->findOrFail($id);
+        }, 'branch'])->findOrFail($id);
 
         return response()->json($department);
     }
@@ -65,15 +76,21 @@ class DepartmentController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
+            'branch_id' => 'nullable|exists:branches,id',
             'user_ids' => 'nullable|array',
             'user_ids.*' => 'exists:users,id',
         ]);
 
         return DB::transaction(function () use ($validated, $department) {
-            $department->update([
+            $updateData = [
                 'name' => $validated['name'],
                 'description' => $validated['description'] ?? null,
-            ]);
+            ];
+            if (isset($validated['branch_id'])) {
+                $updateData['branch_id'] = $validated['branch_id'];
+            }
+
+            $department->update($updateData);
 
             // Reset previously assigned users
             User::where('department_id', $department->id)->update(['department_id' => null]);
@@ -83,7 +100,7 @@ class DepartmentController extends Controller
                 User::whereIn('id', $validated['user_ids'])->update(['department_id' => $department->id]);
             }
 
-            return response()->json($department->load('users'));
+            return response()->json($department->load(['users', 'branch']));
         });
     }
 
@@ -99,6 +116,10 @@ class DepartmentController extends Controller
         return response()->json(['status' => 'deleted']);
     }
 
+    /**
+     * أقسام الواجهة العامة (Public Website Landing Page)
+     * تظل عامة لكافة الأقسام والموظفين لعرض كوادر المنظومة للجمهور
+     */
     public function publicDepartments()
     {
         try {

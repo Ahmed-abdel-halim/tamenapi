@@ -49,21 +49,33 @@ return new class extends Migration
             }
         }
 
-        // 2. Identify the main branch (ID 1 / is_main_branch = true)
+        // 2. Identify or create the main branch (ID 1 / is_main_branch = true)
         $mainBranch = Branch::where('is_main_branch', true)->first()
             ?? Branch::where('id', 1)->first()
             ?? Branch::first();
 
-        if ($mainBranch) {
+        if (!$mainBranch) {
+            $mainBranchId = DB::table('branches')->insertGetId([
+                'id' => 1,
+                'code' => 'BR-01',
+                'name' => 'الفرع الرئيسي',
+                'city' => 'طرابلس',
+                'address' => 'الإدارة العامة - طرابلس',
+                'status' => 'نشط',
+                'is_main_branch' => true,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        } else {
             $mainBranchId = $mainBranch->id;
+        }
 
-            // 3. Assign existing records to the main branch
-            foreach ($this->targetTables as $tableName) {
-                if (Schema::hasTable($tableName) && Schema::hasColumn($tableName, 'branch_id')) {
-                    DB::table($tableName)
-                        ->whereNull('branch_id')
-                        ->update(['branch_id' => $mainBranchId]);
-                }
+        // 3. Assign existing records to the main branch
+        foreach ($this->targetTables as $tableName) {
+            if (Schema::hasTable($tableName) && Schema::hasColumn($tableName, 'branch_id')) {
+                DB::table($tableName)
+                    ->whereNull('branch_id')
+                    ->update(['branch_id' => $mainBranchId]);
             }
         }
     }

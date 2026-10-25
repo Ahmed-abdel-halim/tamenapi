@@ -324,28 +324,136 @@ class BranchController extends Controller
     /**
      * Remove or deactivate the specified branch.
      */
+    /**
+     * Remove the specified branch and all related records across the entire system.
+     */
     public function destroy($id)
     {
         $branch = Branch::findOrFail($id);
 
-        $docsCount = InsuranceDocument::where('branch_id', $id)->count();
-        $usersCount = User::where('branch_id', $id)->count();
-
-        if ($docsCount > 0 || $usersCount > 0) {
-            $branch->status = 'موقف';
-            $branch->save();
-
+        if ((bool)$branch->is_main_branch || $branch->id == 1) {
             return response()->json([
-                'message' => "تم إيقاف الفرع لوجود {$docsCount} وثيقة و {$usersCount} موظف مرتبطين به.",
-                'deactivated' => true,
-                'branch' => $branch
-            ]);
+                'message' => 'لا يمكن حذف الفرع الرئيسي للشركة حفاظاً على سلامة البيانات الأساسية للمنظومة.'
+            ], 422);
         }
 
-        $branch->delete();
+        DB::beginTransaction();
+        try {
+            // 1. Delete all insurance documents across all 10 document types
+            $documentTables = [
+                'insurance_documents',
+                'international_insurance_documents',
+                'travel_insurance_documents',
+                'resident_insurance_documents',
+                'marine_structure_insurance_documents',
+                'professional_liability_insurance_documents',
+                'personal_accident_insurance_documents',
+                'school_student_insurance_documents',
+                'cash_in_transit_insurance_documents',
+                'cargo_insurance_documents',
+            ];
+            foreach ($documentTables as $tbl) {
+                if (\Illuminate\Support\Facades\Schema::hasTable($tbl) && \Illuminate\Support\Facades\Schema::hasColumn($tbl, 'branch_id')) {
+                    DB::table($tbl)->where('branch_id', $id)->delete();
+                }
+            }
+
+            // 2. Delete all operational, financial, accounting, claims, and request records
+            $operationalTables = [
+                'claims',
+                'claim_reports',
+                'claim_transfers',
+                'expenses',
+                'payment_vouchers',
+                'rental_vouchers',
+                'agent_transfers',
+                'treasury_transactions',
+                'bank_transactions',
+                'monthly_account_closures',
+                'financial_archives',
+                'employee_payrolls',
+                'employee_salary_histories',
+                'commissions',
+                'union_balance_purchases',
+                'insurance_supervision_payments',
+                'insurance_ownership_transfers',
+                'document_requests',
+                'compulsory_document_requests',
+                'agent_requests',
+                'agency_cancellations',
+                'employee_requests',
+                'profile_update_requests',
+                'fixed_custodies',
+                'custodies',
+                'custody_movements',
+                'inventory_stocks',
+                'store_items',
+                'pos_custody_movements',
+                'pos_machines',
+                'company_documents',
+                'mail_documents',
+                'departments',
+            ];
+            foreach ($operationalTables as $tbl) {
+                if (\Illuminate\Support\Facades\Schema::hasTable($tbl) && \Illuminate\Support\Facades\Schema::hasColumn($tbl, 'branch_id')) {
+                    DB::table($tbl)->where('branch_id', $id)->delete();
+                }
+            }
+
+            // 3. Delete agents assigned to this branch
+            if (\Illuminate\Support\Facades\Schema::hasTable('branches_agents') && \Illuminate\Support\Facades\Schema::hasColumn('branches_agents', 'branch_id')) {
+                DB::table('branches_agents')->where('branch_id', $id)->delete();
+            }
+
+            // 4. Delete users assigned to this branch (except super admins who might have a branch_id)
+            if (\Illuminate\Support\Facades\Schema::hasTable('users') && \Illuminate\Support\Facades\Schema::hasColumn('users', 'branch_id')) {
+                DB::table('users')
+                    ->where('branch_id', $id)
+                    ->where('is_admin', false)
+                    ->delete();
+                
+                // If any super admin was linked, unset their branch_id
+                DB::table('users')
+                    ->where('branch_id', $id)
+                    ->where('is_admin', true)
+                    ->update(['branch_id' => null]);
+            }
+
+            // 5. Delete the branch itself
+            $branch->delete();
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'تم حذف الفرع وكافة السجلات والمتعلقات التابعة له بنجاح.'
+            ]);
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            Log::error("Failed to delete branch ID {$id}: " . $e->getMessage());
+
+            return response()->json([
+                'message' => 'حدث خطأ أثناء محاولة حذف الفرع ومتعلقاته',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal Server Error'
+            ], 500);
+        }
+    }
+
+    /**
+     * Toggle branch active/inactive status.
+     */
+    public function toggleStatus($id)
+    {
+        $branch = Branch::findOrFail($id);
+
+        $newStatus = ($branch->status === 'نشط') ? 'موقف' : 'نشط';
+        $branch->status = $newStatus;
+        $branch->save();
 
         return response()->json([
-            'message' => 'تم حذف الفرع بنجاح'
+            'success' => true,
+            'message' => "تم " . ($newStatus === 'نشط' ? 'تنشيط' : 'تعطيل') . " الفرع ({$branch->name}) بنجاح.",
+            'branch' => $branch
         ]);
     }
 

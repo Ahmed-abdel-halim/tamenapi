@@ -198,7 +198,9 @@ class CanceledDocumentsController extends Controller
                 $modelClass = $info['model'];
                 $tableName = (new $modelClass)->getTable();
 
-                $query = $modelClass::where(function ($q) use ($tableName) {
+                $query = $modelClass::query();
+                $this->applyBranchScope($query, $request);
+                $query->where(function ($q) use ($tableName) {
                     $q->where('is_canceled', true);
                     if (\Illuminate\Support\Facades\Schema::hasColumn($tableName, 'status')) {
                         $q->orWhere('status', 'ملغية')->orWhere('status', 'ملغيه');

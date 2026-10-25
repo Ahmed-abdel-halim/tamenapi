@@ -10,6 +10,7 @@ class MailDocument extends Model
     use HasFactory;
 
     protected $fillable = [
+        'branch_id',
         'type',
         'referential_number',
         'serial_number',
@@ -69,4 +70,10 @@ class MailDocument extends Model
         }
         return $urls;
     }
+
+    public function branch()
+    {
+        return $this->belongsTo(\App\Models\Branch::class, 'branch_id');
+    }
 }
+

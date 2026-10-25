@@ -10,6 +10,7 @@ class CompanyDocument extends Model
     use HasFactory;
 
     protected $fillable = [
+        'branch_id',
         'name',
         'type',
         'document_number',
@@ -40,4 +41,10 @@ class CompanyDocument extends Model
         }
         return $urls;
     }
+
+    public function branch()
+    {
+        return $this->belongsTo(\App\Models\Branch::class, 'branch_id');
+    }
 }
+

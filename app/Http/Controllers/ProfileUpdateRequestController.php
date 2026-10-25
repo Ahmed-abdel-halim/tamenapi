@@ -10,6 +10,8 @@ use Illuminate\Support\Facades\Storage;
 
 class ProfileUpdateRequestController extends Controller
 {
+    use \App\Traits\HandlesBranchScope;
+
     /**
      * Get a list of pending/all profile update requests for admins.
      */

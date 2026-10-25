@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class PosMachine extends Model
 {
     protected $fillable = [
+        'branch_id',
         'pos_code',
         'machine_name',
         'machine_serial',
@@ -90,5 +91,11 @@ class PosMachine extends Model
             default       => $this->custody_status,
         };
     }
+
+    public function branch()
+    {
+        return $this->belongsTo(\App\Models\Branch::class, 'branch_id');
+    }
 }
+
 

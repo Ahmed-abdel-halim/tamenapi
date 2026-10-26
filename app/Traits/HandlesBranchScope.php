@@ -24,9 +24,14 @@ trait HandlesBranchScope
             $user = User::find($request->header('X-User-Id'));
         }
 
-        // Branch Admin is strictly locked to their branch
-        if ($user && (bool)($user->is_branch_admin ?? false) && !(bool)($user->is_admin ?? false) && $user->branch_id) {
-            return (int) $user->branch_id;
+        // Branch Admin or branch user (not Super Admin) is strictly locked to their branch
+        if ($user && !(bool)($user->is_admin ?? false)) {
+            if (!empty($user->branch_id)) {
+                return (int) $user->branch_id;
+            }
+            if ($user->managedBranch) {
+                return (int) $user->managedBranch->id;
+            }
         }
 
         // Header passed by frontend BranchSwitcher

@@ -31,6 +31,7 @@ use App\Notifications\SystemNotification;
 
 class BranchAgentController extends Controller
 {
+    use \App\Traits\HandlesBranchScope;
     /**
      * Display a listing of the resource.
      */
@@ -2099,33 +2100,26 @@ class BranchAgentController extends Controller
     /**
      * Get dashboard statistics for insurance documents
      */
-    public function getStatistics(Request $request)
+        public function getStatistics(Request $request)
     {
         try {
-            $userId = $request->header('X-User-Id') ?? $request->query('user_id');
-            $isAdmin = false;
+            $user = $request->user();
+            if (!$user && $request->header('X-User-Id')) {
+                $user = User::find($request->header('X-User-Id'));
+            }
+
+            $isAdmin = (bool)($user?->is_admin ?? false);
             $branchAgentId = null;
 
-            if ($userId) {
-                $userId = is_numeric($userId) ? (int)$userId : null;
-                if ($userId) {
-                    $user = User::find($userId);
-                    if ($user) {
-                        $isAdmin = $user->is_admin ?? false;
-                        if (!$isAdmin) {
-                            $branchAgent = BranchAgent::where('user_id', $userId)->first();
-                            if ($branchAgent) {
-                                $branchAgentId = $branchAgent->id;
-                            }
-                        }
-                    }
+            if ($user && !$isAdmin) {
+                $branchAgent = BranchAgent::where('user_id', $user->id)->first();
+                if ($branchAgent) {
+                    $branchAgentId = $branchAgent->id;
                 }
             }
 
-            $selectedBranchId = $request->header('X-Branch-Id') ?: $request->query('branch_id');
-            if (isset($user) && !$isAdmin && !empty($user->branch_id)) {
-                $selectedBranchId = $user->branch_id;
-            }
+            $selectedBranchId = $this->getResolvedBranchId($request);
+            $branchAgentIds = $selectedBranchId ? BranchAgent::where('branch_id', $selectedBranchId)->pluck('id')->toArray() : [];
 
             $applyCanceledFilter = function ($query) {
                 return $query->where(function ($q) {
@@ -2135,9 +2129,16 @@ class BranchAgentController extends Controller
                 });
             };
 
-            $applyBranchFilter = function ($query) use ($selectedBranchId) {
-                if ($selectedBranchId && $selectedBranchId !== 'all') {
-                    $query->where('branch_id', $selectedBranchId);
+            $applyScope = function ($query) use ($branchAgentId, $selectedBranchId, $branchAgentIds) {
+                if ($branchAgentId) {
+                    $query->where('branch_agent_id', $branchAgentId);
+                } elseif ($selectedBranchId) {
+                    $query->where(function ($q) use ($selectedBranchId, $branchAgentIds) {
+                        $q->where('branch_id', $selectedBranchId);
+                        if (!empty($branchAgentIds)) {
+                            $q->orWhereIn('branch_agent_id', $branchAgentIds);
+                        }
+                    });
                 }
                 return $query;
             };
@@ -2159,9 +2160,7 @@ class BranchAgentController extends Controller
 
             // Insurance Documents (Car Compulsory Insurance)
             $insuranceQuery = InsuranceDocument::query();
-            if (!$isAdmin) {
-                $insuranceQuery->where('branch_agent_id', $branchAgentId);
-            }
+            $applyScope($insuranceQuery);
             $insuranceQuery->where(function ($q) {
                 $q->where('insurance_type', 'تأمين إجباري سيارات')
                   ->orWhere('insurance_type', 'تأمين السيارات الإجباري')
@@ -2170,93 +2169,71 @@ class BranchAgentController extends Controller
                   ->orWhereNull('insurance_type')
                   ->orWhere('insurance_type', '');
             });
-            $statistics['insurance_documents'] = $applyCanceledFilter($applyBranchFilter($insuranceQuery))->active()->count();
+            $statistics['insurance_documents'] = $applyCanceledFilter($insuranceQuery)->active()->count();
 
             // Third Party Car Insurance Documents (تأمين طرف ثالث سيارات)
             $thirdPartyQuery = InsuranceDocument::query();
-            if (!$isAdmin) {
-                $thirdPartyQuery->where('branch_agent_id', $branchAgentId);
-            }
+            $applyScope($thirdPartyQuery);
             $thirdPartyQuery->where(function ($q) {
                 $q->where('insurance_type', 'تأمين طرف ثالث سيارات')
                   ->orWhere('insurance_type', 'طرف ثالث')
                   ->orWhere('insurance_type', 'third_party');
             });
-            $statistics['third_party_insurance_documents'] = $applyCanceledFilter($applyBranchFilter($thirdPartyQuery))->active()->count();
+            $statistics['third_party_insurance_documents'] = $applyCanceledFilter($thirdPartyQuery)->active()->count();
 
             // Foreign Car Insurance Documents (تأمين سيارات أجنبية)
             $foreignQuery = InsuranceDocument::query();
-            if (!$isAdmin) {
-                $foreignQuery->where('branch_agent_id', $branchAgentId);
-            }
+            $applyScope($foreignQuery);
             $foreignQuery->where(function ($q) {
                 $q->where('insurance_type', 'تأمين سيارات أجنبية')
                   ->orWhere('insurance_type', 'أجنبية')
                   ->orWhere('insurance_type', 'foreign');
             });
-            $statistics['foreign_car_insurance_documents'] = $applyCanceledFilter($applyBranchFilter($foreignQuery))->active()->count();
+            $statistics['foreign_car_insurance_documents'] = $applyCanceledFilter($foreignQuery)->active()->count();
 
             // Travel Insurance Documents
             $travelQuery = TravelInsuranceDocument::query();
-            if (!$isAdmin) {
-                $travelQuery->where('branch_agent_id', $branchAgentId);
-            }
-            $statistics['travel_insurance_documents'] = $applyCanceledFilter($applyBranchFilter($travelQuery))->active()->count();
+            $applyScope($travelQuery);
+            $statistics['travel_insurance_documents'] = $applyCanceledFilter($travelQuery)->active()->count();
 
             // Resident Insurance Documents
             $residentQuery = ResidentInsuranceDocument::query();
-            if (!$isAdmin) {
-                $residentQuery->where('branch_agent_id', $branchAgentId);
-            }
-            $statistics['resident_insurance_documents'] = $applyCanceledFilter($applyBranchFilter($residentQuery))->active()->count();
+            $applyScope($residentQuery);
+            $statistics['resident_insurance_documents'] = $applyCanceledFilter($residentQuery)->active()->count();
 
             // Marine Structure Insurance Documents
             $marineQuery = MarineStructureInsuranceDocument::query();
-            if (!$isAdmin) {
-                $marineQuery->where('branch_agent_id', $branchAgentId);
-            }
-            $statistics['marine_structure_insurance_documents'] = $applyCanceledFilter($applyBranchFilter($marineQuery))->active()->count();
+            $applyScope($marineQuery);
+            $statistics['marine_structure_insurance_documents'] = $applyCanceledFilter($marineQuery)->active()->count();
 
             // Professional Liability Insurance Documents
             $professionalQuery = ProfessionalLiabilityInsuranceDocument::query();
-            if (!$isAdmin) {
-                $professionalQuery->where('branch_agent_id', $branchAgentId);
-            }
-            $statistics['professional_liability_insurance_documents'] = $applyCanceledFilter($applyBranchFilter($professionalQuery))->active()->count();
+            $applyScope($professionalQuery);
+            $statistics['professional_liability_insurance_documents'] = $applyCanceledFilter($professionalQuery)->active()->count();
 
             // Personal Accident Insurance Documents
             $personalQuery = PersonalAccidentInsuranceDocument::query();
-            if (!$isAdmin) {
-                $personalQuery->where('branch_agent_id', $branchAgentId);
-            }
-            $statistics['personal_accident_insurance_documents'] = $applyCanceledFilter($applyBranchFilter($personalQuery))->active()->count();
+            $applyScope($personalQuery);
+            $statistics['personal_accident_insurance_documents'] = $applyCanceledFilter($personalQuery)->active()->count();
 
             // International Insurance Documents
             $internationalQuery = InternationalInsuranceDocument::query();
-            if (!$isAdmin) {
-                $internationalQuery->where('branch_agent_id', $branchAgentId);
-            }
-            $statistics['international_insurance_documents'] = $applyCanceledFilter($applyBranchFilter($internationalQuery))->active()->count();
+            $applyScope($internationalQuery);
+            $statistics['international_insurance_documents'] = $applyCanceledFilter($internationalQuery)->active()->count();
 
             // School Student Insurance Documents
             $schoolQuery = SchoolStudentInsuranceDocument::query();
-            if (!$isAdmin) {
-                $schoolQuery->where('branch_agent_id', $branchAgentId);
-            }
+            $applyScope($schoolQuery);
             $statistics['school_student_insurance_documents'] = $applyCanceledFilter($schoolQuery)->count();
 
             // Cargo Insurance Documents
             $cargoStatQuery = CargoInsuranceDocument::query();
-            if (!$isAdmin) {
-                $cargoStatQuery->where('branch_agent_id', $branchAgentId);
-            }
+            $applyScope($cargoStatQuery);
             $statistics['cargo_insurance_documents'] = $applyCanceledFilter($cargoStatQuery)->count();
 
             // Cash In Transit Insurance Documents
             $cashStatQuery = CashInTransitInsuranceDocument::query();
-            if (!$isAdmin) {
-                $cashStatQuery->where('branch_agent_id', $branchAgentId);
-            }
+            $applyScope($cashStatQuery);
             $statistics['cash_in_transit_insurance_documents'] = $applyCanceledFilter($cashStatQuery)->count();
 
             return response()->json($statistics);
@@ -2271,40 +2248,50 @@ class BranchAgentController extends Controller
     /**
      * Get latest 5 insurance documents
      */
-    public function getLatestDocuments(Request $request)
+        public function getLatestDocuments(Request $request)
     {
         try {
-            $userId = $request->header('X-User-Id') ?? $request->query('user_id');
-            $isAdmin = false;
+            $user = $request->user();
+            if (!$user && $request->header('X-User-Id')) {
+                $user = User::find($request->header('X-User-Id'));
+            }
+
+            $isAdmin = (bool)($user?->is_admin ?? false);
             $branchAgentId = null;
 
-            if ($userId) {
-                $userId = is_numeric($userId) ? (int)$userId : null;
-                if ($userId) {
-                    $user = User::find($userId);
-                    if ($user) {
-                        $isAdmin = $user->is_admin ?? false;
-                        if (!$isAdmin) {
-                            $branchAgent = BranchAgent::where('user_id', $userId)->first();
-                            if ($branchAgent) {
-                                $branchAgentId = $branchAgent->id;
-                            }
-                        }
-                    }
+            if ($user && !$isAdmin) {
+                $branchAgent = BranchAgent::where('user_id', $user->id)->first();
+                if ($branchAgent) {
+                    $branchAgentId = $branchAgent->id;
                 }
             }
+
+            $selectedBranchId = $this->getResolvedBranchId($request);
+            $branchAgentIds = $selectedBranchId ? BranchAgent::where('branch_id', $selectedBranchId)->pluck('id')->toArray() : [];
+
+            $applyScope = function ($query) use ($branchAgentId, $selectedBranchId, $branchAgentIds) {
+                if ($branchAgentId) {
+                    $query->where('branch_agent_id', $branchAgentId);
+                } elseif ($selectedBranchId) {
+                    $query->where(function ($q) use ($selectedBranchId, $branchAgentIds) {
+                        $q->where('branch_id', $selectedBranchId);
+                        if (!empty($branchAgentIds)) {
+                            $q->orWhereIn('branch_agent_id', $branchAgentIds);
+                        }
+                    });
+                }
+                return $query;
+            };
 
             $allDocuments = collect();
 
             // Insurance Documents (Car Insurance)
-            $insuranceQuery = InsuranceDocument::with('branchAgent');
-            if (!$isAdmin) {
-                $insuranceQuery->where('branch_agent_id', $branchAgentId);
-            }
+            $insuranceQuery = InsuranceDocument::with(['branchAgent', 'branch']);
+            $applyScope($insuranceQuery);
             $insuranceDocs = $insuranceQuery->orderBy('created_at', 'desc')
                 ->limit(5)
                 ->get()
-                ->map(function ($doc) use ($isAdmin) {
+                ->map(function ($doc) {
                     return [
                         'id' => $doc->id,
                         'insurance_number' => $doc->insurance_number ?? '-',
@@ -2313,7 +2300,7 @@ class BranchAgentController extends Controller
                         'total' => $doc->total ?? 0,
                         'premium' => $doc->premium ?? 0,
                         'insurance_type' => $doc->insurance_type ?? 'تأمين سيارات',
-                        'agency_name' => $isAdmin && $doc->branchAgent ? ($doc->branchAgent->agency_name ?? '-') : null,
+                        'agency_name' => $doc->branchAgent ? ($doc->branchAgent->agency_name ?? '-') : ($doc->branch ? ($doc->branch->name ?? '-') : '-'),
                         'created_at' => $doc->created_at,
                         'issue_date' => $doc->issue_date ?? $doc->created_at,
                         'type' => 'insurance',
@@ -2322,24 +2309,20 @@ class BranchAgentController extends Controller
             $allDocuments = $allDocuments->concat($insuranceDocs);
 
             // Travel Insurance Documents
-            $travelQuery = TravelInsuranceDocument::with(['branchAgent', 'passengers']);
-            if (!$isAdmin) {
-                $travelQuery->where('branch_agent_id', $branchAgentId);
-            }
+            $travelQuery = TravelInsuranceDocument::with(['branchAgent', 'branch', 'passengers']);
+            $applyScope($travelQuery);
             $travelDocs = $travelQuery->orderBy('created_at', 'desc')
                 ->limit(5)
                 ->get()
-                ->map(function ($doc) use ($isAdmin) {
-                    // جمع أسماء جميع الركاب من name_ar
-                    $allNames = $doc->passengers->pluck('name_ar')->filter(function($name) {
+                ->map(function ($doc) {
+                    $allNames = $doc->passengers ? $doc->passengers->pluck('name_ar')->filter(function($name) {
                         return !empty($name) && trim($name) !== '';
-                    })->unique()->values();
-                    $insuredName = $allNames->isNotEmpty() ? $allNames->join('، ') : '-';
-                    // جمع أرقام الهواتف
-                    $allPhones = $doc->passengers->pluck('phone')->filter(function($phone) {
+                    })->unique()->values() : collect();
+                    $insuredName = $allNames->isNotEmpty() ? $allNames->join('، ') : ($doc->insured_name ?? '-');
+                    $allPhones = $doc->passengers ? $doc->passengers->pluck('phone')->filter(function($phone) {
                         return !empty($phone) && trim($phone) !== '';
-                    })->unique()->values();
-                    $phone = $allPhones->isNotEmpty() ? $allPhones->first() : '-';
+                    })->unique()->values() : collect();
+                    $phone = $allPhones->isNotEmpty() ? $allPhones->first() : ($doc->phone ?? '-');
                     return [
                         'id' => $doc->id,
                         'insurance_number' => $doc->insurance_number ?? '-',
@@ -2348,7 +2331,7 @@ class BranchAgentController extends Controller
                         'total' => $doc->total ?? 0,
                         'premium' => $doc->premium ?? 0,
                         'insurance_type' => 'تأمين المسافرين',
-                        'agency_name' => $isAdmin && $doc->branchAgent ? ($doc->branchAgent->agency_name ?? '-') : null,
+                        'agency_name' => $doc->branchAgent ? ($doc->branchAgent->agency_name ?? '-') : ($doc->branch ? ($doc->branch->name ?? '-') : '-'),
                         'created_at' => $doc->created_at,
                         'issue_date' => $doc->issue_date ?? $doc->created_at,
                         'type' => 'travel',
@@ -2357,24 +2340,20 @@ class BranchAgentController extends Controller
             $allDocuments = $allDocuments->concat($travelDocs);
 
             // Resident Insurance Documents
-            $residentQuery = ResidentInsuranceDocument::with(['branchAgent', 'passengers']);
-            if (!$isAdmin) {
-                $residentQuery->where('branch_agent_id', $branchAgentId);
-            }
+            $residentQuery = ResidentInsuranceDocument::with(['branchAgent', 'branch', 'passengers']);
+            $applyScope($residentQuery);
             $residentDocs = $residentQuery->orderBy('created_at', 'desc')
                 ->limit(5)
                 ->get()
-                ->map(function ($doc) use ($isAdmin) {
-                    // جمع أسماء جميع الركاب من name_ar
-                    $allNames = $doc->passengers->pluck('name_ar')->filter(function($name) {
+                ->map(function ($doc) {
+                    $allNames = $doc->passengers ? $doc->passengers->pluck('name_ar')->filter(function($name) {
                         return !empty($name) && trim($name) !== '';
-                    })->unique()->values();
-                    $insuredName = $allNames->isNotEmpty() ? $allNames->join('، ') : '-';
-                    // جمع أرقام الهواتف
-                    $allPhones = $doc->passengers->pluck('phone')->filter(function($phone) {
+                    })->unique()->values() : collect();
+                    $insuredName = $allNames->isNotEmpty() ? $allNames->join('، ') : ($doc->insured_name ?? '-');
+                    $allPhones = $doc->passengers ? $doc->passengers->pluck('phone')->filter(function($phone) {
                         return !empty($phone) && trim($phone) !== '';
-                    })->unique()->values();
-                    $phone = $allPhones->isNotEmpty() ? $allPhones->first() : '-';
+                    })->unique()->values() : collect();
+                    $phone = $allPhones->isNotEmpty() ? $allPhones->first() : ($doc->phone ?? '-');
                     return [
                         'id' => $doc->id,
                         'insurance_number' => $doc->insurance_number ?? '-',
@@ -2383,7 +2362,7 @@ class BranchAgentController extends Controller
                         'total' => $doc->total ?? 0,
                         'premium' => $doc->premium ?? 0,
                         'insurance_type' => 'تأمين الوافدين',
-                        'agency_name' => $isAdmin && $doc->branchAgent ? ($doc->branchAgent->agency_name ?? '-') : null,
+                        'agency_name' => $doc->branchAgent ? ($doc->branchAgent->agency_name ?? '-') : ($doc->branch ? ($doc->branch->name ?? '-') : '-'),
                         'created_at' => $doc->created_at,
                         'issue_date' => $doc->issue_date ?? $doc->created_at,
                         'type' => 'resident',
@@ -2392,14 +2371,12 @@ class BranchAgentController extends Controller
             $allDocuments = $allDocuments->concat($residentDocs);
 
             // Marine Structure Insurance Documents
-            $marineQuery = MarineStructureInsuranceDocument::with('branchAgent');
-            if (!$isAdmin) {
-                $marineQuery->where('branch_agent_id', $branchAgentId);
-            }
+            $marineQuery = MarineStructureInsuranceDocument::with(['branchAgent', 'branch']);
+            $applyScope($marineQuery);
             $marineDocs = $marineQuery->orderBy('created_at', 'desc')
                 ->limit(5)
                 ->get()
-                ->map(function ($doc) use ($isAdmin) {
+                ->map(function ($doc) {
                     return [
                         'id' => $doc->id,
                         'insurance_number' => $doc->insurance_number ?? '-',
@@ -2408,7 +2385,7 @@ class BranchAgentController extends Controller
                         'total' => $doc->total ?? 0,
                         'premium' => $doc->premium ?? 0,
                         'insurance_type' => 'تأمين الهياكل البحرية',
-                        'agency_name' => $isAdmin && $doc->branchAgent ? ($doc->branchAgent->agency_name ?? '-') : null,
+                        'agency_name' => $doc->branchAgent ? ($doc->branchAgent->agency_name ?? '-') : ($doc->branch ? ($doc->branch->name ?? '-') : '-'),
                         'created_at' => $doc->created_at,
                         'issue_date' => $doc->issue_date ?? $doc->created_at,
                         'type' => 'marine',
@@ -2417,14 +2394,12 @@ class BranchAgentController extends Controller
             $allDocuments = $allDocuments->concat($marineDocs);
 
             // Professional Liability Insurance Documents
-            $professionalQuery = ProfessionalLiabilityInsuranceDocument::with('branchAgent');
-            if (!$isAdmin) {
-                $professionalQuery->where('branch_agent_id', $branchAgentId);
-            }
+            $professionalQuery = ProfessionalLiabilityInsuranceDocument::with(['branchAgent', 'branch']);
+            $applyScope($professionalQuery);
             $professionalDocs = $professionalQuery->orderBy('created_at', 'desc')
                 ->limit(5)
                 ->get()
-                ->map(function ($doc) use ($isAdmin) {
+                ->map(function ($doc) {
                     return [
                         'id' => $doc->id,
                         'insurance_number' => $doc->insurance_number ?? '-',
@@ -2433,7 +2408,7 @@ class BranchAgentController extends Controller
                         'total' => $doc->total ?? 0,
                         'premium' => $doc->premium ?? 0,
                         'insurance_type' => 'تأمين المسؤولية المهنية (الطبية)',
-                        'agency_name' => $isAdmin && $doc->branchAgent ? ($doc->branchAgent->agency_name ?? '-') : null,
+                        'agency_name' => $doc->branchAgent ? ($doc->branchAgent->agency_name ?? '-') : ($doc->branch ? ($doc->branch->name ?? '-') : '-'),
                         'created_at' => $doc->created_at,
                         'issue_date' => $doc->issue_date ?? $doc->created_at,
                         'type' => 'professional',
@@ -2442,23 +2417,21 @@ class BranchAgentController extends Controller
             $allDocuments = $allDocuments->concat($professionalDocs);
 
             // Personal Accident Insurance Documents
-            $personalQuery = PersonalAccidentInsuranceDocument::with('branchAgent');
-            if (!$isAdmin) {
-                $personalQuery->where('branch_agent_id', $branchAgentId);
-            }
+            $personalQuery = PersonalAccidentInsuranceDocument::with(['branchAgent', 'branch']);
+            $applyScope($personalQuery);
             $personalDocs = $personalQuery->orderBy('created_at', 'desc')
                 ->limit(5)
                 ->get()
-                ->map(function ($doc) use ($isAdmin) {
+                ->map(function ($doc) {
                     return [
                         'id' => $doc->id,
                         'insurance_number' => $doc->insurance_number ?? '-',
-                        'insured_name' => $doc->name ?? '-',
+                        'insured_name' => $doc->name ?? $doc->insured_name ?? '-',
                         'phone' => $doc->phone ?? '-',
                         'total' => $doc->total ?? 0,
                         'premium' => $doc->premium ?? 0,
                         'insurance_type' => 'تأمين الحوادث الشخصية',
-                        'agency_name' => $isAdmin && $doc->branchAgent ? ($doc->branchAgent->agency_name ?? '-') : null,
+                        'agency_name' => $doc->branchAgent ? ($doc->branchAgent->agency_name ?? '-') : ($doc->branch ? ($doc->branch->name ?? '-') : '-'),
                         'created_at' => $doc->created_at,
                         'issue_date' => $doc->issue_date ?? $doc->created_at,
                         'type' => 'personal',
@@ -2467,14 +2440,12 @@ class BranchAgentController extends Controller
             $allDocuments = $allDocuments->concat($personalDocs);
 
             // International Insurance Documents
-            $internationalQuery = InternationalInsuranceDocument::with('branchAgent');
-            if (!$isAdmin) {
-                $internationalQuery->where('branch_agent_id', $branchAgentId);
-            }
+            $internationalQuery = InternationalInsuranceDocument::with(['branchAgent', 'branch']);
+            $applyScope($internationalQuery);
             $internationalDocs = $internationalQuery->orderBy('created_at', 'desc')
                 ->limit(5)
                 ->get()
-                ->map(function ($doc) use ($isAdmin) {
+                ->map(function ($doc) {
                     return [
                         'id' => $doc->id,
                         'insurance_number' => $doc->document_number ?? '-',
@@ -2483,7 +2454,7 @@ class BranchAgentController extends Controller
                         'total' => $doc->total ?? 0,
                         'premium' => $doc->premium ?? 0,
                         'insurance_type' => 'تأمين السيارات الدولي',
-                        'agency_name' => $isAdmin && $doc->branchAgent ? ($doc->branchAgent->agency_name ?? '-') : null,
+                        'agency_name' => $doc->branchAgent ? ($doc->branchAgent->agency_name ?? '-') : ($doc->branch ? ($doc->branch->name ?? '-') : '-'),
                         'created_at' => $doc->created_at,
                         'issue_date' => $doc->issue_date ?? $doc->created_at,
                         'type' => 'international',
@@ -2492,14 +2463,12 @@ class BranchAgentController extends Controller
             $allDocuments = $allDocuments->concat($internationalDocs);
 
             // School Student Insurance Documents
-            $schoolLatestQuery = SchoolStudentInsuranceDocument::with('branchAgent');
-            if (!$isAdmin) {
-                $schoolLatestQuery->where('branch_agent_id', $branchAgentId);
-            }
+            $schoolLatestQuery = SchoolStudentInsuranceDocument::with(['branchAgent', 'branch']);
+            $applyScope($schoolLatestQuery);
             $schoolLatestDocs = $schoolLatestQuery->orderBy('created_at', 'desc')
                 ->limit(5)
                 ->get()
-                ->map(function ($doc) use ($isAdmin) {
+                ->map(function ($doc) {
                     return [
                         'id' => $doc->id,
                         'insurance_number' => $doc->insurance_number ?? '-',
@@ -2508,7 +2477,7 @@ class BranchAgentController extends Controller
                         'total' => $doc->total ?? 0,
                         'premium' => $doc->premium ?? 0,
                         'insurance_type' => 'تأمين طلبة المدارس',
-                        'agency_name' => $isAdmin && $doc->branchAgent ? ($doc->branchAgent->agency_name ?? '-') : null,
+                        'agency_name' => $doc->branchAgent ? ($doc->branchAgent->agency_name ?? '-') : ($doc->branch ? ($doc->branch->name ?? '-') : '-'),
                         'created_at' => $doc->created_at,
                         'issue_date' => $doc->issue_date ?? $doc->created_at,
                         'type' => 'school',
@@ -2517,14 +2486,12 @@ class BranchAgentController extends Controller
             $allDocuments = $allDocuments->concat($schoolLatestDocs);
 
             // Cargo Insurance Documents
-            $cargoLatestQuery = CargoInsuranceDocument::with('branchAgent');
-            if (!$isAdmin) {
-                $cargoLatestQuery->where('branch_agent_id', $branchAgentId);
-            }
+            $cargoLatestQuery = CargoInsuranceDocument::with(['branchAgent', 'branch']);
+            $applyScope($cargoLatestQuery);
             $cargoLatestDocs = $cargoLatestQuery->orderBy('created_at', 'desc')
                 ->limit(5)
                 ->get()
-                ->map(function ($doc) use ($isAdmin) {
+                ->map(function ($doc) {
                     return [
                         'id' => $doc->id,
                         'insurance_number' => $doc->insurance_number ?? '-',
@@ -2533,7 +2500,7 @@ class BranchAgentController extends Controller
                         'total' => $doc->total ?? 0,
                         'premium' => $doc->premium ?? 0,
                         'insurance_type' => 'تأمين البضائع',
-                        'agency_name' => $isAdmin && $doc->branchAgent ? ($doc->branchAgent->agency_name ?? '-') : null,
+                        'agency_name' => $doc->branchAgent ? ($doc->branchAgent->agency_name ?? '-') : ($doc->branch ? ($doc->branch->name ?? '-') : '-'),
                         'created_at' => $doc->created_at,
                         'issue_date' => $doc->issue_date ?? $doc->created_at,
                         'type' => 'cargo',
@@ -2542,14 +2509,12 @@ class BranchAgentController extends Controller
             $allDocuments = $allDocuments->concat($cargoLatestDocs);
 
             // Cash In Transit Insurance Documents
-            $cashLatestQuery = CashInTransitInsuranceDocument::with('branchAgent');
-            if (!$isAdmin) {
-                $cashLatestQuery->where('branch_agent_id', $branchAgentId);
-            }
+            $cashLatestQuery = CashInTransitInsuranceDocument::with(['branchAgent', 'branch']);
+            $applyScope($cashLatestQuery);
             $cashLatestDocs = $cashLatestQuery->orderBy('created_at', 'desc')
                 ->limit(5)
                 ->get()
-                ->map(function ($doc) use ($isAdmin) {
+                ->map(function ($doc) {
                     return [
                         'id' => $doc->id,
                         'insurance_number' => $doc->insurance_number ?? '-',
@@ -2558,7 +2523,7 @@ class BranchAgentController extends Controller
                         'total' => $doc->total ?? 0,
                         'premium' => $doc->premium ?? 0,
                         'insurance_type' => 'تأمين نقل النقدية',
-                        'agency_name' => $isAdmin && $doc->branchAgent ? ($doc->branchAgent->agency_name ?? '-') : null,
+                        'agency_name' => $doc->branchAgent ? ($doc->branchAgent->agency_name ?? '-') : ($doc->branch ? ($doc->branch->name ?? '-') : '-'),
                         'created_at' => $doc->created_at,
                         'issue_date' => $doc->issue_date ?? $doc->created_at,
                         'type' => 'cash',
@@ -2582,7 +2547,7 @@ class BranchAgentController extends Controller
                         'total' => (float) ($doc['total'] ?? $doc['premium'] ?? 0),
                         'insurance_type' => $doc['insurance_type'],
                         'agency_name' => $doc['agency_name'],
-                        'created_at' => $doc['created_at'] ? $doc['created_at']->format('Y-m-d H:i:s') : null,
+                        'created_at' => $doc['created_at'] ? ($doc['created_at'] instanceof \Carbon\Carbon ? $doc['created_at']->format('Y-m-d H:i:s') : (string)$doc['created_at']) : null,
                         'type' => $doc['type'],
                     ];
                 });
@@ -3614,11 +3579,23 @@ class BranchAgentController extends Controller
     /**
      * الإحصائيات المالية الشاملة لجميع الوكلاء (على مستوى الشركة) - نسخة محسنة لمنع النفاذ الزمني
      */
-    public function getGlobalFinancialStats(Request $request)
+        public function getGlobalFinancialStats(Request $request)
     {
         try {
+            $user = $request->user();
+            if (!$user && $request->header('X-User-Id')) {
+                $user = User::find($request->header('X-User-Id'));
+            }
+
+            $selectedBranchId = $this->getResolvedBranchId($request);
+            $branchAgentIds = $selectedBranchId ? BranchAgent::where('branch_id', $selectedBranchId)->pluck('id')->toArray() : [];
+
             // جلب الوكلاء مرة واحدة وتخزين نسبهم في الذاكرة لتجنب استعلامات N+1
-            $agents = BranchAgent::select('id', 'document_percentages')->get()->keyBy('id');
+            $agentsQuery = BranchAgent::select('id', 'document_percentages', 'branch_id');
+            if ($selectedBranchId) {
+                $agentsQuery->where('branch_id', $selectedBranchId);
+            }
+            $agents = $agentsQuery->get()->keyBy('id');
 
             $totalDocuments  = 0;
             $totalRevenue    = 0;
@@ -3630,7 +3607,16 @@ class BranchAgentController extends Controller
 
             // 1. insurance_documents (تأمين السيارات بكل أنواعه)
             if (DB::getSchemaBuilder()->hasTable('insurance_documents')) {
-                $rows = DB::table('insurance_documents')
+                $insQuery = DB::table('insurance_documents');
+                if ($selectedBranchId) {
+                    $insQuery->where(function ($q) use ($selectedBranchId, $branchAgentIds) {
+                        $q->where('branch_id', $selectedBranchId);
+                        if (!empty($branchAgentIds)) {
+                            $q->orWhereIn('branch_agent_id', $branchAgentIds);
+                        }
+                    });
+                }
+                $rows = $insQuery
                     ->select('branch_agent_id', 'total', 'premium', 'insurance_type', 'end_date', 'issue_date', 'created_at')
                     ->get();
 
@@ -3671,10 +3657,10 @@ class BranchAgentController extends Controller
                 'cash_in_transit_insurance_documents' => 'تأمين نقل النقدية',
             ];
 
+            $schema = DB::getSchemaBuilder();
             foreach ($tables as $tableName => $pctKey) {
-                if (!DB::getSchemaBuilder()->hasTable($tableName)) continue;
+                if (!$schema->hasTable($tableName)) continue;
 
-                $schema = DB::getSchemaBuilder();
                 $hasTotal        = $schema->hasColumn($tableName, 'total');
                 $hasPremium      = $schema->hasColumn($tableName, 'premium');
                 $hasPremiumAmount = $schema->hasColumn($tableName, 'premium_amount');
@@ -3703,7 +3689,29 @@ class BranchAgentController extends Controller
                     }
                 }
 
-                $rows = DB::table($tableName)
+                $tableQuery = DB::table($tableName);
+                if ($selectedBranchId) {
+                    $hasBranchIdCol = $schema->hasColumn($tableName, 'branch_id');
+                    $hasAgentCol = $schema->hasColumn($tableName, 'branch_agent_id');
+                    if ($hasBranchIdCol && $hasAgentCol) {
+                        $tableQuery->where(function ($q) use ($selectedBranchId, $branchAgentIds) {
+                            $q->where('branch_id', $selectedBranchId);
+                            if (!empty($branchAgentIds)) {
+                                $q->orWhereIn('branch_agent_id', $branchAgentIds);
+                            }
+                        });
+                    } elseif ($hasBranchIdCol) {
+                        $tableQuery->where('branch_id', $selectedBranchId);
+                    } elseif ($hasAgentCol) {
+                        if (!empty($branchAgentIds)) {
+                            $tableQuery->whereIn('branch_agent_id', $branchAgentIds);
+                        } else {
+                            $tableQuery->whereRaw('1=0');
+                        }
+                    }
+                }
+
+                $rows = $tableQuery
                     ->select($selectCols)
                     ->get();
 
@@ -3732,26 +3740,48 @@ class BranchAgentController extends Controller
 
             $totalCompanyShare = $totalRevenue - $totalAgentShare;
 
-            // المدفوع للشركة = مجموع كافة المقبوضات وإيصالات القبض الرسمية لجميع الوكلاء
-            $paidToCompany = DB::table('payment_vouchers')->sum('amount');
+            // المدفوع للشركة = مجموع كافة المقبوضات وإيصالات القبض الرسمية
+            $voucherQuery = DB::table('payment_vouchers');
+            if ($selectedBranchId) {
+                $voucherQuery->where(function ($q) use ($selectedBranchId, $branchAgentIds) {
+                    $q->where('branch_id', $selectedBranchId);
+                    if (!empty($branchAgentIds)) {
+                        $q->orWhereIn('branch_agent_id', $branchAgentIds);
+                    }
+                });
+            }
+            $paidToCompany = (float)$voucherQuery->sum('amount');
+
             if (DB::getSchemaBuilder()->hasTable('monthly_account_closures')) {
                 $linkedClosureIds = [];
-                $vouchers = DB::table('payment_vouchers')->get(['extra_details']);
+                $vouchers = (clone $voucherQuery)->get(['extra_details']);
                 foreach ($vouchers as $v) {
                     $extra = is_string($v->extra_details) ? json_decode($v->extra_details, true) : (array)($v->extra_details ?? []);
                     if (!empty($extra['closure_id'])) {
                         $linkedClosureIds[$extra['closure_id']] = true;
                     }
                 }
-                $unlinkedClosures = DB::table('monthly_account_closures')
-                    ->where('paid_amount', '>', 0)
-                    ->whereNotIn('id', array_keys($linkedClosureIds))
-                    ->sum('paid_amount');
+                $closureQuery = DB::table('monthly_account_closures')
+                    ->where('paid_amount', '>', 0);
+                if ($selectedBranchId) {
+                    $closureQuery->where(function ($q) use ($selectedBranchId, $branchAgentIds) {
+                        $q->where('branch_id', $selectedBranchId);
+                        if (!empty($branchAgentIds)) {
+                            $q->orWhereIn('branch_agent_id', $branchAgentIds);
+                        }
+                    });
+                }
+                if (!empty($linkedClosureIds)) {
+                    $closureQuery->whereNotIn('id', array_keys($linkedClosureIds));
+                }
+                $unlinkedClosures = $closureQuery->sum('paid_amount');
                 $paidToCompany += (float)$unlinkedClosures;
             }
 
             // المتبقي = حصة الشركة - المدفوع
             $remainingForCompany = max(0, $totalCompanyShare - $paidToCompany);
+
+            $branchObj = $selectedBranchId ? \App\Models\Branch::find($selectedBranchId) : null;
 
             return response()->json([
                 'success'               => true,
@@ -3763,12 +3793,14 @@ class BranchAgentController extends Controller
                 'agent_share'           => round($totalAgentShare, 2),
                 'paid_to_company'       => round($paidToCompany, 2),
                 'remaining_for_company' => round($remainingForCompany, 2),
+                'branch_id'             => $selectedBranchId,
+                'branch_name'           => $branchObj ? $branchObj->name : null,
             ]);
 
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'حدث خطأ أثناء جلب الإحصائيات المالية العالمية للشركة',
+                'message' => 'حدث خطأ أثناء جلب الإحصائيات المالية',
                 'error'   => config('app.debug') ? $e->getMessage() : 'خطأ غير معروف',
             ], 500);
         }

@@ -34,78 +34,14 @@
         :root {
             --primary: #005a9c;
             --primary-dark: #003b66;
-            --primary-light: #e6f0fa;
+            --primary-light: #f0f7ff;
             --accent: #0284c7;
             --text-dark: #0f172a;
             --text-muted: #475569;
             --border-color: #cbd5e1;
-            --bg-table-head: #005a9c;
+            --border-dark: #94a3b8;
+            --bg-table-head: #f1f5f9;
             --bg-subtle: #f8fafc;
-            --badge-green: #059669;
-        }
-
-        /* Ink Saver / Eco Mode (توفير الحبر) */
-        body.eco-mode {
-            --primary: #1e293b;
-            --primary-dark: #0f172a;
-            --primary-light: #f8fafc;
-            --accent: #334155;
-            --bg-table-head: #334155;
-            --badge-green: #1e293b;
-        }
-        body.eco-mode .header-banner {
-            background: #fff !important;
-            color: #0f172a !important;
-            border: 2px solid #0f172a !important;
-            box-shadow: none !important;
-        }
-        body.eco-mode .header-banner h1,
-        body.eco-mode .header-banner h2 {
-            color: #0f172a !important;
-        }
-        body.eco-mode .header-banner .plane-icon {
-            color: #0f172a !important;
-        }
-        body.eco-mode .section-header {
-            background: #e2e8f0 !important;
-            color: #0f172a !important;
-            border-bottom: 2px solid #64748b !important;
-        }
-        body.eco-mode .benefits-card-header {
-            background: #e2e8f0 !important;
-            color: #0f172a !important;
-        }
-        body.eco-mode .benefits-card-header .limit-badge {
-            background: #0f172a !important;
-            color: #fff !important;
-        }
-        body.eco-mode th {
-            background: #f1f5f9 !important;
-            color: #0f172a !important;
-            border: 1px solid #94a3b8 !important;
-        }
-        body.eco-mode .emergency-pill {
-            background: #f1f5f9 !important;
-            color: #0f172a !important;
-            border: 2px solid #0f172a !important;
-        }
-        body.eco-mode .emergency-phone {
-            color: #0f172a !important;
-        }
-        body.eco-mode .info-card-header.blue,
-        body.eco-mode .info-card-header.navy,
-        body.eco-mode .info-card-header.teal {
-            background: #e2e8f0 !important;
-            color: #0f172a !important;
-            border-bottom: 1px solid #94a3b8 !important;
-        }
-
-        /* Pre-printed stationery mode (إخفاء الترويسة والفوتر عند الطباعة على ورق مروّس مسبقاً) */
-        body.stationery-mode .print-header-area {
-            visibility: hidden !important;
-        }
-        body.stationery-mode .print-footer-area {
-            visibility: hidden !important;
         }
 
         * {
@@ -123,24 +59,24 @@
 
         body {
             font-family: 'Tajawal', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            font-size: 8px;
+            font-size: 8.8px;
             color: var(--text-dark);
             background: #eef2f6;
-            line-height: 1.25;
+            line-height: 1.28;
             direction: rtl;
         }
 
-        /* Floating Interactive Action Bar */
+        /* Floating Minimalist Action Bar (Print & Close only) */
         .action-bar {
             position: fixed;
             top: 12px;
             left: 50%;
             transform: translateX(-50%);
-            background: rgba(15, 23, 42, 0.94);
+            background: rgba(15, 23, 42, 0.95);
             backdrop-filter: blur(12px);
             padding: 8px 18px;
             border-radius: 9999px;
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.35), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.35);
             display: flex;
             align-items: center;
             gap: 12px;
@@ -151,10 +87,10 @@
             background: #fff;
             color: #0f172a;
             border: none;
-            padding: 6px 14px;
+            padding: 7px 18px;
             font-family: inherit;
-            font-size: 11px;
-            font-weight: 700;
+            font-size: 12px;
+            font-weight: 800;
             border-radius: 9999px;
             cursor: pointer;
             display: inline-flex;
@@ -165,96 +101,87 @@
         }
         .action-btn:hover {
             transform: translateY(-1px);
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
         }
         .action-btn-primary {
             background: linear-gradient(135deg, #0284c7, #005a9c);
             color: #fff;
         }
-        .action-btn.active {
-            background: #059669;
-            color: #fff;
-        }
-        .action-bar .divider {
-            width: 1px;
-            height: 22px;
-            background: rgba(255, 255, 255, 0.25);
-        }
-        .action-bar span.label {
-            color: #e2e8f0;
-            font-size: 11px;
-            font-weight: 600;
-        }
 
-        /* Printable Sheet Layout */
+        /* Printable Sheet Layout - Sized to fill the full A4 Page Height */
         .page-sheet {
             width: 210mm;
-            min-height: 297mm;
+            height: 289mm;
+            max-height: 289mm;
             margin: 55px auto 20px auto;
             background: #fff;
-            padding: 5mm 7mm;
+            padding: 4mm 6mm;
             box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
             position: relative;
             box-sizing: border-box;
             border-radius: 2px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            overflow: hidden;
         }
 
-        /* Top Header */
+        /* 1. Top Header */
         .print-header-area {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding-bottom: 3px;
-            border-bottom: 2px solid #005a9c;
-            margin-bottom: 4px;
-            min-height: 68px;
+            padding-bottom: 4px;
+            border-bottom: 2px solid var(--primary);
+            min-height: 62px;
+        }
+        .header-logo-left {
+            width: 140px;
+            text-align: right;
+            display: flex;
+            align-items: center;
+        }
+        .header-logo-left img {
+            max-height: 56px;
+            max-width: 135px;
+            object-fit: contain;
         }
         .header-logo-center {
             text-align: center;
             flex: 1;
         }
         .company-title-ar {
-            font-size: 15px;
+            font-size: 16px;
             font-weight: 900;
-            color: #005a9c;
+            color: var(--primary);
             letter-spacing: 0.3px;
+            line-height: 1.2;
         }
         .company-title-en {
-            font-size: 8.5px;
+            font-size: 9px;
             font-weight: 800;
-            color: #0f172a;
-            letter-spacing: 0.5px;
+            color: var(--text-dark);
+            letter-spacing: 0.6px;
             margin-top: 1px;
         }
         .company-slogan {
-            font-size: 7.5px;
+            font-size: 8px;
             font-weight: 600;
-            color: #0284c7;
+            color: var(--accent);
             margin-top: 1px;
         }
-        .header-art-left {
-            width: 135px;
-            text-align: right;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-        .header-art-left img {
-            max-height: 52px;
-            object-fit: contain;
-        }
         .header-qr-right {
-            width: 135px;
+            width: 140px;
             display: flex;
             align-items: center;
             justify-content: flex-end;
             gap: 6px;
         }
         .qr-box {
-            width: 58px;
-            height: 58px;
+            width: 60px;
+            height: 60px;
             background: #fff;
-            border: 1px solid #cbd5e1;
+            border: 1px solid var(--border-color);
             padding: 2px;
             border-radius: 4px;
             display: flex;
@@ -266,95 +193,94 @@
             height: 100% !important;
         }
         .qr-text {
-            font-size: 6.5px;
-            color: #475569;
-            line-height: 1.15;
+            font-size: 6.8px;
+            color: var(--text-muted);
+            line-height: 1.2;
             text-align: left;
-            max-width: 65px;
+            max-width: 68px;
             direction: ltr;
         }
 
-        /* Header Title Banner */
+        /* 2. Document Title Banner (Eco ink-saving style with crisp outline) */
         .header-banner {
-            background: linear-gradient(135deg, #003b66 0%, #005a9c 50%, #0284c7 100%);
-            color: #fff;
+            background: #f8fafc;
+            color: var(--primary);
             text-align: center;
-            padding: 3px 12px;
+            padding: 4px 14px;
             border-radius: 4px;
-            margin-bottom: 4px;
-            box-shadow: 0 2px 4px rgba(0, 90, 156, 0.15);
+            border: 1.5px solid var(--primary);
             display: flex;
             align-items: center;
             justify-content: space-between;
         }
         .header-banner .plane-icon {
-            font-size: 13px;
-            opacity: 0.9;
+            font-size: 14px;
+            color: var(--primary);
         }
         .header-banner h1 {
-            font-size: 12.5px;
+            font-size: 14px;
             font-weight: 900;
             margin: 0;
-            line-height: 1.1;
+            line-height: 1.15;
+            color: var(--primary);
         }
         .header-banner h2 {
-            font-size: 8px;
-            font-weight: 700;
-            letter-spacing: 1.2px;
+            font-size: 9px;
+            font-weight: 800;
+            letter-spacing: 1.5px;
             margin-top: 1px;
-            opacity: 0.95;
+            color: var(--text-dark);
         }
 
-        /* Meta 5-boxes row */
+        /* 3. 5-Metadata Cards Strip */
         .meta-strip {
             display: grid;
-            grid-template-columns: 1.1fr 1fr 1fr 1fr 1.3fr;
+            grid-template-columns: 1.1fr 1fr 1fr 1fr 1.35fr;
             gap: 4px;
-            margin-bottom: 4px;
         }
         .meta-card {
-            border: 1px solid #93c5fd;
-            border-radius: 3px;
-            background: #f0f7ff;
-            padding: 2px 4px;
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            background: #f8fafc;
+            padding: 3px 5px;
             text-align: center;
         }
         .meta-card .meta-title {
-            font-size: 7px;
-            font-weight: 700;
-            color: #005a9c;
+            font-size: 7.5px;
+            font-weight: 800;
+            color: var(--primary);
             display: block;
-            line-height: 1.1;
+            line-height: 1.15;
         }
         .meta-card .meta-subtitle {
-            font-size: 5.8px;
-            color: #64748b;
+            font-size: 6.5px;
+            color: var(--text-muted);
             display: block;
             margin-bottom: 1px;
         }
         .meta-card .meta-val {
-            font-size: 8px;
-            font-weight: 800;
-            color: #0f172a;
+            font-size: 9.2px;
+            font-weight: 900;
+            color: var(--text-dark);
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
         }
 
-        /* Passenger & Trip Details Card */
+        /* 4. Insured & Trip Details Card */
         .section-box {
-            border: 1px solid #93c5fd;
+            border: 1px solid #cbd5e1;
             border-radius: 4px;
             overflow: hidden;
-            margin-bottom: 4px;
             background: #fff;
         }
         .section-header {
-            background: #005a9c;
-            color: #fff;
-            padding: 2.5px 8px;
-            font-size: 8px;
-            font-weight: 800;
+            background: #f1f5f9;
+            color: var(--primary);
+            border-bottom: 1.5px solid var(--primary);
+            padding: 3.5px 10px;
+            font-size: 8.8px;
+            font-weight: 900;
             display: flex;
             align-items: center;
             justify-content: space-between;
@@ -362,36 +288,36 @@
         .details-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            padding: 3px 6px;
-            gap: 2px 10px;
-            font-size: 7.8px;
-            background: #fbfdff;
+            padding: 4px 10px;
+            gap: 2px 14px;
+            font-size: 8.5px;
+            background: #fff;
         }
         .detail-row {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 1.5px 0;
+            padding: 2.2px 0;
             border-bottom: 1px dashed #e2e8f0;
         }
         .detail-row:last-child {
             border-bottom: none;
         }
         .detail-label {
-            color: #475569;
-            font-weight: 600;
-            font-size: 7.2px;
+            color: var(--text-muted);
+            font-weight: 700;
+            font-size: 8px;
         }
         .detail-label span.en {
-            font-size: 6px;
+            font-size: 6.8px;
             color: #94a3b8;
             display: block;
             line-height: 1;
         }
         .detail-value {
-            font-weight: 800;
-            color: #0f172a;
-            font-size: 7.8px;
+            font-weight: 900;
+            color: var(--text-dark);
+            font-size: 8.8px;
             text-align: left;
             direction: ltr;
         }
@@ -404,132 +330,134 @@
         .family-table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 7.2px;
-            margin-top: 2px;
-            border-top: 1px solid #93c5fd;
+            font-size: 8px;
+            margin-top: 3px;
+            border-top: 1px solid var(--border-color);
         }
         .family-table th {
-            background: #e0f2fe;
-            color: #0369a1;
-            padding: 1.5px 4px;
+            background: #f1f5f9;
+            color: var(--primary);
+            padding: 2.5px 6px;
             text-align: right;
-            font-weight: 700;
-            font-size: 6.8px;
-            border: 1px solid #bae6fd;
+            font-weight: 800;
+            font-size: 7.5px;
+            border: 1px solid var(--border-color);
         }
         .family-table td {
-            padding: 1.5px 4px;
+            padding: 2px 6px;
             border: 1px solid #e2e8f0;
-            font-weight: 600;
+            font-weight: 700;
         }
 
-        /* Benefits Table */
+        /* 5. Benefits Table */
         .benefits-card {
-            border: 1px solid #005a9c;
+            border: 1.5px solid var(--primary);
             border-radius: 4px;
             overflow: hidden;
-            margin-bottom: 4px;
+            background: #fff;
         }
         .benefits-card-header {
-            background: linear-gradient(90deg, #005a9c 0%, #0284c7 100%);
-            color: #fff;
-            padding: 2.5px 8px;
+            background: #f1f5f9;
+            color: var(--primary);
+            border-bottom: 1.5px solid var(--primary);
+            padding: 3.5px 10px;
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
         .benefits-card-header .title {
-            font-size: 8px;
-            font-weight: 800;
+            font-size: 9px;
+            font-weight: 900;
         }
         .benefits-card-header .limit-badge {
-            background: #fff;
-            color: #005a9c;
-            padding: 1.5px 6px;
+            background: var(--primary);
+            color: #fff;
+            padding: 2px 8px;
             border-radius: 3px;
-            font-size: 7.2px;
+            font-size: 8px;
             font-weight: 800;
         }
         .benefits-table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 7.2px;
-            line-height: 1.15;
+            font-size: 8.2px;
+            line-height: 1.2;
         }
         .benefits-table th {
-            background: #f1f5f9;
+            background: #f8fafc;
             color: #003b66;
-            font-weight: 800;
-            padding: 2px 4px;
+            font-weight: 900;
+            padding: 3px 6px;
             text-align: center;
-            border: 1px solid #cbd5e1;
-            font-size: 6.8px;
+            border: 1px solid var(--border-color);
+            font-size: 7.5px;
         }
         .benefits-table td {
-            padding: 1.8px 4px;
+            padding: 2.8px 6px;
             border: 1px solid #e2e8f0;
             vertical-align: middle;
         }
         .benefits-table tr:nth-child(even) td {
-            background: #f8fafc;
+            background: #fbfdff;
         }
         .col-num {
-            width: 20px;
+            width: 22px;
             text-align: center;
-            font-weight: 800;
-            color: #005a9c;
+            font-weight: 900;
+            color: var(--primary);
+            font-size: 8.5px;
         }
         .col-benefit {
             text-align: right;
-            padding-right: 6px !important;
+            padding-right: 8px !important;
         }
         .col-benefit .ar {
             font-weight: 800;
-            color: #0f172a;
+            color: var(--text-dark);
             display: block;
-            font-size: 7.2px;
+            font-size: 8.2px;
         }
         .col-benefit .en {
-            font-size: 6.2px;
-            color: #64748b;
+            font-size: 7px;
+            color: var(--text-muted);
             font-weight: 600;
             direction: ltr;
             text-align: right;
         }
         .col-limit {
-            width: 95px;
+            width: 105px;
             text-align: center;
-            font-weight: 800;
-            color: #005a9c;
-            font-size: 7.2px;
+            font-weight: 900;
+            color: var(--primary);
+            font-size: 8.2px;
             white-space: nowrap;
         }
         .col-notes {
-            width: 120px;
+            width: 135px;
             text-align: center;
-            font-size: 6.2px;
-            color: #475569;
+            font-size: 7px;
+            color: var(--text-muted);
             font-weight: 600;
         }
         .col-notes .ar {
             display: block;
-            font-weight: 700;
+            font-weight: 800;
+            color: #334155;
         }
         .col-notes .en {
             display: block;
-            font-size: 5.8px;
+            font-size: 6.5px;
             color: #94a3b8;
         }
 
-        /* 3-Column Bottom Info Grid */
+        /* 6. 3-Column Bottom Info Grid */
         .bottom-grid {
             display: grid;
-            grid-template-columns: 1.18fr 0.94fr 0.88fr;
+            grid-template-columns: 1.2fr 0.94fr 0.88fr;
             gap: 4px;
-            margin-bottom: 4px;
         }
         .info-card {
-            border: 1px solid #94a3b8;
+            border: 1px solid #cbd5e1;
             border-radius: 4px;
             background: #fff;
             overflow: hidden;
@@ -537,22 +465,20 @@
             flex-direction: column;
         }
         .info-card-header {
-            padding: 2px 6px;
-            font-size: 7.2px;
-            font-weight: 800;
-            color: #fff;
+            padding: 3px 8px;
+            font-size: 8px;
+            font-weight: 900;
+            color: var(--primary);
+            background: #f1f5f9;
+            border-bottom: 1.5px solid var(--primary);
             display: flex;
             align-items: center;
             gap: 4px;
         }
-        .info-card-header.blue { background: #005a9c; }
-        .info-card-header.navy { background: #003b66; }
-        .info-card-header.teal { background: #0284c7; }
-
         .info-card-body {
-            padding: 3px 5px;
-            font-size: 6.5px;
-            line-height: 1.18;
+            padding: 4px 6px;
+            font-size: 7.2px;
+            line-height: 1.25;
             color: #1e293b;
             flex: 1;
         }
@@ -563,8 +489,8 @@
         }
         .conditions-list li {
             position: relative;
-            padding-right: 11px;
-            margin-bottom: 2px;
+            padding-right: 12px;
+            margin-bottom: 2.2px;
         }
         .conditions-list li:last-child {
             margin-bottom: 0;
@@ -573,16 +499,16 @@
             position: absolute;
             right: 0;
             top: 0;
-            font-weight: 800;
-            color: #005a9c;
-            font-size: 6.5px;
+            font-weight: 900;
+            color: var(--primary);
+            font-size: 7.2px;
         }
         .conditions-list li .ar-cond {
             font-weight: 700;
             display: block;
         }
         .conditions-list li .en-cond {
-            font-size: 5.6px;
+            font-size: 6.2px;
             color: #64748b;
             display: block;
             direction: ltr;
@@ -592,145 +518,145 @@
         .bullet-list {
             list-style: none;
             padding: 0;
-            margin: 0 0 2px 0;
+            margin: 0 0 3px 0;
         }
         .bullet-list li {
             position: relative;
-            padding-right: 8px;
-            margin-bottom: 1.2px;
-            font-size: 6.3px;
-            font-weight: 600;
+            padding-right: 9px;
+            margin-bottom: 1.8px;
+            font-size: 7px;
+            font-weight: 700;
         }
         .bullet-list li::before {
             content: "•";
             position: absolute;
             right: 0;
-            color: #0284c7;
-            font-weight: 800;
+            color: var(--primary);
+            font-weight: 900;
         }
         .declaration-box {
             background: #f8fafc;
-            border: 1px dashed #cbd5e1;
-            padding: 2px 4px;
+            border: 1px dashed var(--border-color);
+            padding: 3px 5px;
             border-radius: 3px;
-            font-size: 6px;
+            font-size: 6.8px;
             margin-top: 2px;
-            line-height: 1.15;
+            line-height: 1.2;
         }
         .declaration-box strong {
-            color: #005a9c;
+            color: var(--primary);
         }
 
         /* Emergency Assistance Card */
         .emergency-pill {
-            background: #005a9c;
-            color: #fff;
-            padding: 2.5px 6px;
+            background: #f8fafc;
+            color: var(--primary);
+            border: 1.5px solid var(--primary);
+            padding: 4px 6px;
             border-radius: 4px;
             text-align: center;
-            margin: 2px 0 2.5px 0;
+            margin: 2px 0 3px 0;
         }
         .emergency-phone {
-            font-size: 10.5px;
+            font-size: 11.5px;
             font-weight: 900;
             letter-spacing: 0.5px;
             direction: ltr;
             display: block;
-            line-height: 1.1;
+            line-height: 1.15;
+            color: var(--primary);
         }
         .emergency-pill .pill-sub {
-            font-size: 5.8px;
-            opacity: 0.9;
+            font-size: 6.5px;
+            font-weight: 700;
+            color: var(--text-dark);
         }
         .assistance-contact-item {
             display: flex;
             justify-content: space-between;
-            padding: 1px 0;
-            font-size: 6.2px;
+            padding: 1.5px 0;
+            font-size: 7px;
             border-bottom: 1px dashed #e2e8f0;
         }
         .assistance-contact-item:last-child {
             border-bottom: none;
         }
 
-        /* Reinsurer Network Notice */
+        /* 7. Reinsurer Network Notice */
         .network-notice {
-            border: 1px solid #0284c7;
-            background: #f0f9ff;
+            border: 1px solid var(--primary);
+            background: #f8fafc;
             border-radius: 3px;
-            padding: 2px 6px;
-            margin-bottom: 4px;
+            padding: 3px 8px;
             display: flex;
             align-items: center;
             justify-content: space-between;
-            font-size: 6.5px;
-            line-height: 1.15;
+            font-size: 7.2px;
+            line-height: 1.2;
         }
         .network-notice strong {
-            color: #005a9c;
+            color: var(--primary);
         }
 
-        /* Financial & Signatures Section */
+        /* 8. Financial & Signatures Section */
         .financial-strip {
             display: grid;
             grid-template-columns: 1.5fr 1fr 1fr;
             gap: 4px;
-            margin-bottom: 4px;
         }
         .financial-table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 7.2px;
-            border: 1px solid #cbd5e1;
+            font-size: 8px;
+            border: 1px solid var(--border-color);
             border-radius: 3px;
             overflow: hidden;
         }
         .financial-table th {
             background: #f1f5f9;
-            color: #005a9c;
-            padding: 2px 4px;
-            font-weight: 800;
+            color: var(--primary);
+            padding: 2.8px 4px;
+            font-weight: 900;
             text-align: center;
-            border: 1px solid #cbd5e1;
-            font-size: 6.5px;
-        }
-        .financial-table td {
-            padding: 2px 4px;
-            text-align: center;
-            font-weight: 800;
-            border: 1px solid #cbd5e1;
+            border: 1px solid var(--border-color);
             font-size: 7.2px;
         }
+        .financial-table td {
+            padding: 3px 4px;
+            text-align: center;
+            font-weight: 900;
+            border: 1px solid var(--border-color);
+            font-size: 8.5px;
+        }
         .financial-total-words {
-            grid-column: 1 / -1;
             background: #fff;
-            padding: 1.5px 4px;
-            font-size: 6.8px;
-            font-weight: 700;
-            color: #005a9c;
+            padding: 2.5px 5px;
+            font-size: 7.5px;
+            font-weight: 800;
+            color: var(--primary);
             border: 1px dashed #93c5fd;
             border-radius: 3px;
-            margin-top: 2px;
+            margin-top: 2.5px;
             text-align: right;
         }
 
         .signature-box {
-            border: 1px solid #cbd5e1;
+            border: 1px solid var(--border-color);
             border-radius: 3px;
             background: #fafafa;
-            padding: 2px 4px;
+            padding: 3px 5px;
             text-align: center;
             display: flex;
             flex-direction: column;
             justify-content: space-between;
-            min-height: 44px;
+            min-height: 54px;
         }
         .signature-title {
-            font-size: 6.8px;
-            font-weight: 800;
-            color: #005a9c;
+            font-size: 7.5px;
+            font-weight: 900;
+            color: var(--primary);
             border-bottom: 1px solid #e2e8f0;
-            padding-bottom: 1px;
+            padding-bottom: 2px;
         }
         .signature-stamp-area {
             flex: 1;
@@ -738,39 +664,41 @@
             align-items: center;
             justify-content: center;
             color: #94a3b8;
-            font-size: 6.2px;
+            font-size: 7px;
             font-style: italic;
         }
         .signature-name {
-            font-size: 6.2px;
-            color: #475569;
-            font-weight: 600;
+            font-size: 6.8px;
+            color: var(--text-muted);
+            font-weight: 700;
         }
 
-        /* Footer Strip */
+        /* 9. Footer Strip */
         .print-footer-area {
-            border-top: 1.5px solid #005a9c;
-            padding-top: 2px;
+            border-top: 1.5px solid var(--primary);
+            padding-top: 3px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            font-size: 6.5px;
-            color: #475569;
+            font-size: 7.2px;
+            color: var(--text-muted);
             background: #fff;
         }
         .footer-left {
-            font-weight: 800;
-            color: #005a9c;
+            font-weight: 900;
+            color: var(--primary);
             display: flex;
             align-items: center;
             gap: 4px;
         }
         .footer-center {
             text-align: center;
+            font-weight: 600;
         }
         .footer-right {
             text-align: left;
             direction: ltr;
+            font-weight: 600;
         }
 
         /* Print Media Styles */
@@ -786,9 +714,10 @@
             .page-sheet {
                 box-shadow: none !important;
                 margin: 0 !important;
-                padding: 0 !important;
+                padding: 3mm 4mm !important;
                 width: 100% !important;
-                min-height: auto !important;
+                height: 289mm !important;
+                max-height: 289mm !important;
                 border: none !important;
             }
         }
@@ -798,40 +727,24 @@
 </head>
 <body>
 
-    <!-- Floating Action Bar for Agent (Interactive, hides on print) -->
+    <!-- Floating Minimalist Action Bar (Print & Close only) -->
     <div class="action-bar no-print">
-        <span class="label">خيارات وثيقة المسافرين:</span>
         <button class="action-btn action-btn-primary" onclick="window.print()">
             🖨️ طباعة الوثيقة (Print)
         </button>
-        <div class="divider"></div>
-        <button class="action-btn" id="btnStationeryToggle" onclick="toggleStationeryMode()">
-            📄 وضع الورق: <b id="paperModeLabel">ورق أبيض كامل</b>
-        </button>
-        <button class="action-btn" id="btnEcoToggle" onclick="toggleEcoMode()">
-            💧 وضع الحبر: <b id="ecoModeLabel">عادي (ملون)</b>
-        </button>
-        <div class="divider"></div>
         <button class="action-btn" onclick="window.close()" style="background: #ef4444; color: #fff;">
             ✕ إغلاق
         </button>
     </div>
 
-    <!-- Main Printable A4 Page Sheet -->
+    <!-- Main Printable A4 Page Sheet (Fits 100% of A4 Height) -->
     <div class="page-sheet">
 
-        <!-- Header Section (Company, Travel Logo, QR Verification) -->
+        <!-- 1. Header Section (Company, Clean Logo, QR Verification) -->
         <div class="print-header-area">
-            <!-- Travel Vector / Illustration & Logo -->
-            <div class="header-art-left">
+            <!-- Company Logo Only (Globe SVG removed per user request) -->
+            <div class="header-logo-left">
                 <img src="{{ asset('img/logo.png') }}" alt="Logo" onerror="this.style.display='none'">
-                <div>
-                    <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="#005a9c" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-                        <circle cx="12" cy="12" r="10"></circle>
-                        <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"></path>
-                        <path d="M2 12h20"></path>
-                    </svg>
-                </div>
             </div>
 
             <!-- Company Titles -->
@@ -852,7 +765,7 @@
             </div>
         </div>
 
-        <!-- Document Main Banner -->
+        <!-- 2. Document Main Banner -->
         <div class="header-banner">
             <span class="plane-icon">✈</span>
             <div>
@@ -862,7 +775,7 @@
             <span class="plane-icon" style="transform: scaleX(-1);">✈</span>
         </div>
 
-        <!-- 5-Metadata Cards Strip -->
+        <!-- 3. 5-Metadata Cards Strip -->
         <div class="meta-strip">
             <div class="meta-card">
                 <span class="meta-title">رقم الوثيقة</span>
@@ -891,11 +804,11 @@
             </div>
         </div>
 
-        <!-- Insured & Trip Details Card -->
+        <!-- 4. Insured & Trip Details Card -->
         <div class="section-box">
             <div class="section-header">
                 <span>👤 بيانات المؤمن له / تفاصيل الرحلة &nbsp;|&nbsp; Insured / Trip Details</span>
-                <span style="font-size: 7.2px; opacity: 0.9;">نوع التأمين: {{ $document->insurance_type }}</span>
+                <span style="font-size: 7.8px; opacity: 0.95;">نوع التأمين: {{ $document->insurance_type }}</span>
             </div>
             <div class="details-grid">
                 <!-- Col 1 -->
@@ -969,7 +882,7 @@
             @endif
         </div>
 
-        <!-- Travel Insurance Benefits Table (منافع تأمين المسافرين) -->
+        <!-- 5. Travel Insurance Benefits Table (منافع تأمين المسافرين) -->
         <div class="benefits-card">
             <div class="benefits-card-header">
                 <span class="title">🛡️ منافع تأمين المسافرين &nbsp;|&nbsp; Travel Insurance Benefits</span>
@@ -1109,11 +1022,11 @@
             </table>
         </div>
 
-        <!-- 3-Column Bottom Info Grid (Conditions, Exclusions & Health Declaration, 24/7 Assistance) -->
+        <!-- 6. 3-Column Bottom Info Grid (Conditions, Exclusions & Health Declaration, 24/7 Assistance) -->
         <div class="bottom-grid">
             <!-- Card 1: Conditions & Exclusions -->
             <div class="info-card">
-                <div class="info-card-header blue">
+                <div class="info-card-header">
                     <span>📋 الشروط والاستثناءات | Conditions & Exclusions</span>
                 </div>
                 <div class="info-card-body">
@@ -1159,7 +1072,7 @@
 
             <!-- Card 2: Additional Exclusions & Health Declaration -->
             <div class="info-card">
-                <div class="info-card-header navy">
+                <div class="info-card-header">
                     <span>⚠️ الاستثناءات الإضافية والإقرار | Additional & Health</span>
                 </div>
                 <div class="info-card-body">
@@ -1173,7 +1086,7 @@
                     <div class="declaration-box">
                         <strong>إقرار وتعهد صحي | Health Declaration:</strong><br>
                         أقر بأنني أستوفي كافة الشروط الصحية المطلوبة، ولا أعاني من أي مرض سابق يتعارض مع الوثيقة، ولم أخفِ أي معلومات طبية، وأي إخلال يلغي الوثيقة ويسقط أي مطالبات مستقبلية.
-                        <div style="font-size: 5.5px; color: #64748b; direction: ltr; text-align: left; margin-top: 1px;">
+                        <div style="font-size: 6px; color: #64748b; direction: ltr; text-align: left; margin-top: 1px;">
                             I confirm I have no pre-existing conditions affecting this policy. Any concealment voids coverage.
                         </div>
                     </div>
@@ -1182,13 +1095,13 @@
 
             <!-- Card 3: Important Info & 24/7 Assistance Center -->
             <div class="info-card">
-                <div class="info-card-header teal">
+                <div class="info-card-header">
                     <span>ℹ️ معلومات هامة والمساعدة | Assistance 24/7</span>
                 </div>
                 <div class="info-card-body">
-                    <div style="font-size: 6.5px; color: #334155; margin-bottom: 2px;">
+                    <div style="font-size: 7px; color: #334155; margin-bottom: 2px;">
                         في حالات الطوارئ: يرجى الاتصال بمركز المساعدة 24/7<br>
-                        <span style="font-size: 5.8px; color: #64748b; direction: ltr; display: block;">For emergency, please contact assistance center 24/7:</span>
+                        <span style="font-size: 6.2px; color: #64748b; direction: ltr; display: block;">For emergency, please contact assistance center 24/7:</span>
                     </div>
 
                     <div class="emergency-pill">
@@ -1197,46 +1110,46 @@
                     </div>
 
                     <div class="assistance-contact-item">
-                        <span style="font-weight: 700;">المعيد / Reinsurer:</span>
-                        <span style="font-weight: 700; color: #005a9c;">دار الصحة لإدارة النفقات</span>
+                        <span style="font-weight: 800;">المعيد / Reinsurer:</span>
+                        <span style="font-weight: 800; color: var(--primary);">دار الصحة لإدارة النفقات</span>
                     </div>
                     <div class="assistance-contact-item">
-                        <span style="font-weight: 700;">هاتف إضافي:</span>
-                        <span style="direction: ltr; font-weight: 700;">+49 1573 2333331</span>
+                        <span style="font-weight: 800;">هاتف إضافي:</span>
+                        <span style="direction: ltr; font-weight: 800;">+49 1573 2333331</span>
                     </div>
                     <div class="assistance-contact-item">
-                        <span style="font-weight: 700;">البريد الإلكتروني:</span>
-                        <span style="direction: ltr; font-weight: 700; font-size: 6px;">travel@mli.ly / info@tpa.ly</span>
+                        <span style="font-weight: 800;">البريد الإلكتروني:</span>
+                        <span style="direction: ltr; font-weight: 800; font-size: 6.5px;">travel@mli.ly / info@tpa.ly</span>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Network Liability Notice Banner -->
+        <!-- 7. Network Liability Notice Banner -->
         <div class="network-notice">
             <div>
                 <strong>المعيد: دار الصحة لإدارة النفقات الطبية (Dar Al-Sihha TPA)</strong> |
                 يتم تغطية الحالات الطارئة فقط إذا تم العلاج عبر شبكة معيد التأمين. شركة المدار الليبي للتأمين غير مسؤولة عن التكاليف المتكبدة خارج هذه الشبكة.
             </div>
-            <div style="font-size: 5.8px; color: #475569; direction: ltr; text-align: left; max-width: 40%;">
+            <div style="font-size: 6.5px; color: #475569; direction: ltr; text-align: left; max-width: 38%;">
                 Emergency cases covered ONLY if treated within reinsurer’s network. Al-Madar Libyan Insurance Co. not liable outside network.
             </div>
         </div>
 
-        <!-- Financial Breakdown & Official Signatures -->
+        <!-- 8. Financial Breakdown & Official Signatures -->
         <div class="financial-strip">
             <!-- Financial Table -->
             <div>
                 <table class="financial-table">
                     <thead>
                         <tr>
-                            <th>صافي القسط<br><span style="font-size: 5.5px;">Premium</span></th>
+                            <th>صافي القسط<br><span style="font-size: 6px;">Premium</span></th>
                             @if($document->family_members_premium > 0)
-                            <th>قسط المرافقين<br><span style="font-size: 5.5px;">Family</span></th>
+                            <th>قسط المرافقين<br><span style="font-size: 6px;">Family</span></th>
                             @endif
-                            <th>رسم الإصدار<br><span style="font-size: 5.5px;">Issue Fee</span></th>
-                            <th>الدمغة<br><span style="font-size: 5.5px;">Stamp</span></th>
-                            <th style="background: #005a9c; color: #fff;">الإجمالي د.ل<br><span style="font-size: 5.5px; color: #e0f2fe;">Total LYD</span></th>
+                            <th>رسم الإصدار<br><span style="font-size: 6px;">Issue Fee</span></th>
+                            <th>الدمغة<br><span style="font-size: 6px;">Stamp</span></th>
+                            <th style="background: #f1f5f9; color: var(--primary); font-weight: 900;">الإجمالي د.ل<br><span style="font-size: 6px; color: var(--primary);">Total LYD</span></th>
                         </tr>
                     </thead>
                     <tbody>
@@ -1247,7 +1160,7 @@
                             @endif
                             <td>{{ number_format($document->issue_fees ?? 0, 2) }}</td>
                             <td>{{ number_format($document->stamp ?? 0, 2) }}</td>
-                            <td style="background: #f0f7ff; color: #005a9c; font-size: 8.5px; font-weight: 900;">
+                            <td style="color: var(--primary); font-size: 9.5px; font-weight: 900;">
                                 {{ number_format($document->total, 2) }}
                             </td>
                         </tr>
@@ -1277,11 +1190,11 @@
             </div>
         </div>
 
-        <!-- Document Footer -->
+        <!-- 9. Document Footer -->
         <div class="print-footer-area">
             <div class="footer-left">
                 <span>✈ معاً في كل وجهة</span>
-                <span style="font-size: 5.8px; color: #64748b; font-weight: 600;">| Together In Every Destination</span>
+                <span style="font-size: 6.5px; color: #64748b; font-weight: 700;">| Together In Every Destination</span>
             </div>
             <div class="footer-center">
                 طرابلس - صلاح الدين - بجانب كوبري صلاح الدين | Tripoli - Salah Eddin - Next to Salah Eddin Bridge
@@ -1293,9 +1206,8 @@
 
     </div>
 
-    <!-- QR Code Generator & Mode Controllers -->
+    <!-- QR Code Generator -->
     <script>
-        // Generate QR Code dynamically
         (function() {
             const qrContainer = document.getElementById('qrcode');
             const qrData = {!! $qrDataJson !!};
@@ -1304,35 +1216,16 @@
             if (typeof QRCode !== 'undefined') {
                 new QRCode(qrContainer, {
                     text: qrText,
-                    width: 58,
-                    height: 58,
+                    width: 60,
+                    height: 60,
                     colorDark: "#003b66",
                     colorLight: "#ffffff",
                     correctLevel: QRCode.CorrectLevel.M
                 });
             } else {
-                // Fallback to QR server API
-                qrContainer.innerHTML = '<img src="https://api.qrserver.com/v1/create-qr-code/?size=58x58&data=' + encodeURIComponent(qrText) + '" style="width:58px;height:58px;" alt="QR">';
+                qrContainer.innerHTML = '<img src="https://api.qrserver.com/v1/create-qr-code/?size=60x60&data=' + encodeURIComponent(qrText) + '" style="width:60px;height:60px;" alt="QR">';
             }
         })();
-
-        // Mode 1: Pre-printed Stationery Mode (Hides Header & Footer)
-        let isStationery = false;
-        function toggleStationeryMode() {
-            isStationery = !isStationery;
-            document.body.classList.toggle('stationery-mode', isStationery);
-            document.getElementById('btnStationeryToggle').classList.toggle('active', isStationery);
-            document.getElementById('paperModeLabel').textContent = isStationery ? 'ورق مروّس جاهز للشركة' : 'ورق أبيض كامل';
-        }
-
-        // Mode 2: Eco Ink Saver Mode (Reduces heavy ink backgrounds)
-        let isEco = false;
-        function toggleEcoMode() {
-            isEco = !isEco;
-            document.body.classList.toggle('eco-mode', isEco);
-            document.getElementById('btnEcoToggle').classList.toggle('active', isEco);
-            document.getElementById('ecoModeLabel').textContent = isEco ? 'اقتصادي (توفير الحبر)' : 'عادي (ملون)';
-        }
     </script>
 </body>
 </html>

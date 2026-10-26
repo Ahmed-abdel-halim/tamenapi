@@ -526,3 +526,11 @@ Route::put('/compulsory-document-requests/{id}', [\App\Http\Controllers\Compulso
 Route::delete('/compulsory-document-requests/{id}', [\App\Http\Controllers\CompulsoryDocumentRequestController::class, 'destroy']);
 Route::post('/compulsory-document-requests/{id}/receive', [\App\Http\Controllers\CompulsoryDocumentRequestController::class, 'receive']);
 Route::post('/compulsory-document-requests/{id}/status', [\App\Http\Controllers\CompulsoryDocumentRequestController::class, 'updateStatus']);
+
+// Employee Presence & Attendance Tracking (حالة اتصال وتواجد الموظفين وسجل الحضور)
+Route::prefix('employee-presence')->group(function () {
+    Route::post('/ping', [\App\Http\Controllers\EmployeeAttendanceController::class, 'ping']);
+    Route::get('/', [\App\Http\Controllers\EmployeeAttendanceController::class, 'index']);
+    Route::get('/stats', [\App\Http\Controllers\EmployeeAttendanceController::class, 'stats']);
+    Route::get('/{userId}/history', [\App\Http\Controllers\EmployeeAttendanceController::class, 'userHistory']);
+});

@@ -100,6 +100,8 @@ class User extends Authenticatable
         'end_date',
         'resignation_date',
         'department_id',
+        'last_seen_at',
+        'current_login_at',
     ];
 
     /**
@@ -143,6 +145,7 @@ class User extends Authenticatable
         'experience_certificate_url',
         'work_commencement_order_url',
         'resignation_letter_url',
+        'is_online_now',
     ];
 
     /**
@@ -152,6 +155,8 @@ class User extends Authenticatable
      */
     protected $casts = [
         'email_verified_at' => 'datetime',
+        'last_seen_at' => 'datetime',
+        'current_login_at' => 'datetime',
         'is_admin' => 'boolean',
         'is_branch_admin' => 'boolean',
         'authorized_documents' => 'array',
@@ -230,6 +235,25 @@ class User extends Authenticatable
     public function salaryHistories()
     {
         return $this->hasMany(EmployeeSalaryHistory::class, 'user_id');
+    }
+
+    public function attendances()
+    {
+        return $this->hasMany(EmployeeAttendance::class, 'user_id');
+    }
+
+    public function todayAttendance()
+    {
+        return $this->hasOne(EmployeeAttendance::class, 'user_id')
+            ->where('date', \Carbon\Carbon::today()->toDateString());
+    }
+
+    public function getIsOnlineNowAttribute(): bool
+    {
+        if (!$this->last_seen_at) {
+            return false;
+        }
+        return \Carbon\Carbon::parse($this->last_seen_at)->gt(\Carbon\Carbon::now()->subSeconds(120));
     }
 
     /**

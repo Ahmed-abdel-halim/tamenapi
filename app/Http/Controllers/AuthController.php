@@ -136,6 +136,42 @@ class AuthController extends Controller
         // إنشاء توكن Sanctum
         $token = $user->createToken('auth_token')->plainTextToken;
 
+        // تسجيل وقت الدخول وتحديث حضور اليوم
+        try {
+            $now = \Carbon\Carbon::now();
+            $today = $now->toDateString();
+            $user->last_seen_at = $now;
+            $user->current_login_at = $now;
+            $user->save();
+
+            $attendance = \App\Models\EmployeeAttendance::firstOrNew([
+                'user_id' => $user->id,
+                'date' => $today,
+            ]);
+
+            if (!$attendance->exists) {
+                $attendance->branch_id = $user->branch_id;
+                $attendance->first_login_at = $now;
+                $attendance->last_activity_at = $now;
+                $attendance->total_online_seconds = 0;
+                $attendance->sessions_count = 1;
+                $attendance->status = 'online';
+                $attendance->login_ip = $request->ip();
+                $attendance->device_info = substr($request->userAgent() ?? '', 0, 255);
+            } else {
+                $attendance->branch_id = $attendance->branch_id ?? $user->branch_id;
+                $attendance->sessions_count = ($attendance->sessions_count ?? 1) + 1;
+                $attendance->last_activity_at = $now;
+                $attendance->status = 'online';
+                if (!$attendance->first_login_at) {
+                    $attendance->first_login_at = $now;
+                }
+            }
+            $attendance->save();
+        } catch (\Exception $e) {
+            Log::error('Attendance login record failed: ' . $e->getMessage());
+        }
+
         return response()->json([
             'success' => true,
             'user' => [
@@ -300,6 +336,21 @@ class AuthController extends Controller
     public function logout(Request $request)
     {
         if ($request->user()) {
+            try {
+                $now = \Carbon\Carbon::now();
+                $today = $now->toDateString();
+                $attendance = \App\Models\EmployeeAttendance::where('user_id', $request->user()->id)
+                    ->where('date', $today)
+                    ->first();
+                if ($attendance) {
+                    $attendance->last_activity_at = $now;
+                    $attendance->status = 'offline';
+                    $attendance->save();
+                }
+                $request->user()->last_seen_at = $now->copy()->subMinutes(10);
+                $request->user()->save();
+            } catch (\Exception $e) {}
+
             $request->user()->currentAccessToken()?->delete();
         }
         return response()->json(['success' => true, 'message' => 'تم تسجيل الخروج بنجاح']);

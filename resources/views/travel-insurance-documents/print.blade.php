@@ -13,7 +13,7 @@
     // QR Code verification data
     $qrDataJson = json_encode([
         'policy' => $document->insurance_number,
-        'insured' => $mainPassenger->name_ar ?? ($mainPassenger->name_en ?? ''),
+        'insured' => $mainPassenger->name_en ?? ($mainPassenger->name_ar ?? ''),
         'passport' => $mainPassenger->passport_number ?? '',
         'start' => \Carbon\Carbon::parse($document->start_date)->format('Y-m-d'),
         'end' => \Carbon\Carbon::parse($document->end_date)->format('Y-m-d'),
@@ -26,10 +26,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>وثيقة تأمين المسافرين - {{ $document->insurance_number }}</title>
+    <title>وثيقة تأمين المسافرين - {{ $document->insurance_number }} - TRAVEL POLICY</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Tajawal:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <style>
         :root {
             --primary: #005a9c;
@@ -37,9 +37,10 @@
             --primary-light: #f0f7ff;
             --accent: #0284c7;
             --text-dark: #0f172a;
-            --text-muted: #475569;
-            --border-color: #cbd5e1;
-            --border-dark: #94a3b8;
+            --text-muted: #1e293b;
+            --text-secondary: #334155;
+            --border-color: #94a3b8;
+            --border-dark: #475569;
             --bg-table-head: #f1f5f9;
             --bg-subtle: #f8fafc;
         }
@@ -54,15 +55,15 @@
 
         @page {
             size: A4 portrait;
-            margin: 4mm 6mm;
+            margin: 3mm 5mm;
         }
 
         body {
-            font-family: 'Tajawal', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            font-size: 8.8px;
+            font-family: 'Tajawal', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            font-size: 9px;
             color: var(--text-dark);
             background: #eef2f6;
-            line-height: 1.28;
+            line-height: 1.25;
             direction: rtl;
         }
 
@@ -111,11 +112,11 @@
         /* Printable Sheet Layout - Sized to fill the full A4 Page Height */
         .page-sheet {
             width: 210mm;
-            height: 289mm;
-            max-height: 289mm;
-            margin: 55px auto 20px auto;
+            height: 290mm;
+            max-height: 290mm;
+            margin: 50px auto 15px auto;
             background: #fff;
-            padding: 4mm 6mm;
+            padding: 3.5mm 5.5mm;
             box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
             position: relative;
             box-sizing: border-box;
@@ -131,19 +132,19 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding-bottom: 4px;
+            padding-bottom: 3px;
             border-bottom: 2px solid var(--primary);
-            min-height: 62px;
+            min-height: 60px;
         }
         .header-logo-left {
-            width: 140px;
+            width: 135px;
             text-align: right;
             display: flex;
             align-items: center;
         }
         .header-logo-left img {
-            max-height: 56px;
-            max-width: 135px;
+            max-height: 54px;
+            max-width: 130px;
             object-fit: contain;
         }
         .header-logo-center {
@@ -151,35 +152,37 @@
             flex: 1;
         }
         .company-title-ar {
-            font-size: 16px;
+            font-size: 15.5px;
             font-weight: 900;
             color: var(--primary);
             letter-spacing: 0.3px;
-            line-height: 1.2;
+            line-height: 1.15;
         }
         .company-title-en {
-            font-size: 9px;
-            font-weight: 800;
-            color: var(--text-dark);
-            letter-spacing: 0.6px;
+            font-family: 'Inter', sans-serif;
+            font-size: 11px;
+            font-weight: 900;
+            color: #003b66;
+            letter-spacing: 0.8px;
             margin-top: 1px;
+            direction: ltr;
         }
         .company-slogan {
-            font-size: 8px;
-            font-weight: 600;
+            font-size: 8.5px;
+            font-weight: 700;
             color: var(--accent);
             margin-top: 1px;
         }
         .header-qr-right {
-            width: 140px;
+            width: 135px;
             display: flex;
             align-items: center;
             justify-content: flex-end;
             gap: 6px;
         }
         .qr-box {
-            width: 60px;
-            height: 60px;
+            width: 58px;
+            height: 58px;
             background: #fff;
             border: 1px solid var(--border-color);
             padding: 2px;
@@ -193,12 +196,13 @@
             height: 100% !important;
         }
         .qr-text {
-            font-size: 6.8px;
-            color: var(--text-muted);
+            font-size: 7.5px;
+            color: var(--text-dark);
             line-height: 1.2;
             text-align: left;
             max-width: 68px;
             direction: ltr;
+            font-weight: 700;
         }
 
         /* 2. Document Title Banner (Eco ink-saving style with crisp outline) */
@@ -206,9 +210,9 @@
             background: #f8fafc;
             color: var(--primary);
             text-align: center;
-            padding: 4px 14px;
+            padding: 3.5px 14px;
             border-radius: 4px;
-            border: 1.5px solid var(--primary);
+            border: 1.8px solid var(--primary);
             display: flex;
             align-items: center;
             justify-content: space-between;
@@ -218,18 +222,20 @@
             color: var(--primary);
         }
         .header-banner h1 {
-            font-size: 14px;
+            font-size: 13.5px;
             font-weight: 900;
             margin: 0;
             line-height: 1.15;
             color: var(--primary);
         }
         .header-banner h2 {
-            font-size: 9px;
-            font-weight: 800;
+            font-family: 'Inter', sans-serif;
+            font-size: 12px;
+            font-weight: 900;
             letter-spacing: 1.5px;
             margin-top: 1px;
-            color: var(--text-dark);
+            color: #003b66;
+            direction: ltr;
         }
 
         /* 3. 5-Metadata Cards Strip */
@@ -239,29 +245,33 @@
             gap: 4px;
         }
         .meta-card {
-            border: 1px solid #cbd5e1;
+            border: 1.2px solid #94a3b8;
             border-radius: 4px;
             background: #f8fafc;
-            padding: 3px 5px;
+            padding: 2.5px 5px;
             text-align: center;
         }
         .meta-card .meta-title {
-            font-size: 7.5px;
+            font-size: 8.5px;
             font-weight: 800;
             color: var(--primary);
             display: block;
             line-height: 1.15;
         }
         .meta-card .meta-subtitle {
-            font-size: 6.5px;
-            color: var(--text-muted);
+            font-family: 'Inter', sans-serif;
+            font-size: 8px;
+            font-weight: 800;
+            color: #003b66;
             display: block;
             margin-bottom: 1px;
+            direction: ltr;
         }
         .meta-card .meta-val {
-            font-size: 9.2px;
+            font-family: 'Inter', 'Tajawal', sans-serif;
+            font-size: 10px;
             font-weight: 900;
-            color: var(--text-dark);
+            color: #0f172a;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
@@ -269,7 +279,7 @@
 
         /* 4. Insured & Trip Details Card */
         .section-box {
-            border: 1px solid #cbd5e1;
+            border: 1.2px solid #94a3b8;
             border-radius: 4px;
             overflow: hidden;
             background: #fff;
@@ -278,46 +288,56 @@
             background: #f1f5f9;
             color: var(--primary);
             border-bottom: 1.5px solid var(--primary);
-            padding: 3.5px 10px;
-            font-size: 8.8px;
+            padding: 3px 10px;
+            font-size: 9.2px;
             font-weight: 900;
             display: flex;
             align-items: center;
             justify-content: space-between;
         }
+        .section-header .en-sub {
+            font-family: 'Inter', sans-serif;
+            font-size: 9px;
+            font-weight: 800;
+            color: #003b66;
+        }
         .details-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            padding: 4px 10px;
-            gap: 2px 14px;
-            font-size: 8.5px;
+            padding: 3.5px 10px;
+            gap: 1.5px 14px;
+            font-size: 8.8px;
             background: #fff;
         }
         .detail-row {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 2.2px 0;
-            border-bottom: 1px dashed #e2e8f0;
+            padding: 2px 0;
+            border-bottom: 1px dashed #cbd5e1;
         }
         .detail-row:last-child {
             border-bottom: none;
         }
         .detail-label {
-            color: var(--text-muted);
-            font-weight: 700;
-            font-size: 8px;
+            color: #1e293b;
+            font-weight: 800;
+            font-size: 8.5px;
         }
         .detail-label span.en {
-            font-size: 6.8px;
-            color: #94a3b8;
+            font-family: 'Inter', sans-serif;
+            font-size: 8px;
+            font-weight: 800;
+            color: #003b66;
             display: block;
-            line-height: 1;
+            line-height: 1.1;
+            direction: ltr;
+            text-align: right;
         }
         .detail-value {
             font-weight: 900;
-            color: var(--text-dark);
-            font-size: 8.8px;
+            color: #0f172a;
+            font-size: 9.5px;
             text-align: left;
             direction: ltr;
         }
@@ -325,33 +345,42 @@
             direction: rtl;
             text-align: left;
         }
+        .detail-value .en-name {
+            font-family: 'Inter', sans-serif;
+            font-weight: 900;
+            color: #003b66;
+            font-size: 10px;
+            direction: ltr;
+            display: inline-block;
+        }
 
         /* Family members mini-table if any */
         .family-table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 8px;
-            margin-top: 3px;
+            font-size: 8.5px;
+            margin-top: 2px;
             border-top: 1px solid var(--border-color);
         }
         .family-table th {
             background: #f1f5f9;
-            color: var(--primary);
+            color: #003b66;
             padding: 2.5px 6px;
             text-align: right;
-            font-weight: 800;
-            font-size: 7.5px;
+            font-weight: 900;
+            font-size: 8px;
             border: 1px solid var(--border-color);
         }
         .family-table td {
             padding: 2px 6px;
             border: 1px solid #e2e8f0;
-            font-weight: 700;
+            font-weight: 800;
+            color: #0f172a;
         }
 
         /* 5. Benefits Table */
         .benefits-card {
-            border: 1.5px solid var(--primary);
+            border: 1.6px solid var(--primary);
             border-radius: 4px;
             overflow: hidden;
             background: #fff;
@@ -360,27 +389,35 @@
             background: #f1f5f9;
             color: var(--primary);
             border-bottom: 1.5px solid var(--primary);
-            padding: 3.5px 10px;
+            padding: 3px 10px;
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
         .benefits-card-header .title {
-            font-size: 9px;
+            font-size: 9.5px;
             font-weight: 900;
+            color: var(--primary);
+        }
+        .benefits-card-header .title .en-sub {
+            font-family: 'Inter', sans-serif;
+            font-size: 9.2px;
+            font-weight: 900;
+            color: #003b66;
         }
         .benefits-card-header .limit-badge {
             background: var(--primary);
             color: #fff;
             padding: 2px 8px;
             border-radius: 3px;
-            font-size: 8px;
-            font-weight: 800;
+            font-size: 8.8px;
+            font-weight: 900;
+            letter-spacing: 0.3px;
         }
         .benefits-table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 8.2px;
+            font-size: 8.5px;
             line-height: 1.2;
         }
         .benefits-table th {
@@ -390,22 +427,30 @@
             padding: 3px 6px;
             text-align: center;
             border: 1px solid var(--border-color);
-            font-size: 7.5px;
+            font-size: 8.5px;
+        }
+        .benefits-table th .en-col {
+            font-family: 'Inter', sans-serif;
+            font-size: 8px;
+            font-weight: 900;
+            color: #003b66;
+            display: block;
+            direction: ltr;
         }
         .benefits-table td {
-            padding: 2.8px 6px;
-            border: 1px solid #e2e8f0;
+            padding: 2px 6px;
+            border: 1px solid #cbd5e1;
             vertical-align: middle;
         }
         .benefits-table tr:nth-child(even) td {
             background: #fbfdff;
         }
         .col-num {
-            width: 22px;
+            width: 24px;
             text-align: center;
             font-weight: 900;
             color: var(--primary);
-            font-size: 8.5px;
+            font-size: 9px;
         }
         .col-benefit {
             text-align: right;
@@ -415,39 +460,47 @@
             font-weight: 800;
             color: var(--text-dark);
             display: block;
-            font-size: 8.2px;
+            font-size: 8.5px;
         }
         .col-benefit .en {
-            font-size: 7px;
-            color: var(--text-muted);
-            font-weight: 600;
+            font-family: 'Inter', sans-serif;
+            font-size: 8.8px;
+            color: #003b66;
+            font-weight: 800;
             direction: ltr;
             text-align: right;
+            display: block;
+            line-height: 1.15;
+            letter-spacing: 0.2px;
         }
         .col-limit {
-            width: 105px;
+            width: 110px;
             text-align: center;
             font-weight: 900;
-            color: var(--primary);
-            font-size: 8.2px;
+            color: #0f172a;
+            font-size: 9px;
             white-space: nowrap;
         }
         .col-notes {
             width: 135px;
             text-align: center;
-            font-size: 7px;
-            color: var(--text-muted);
-            font-weight: 600;
+            font-size: 7.5px;
+            color: var(--text-dark);
+            font-weight: 700;
         }
         .col-notes .ar {
             display: block;
             font-weight: 800;
-            color: #334155;
+            color: #1e293b;
+            font-size: 7.8px;
         }
         .col-notes .en {
+            font-family: 'Inter', sans-serif;
             display: block;
-            font-size: 6.5px;
-            color: #94a3b8;
+            font-size: 7.6px;
+            color: #003b66;
+            font-weight: 800;
+            direction: ltr;
         }
 
         /* 6. 3-Column Bottom Info Grid */
@@ -457,7 +510,7 @@
             gap: 4px;
         }
         .info-card {
-            border: 1px solid #cbd5e1;
+            border: 1.2px solid #94a3b8;
             border-radius: 4px;
             background: #fff;
             overflow: hidden;
@@ -465,21 +518,27 @@
             flex-direction: column;
         }
         .info-card-header {
-            padding: 3px 8px;
-            font-size: 8px;
+            padding: 2.5px 8px;
+            font-size: 8.5px;
             font-weight: 900;
             color: var(--primary);
             background: #f1f5f9;
             border-bottom: 1.5px solid var(--primary);
             display: flex;
             align-items: center;
-            gap: 4px;
+            justify-content: space-between;
+        }
+        .info-card-header .en-h {
+            font-family: 'Inter', sans-serif;
+            font-size: 8.2px;
+            font-weight: 800;
+            color: #003b66;
         }
         .info-card-body {
-            padding: 4px 6px;
-            font-size: 7.2px;
-            line-height: 1.25;
-            color: #1e293b;
+            padding: 3.5px 6px;
+            font-size: 7.5px;
+            line-height: 1.2;
+            color: #0f172a;
             flex: 1;
         }
         .conditions-list {
@@ -490,7 +549,7 @@
         .conditions-list li {
             position: relative;
             padding-right: 12px;
-            margin-bottom: 2.2px;
+            margin-bottom: 1.6px;
         }
         .conditions-list li:last-child {
             margin-bottom: 0;
@@ -501,31 +560,37 @@
             top: 0;
             font-weight: 900;
             color: var(--primary);
-            font-size: 7.2px;
+            font-size: 7.8px;
         }
         .conditions-list li .ar-cond {
             font-weight: 700;
             display: block;
+            font-size: 7.5px;
+            color: #1e293b;
         }
         .conditions-list li .en-cond {
-            font-size: 6.2px;
-            color: #64748b;
+            font-family: 'Inter', sans-serif;
+            font-size: 7.4px;
+            font-weight: 800;
+            color: #003b66;
             display: block;
             direction: ltr;
             text-align: right;
+            line-height: 1.15;
         }
 
         .bullet-list {
             list-style: none;
             padding: 0;
-            margin: 0 0 3px 0;
+            margin: 0 0 2px 0;
         }
         .bullet-list li {
             position: relative;
             padding-right: 9px;
-            margin-bottom: 1.8px;
-            font-size: 7px;
-            font-weight: 700;
+            margin-bottom: 1.5px;
+            font-size: 7.4px;
+            font-weight: 800;
+            color: #1e293b;
         }
         .bullet-list li::before {
             content: "•";
@@ -537,28 +602,40 @@
         .declaration-box {
             background: #f8fafc;
             border: 1px dashed var(--border-color);
-            padding: 3px 5px;
+            padding: 2.5px 5px;
             border-radius: 3px;
-            font-size: 6.8px;
-            margin-top: 2px;
+            font-size: 7.2px;
+            margin-top: 1.5px;
             line-height: 1.2;
         }
         .declaration-box strong {
             color: var(--primary);
+            font-size: 7.6px;
+        }
+        .declaration-box .en-decl {
+            font-family: 'Inter', sans-serif;
+            font-size: 7.2px;
+            font-weight: 800;
+            color: #003b66;
+            direction: ltr;
+            text-align: left;
+            margin-top: 1px;
+            line-height: 1.15;
         }
 
         /* Emergency Assistance Card */
         .emergency-pill {
             background: #f8fafc;
             color: var(--primary);
-            border: 1.5px solid var(--primary);
-            padding: 4px 6px;
+            border: 1.6px solid var(--primary);
+            padding: 3px 6px;
             border-radius: 4px;
             text-align: center;
-            margin: 2px 0 3px 0;
+            margin: 1.5px 0 2.5px 0;
         }
         .emergency-phone {
-            font-size: 11.5px;
+            font-family: 'Inter', sans-serif;
+            font-size: 12px;
             font-weight: 900;
             letter-spacing: 0.5px;
             direction: ltr;
@@ -567,16 +644,17 @@
             color: var(--primary);
         }
         .emergency-pill .pill-sub {
-            font-size: 6.5px;
-            font-weight: 700;
-            color: var(--text-dark);
+            font-family: 'Inter', 'Tajawal', sans-serif;
+            font-size: 7.8px;
+            font-weight: 800;
+            color: #0f172a;
         }
         .assistance-contact-item {
             display: flex;
             justify-content: space-between;
-            padding: 1.5px 0;
-            font-size: 7px;
-            border-bottom: 1px dashed #e2e8f0;
+            padding: 1.2px 0;
+            font-size: 7.5px;
+            border-bottom: 1px dashed #cbd5e1;
         }
         .assistance-contact-item:last-child {
             border-bottom: none;
@@ -584,18 +662,28 @@
 
         /* 7. Reinsurer Network Notice */
         .network-notice {
-            border: 1px solid var(--primary);
+            border: 1.2px solid var(--primary);
             background: #f8fafc;
             border-radius: 3px;
-            padding: 3px 8px;
+            padding: 2.5px 8px;
             display: flex;
             align-items: center;
             justify-content: space-between;
-            font-size: 7.2px;
+            font-size: 7.6px;
             line-height: 1.2;
         }
         .network-notice strong {
             color: var(--primary);
+        }
+        .network-notice .en-net {
+            font-family: 'Inter', sans-serif;
+            font-size: 7.5px;
+            font-weight: 800;
+            color: #003b66;
+            direction: ltr;
+            text-align: left;
+            max-width: 40%;
+            line-height: 1.15;
         }
 
         /* 8. Financial & Signatures Section */
@@ -607,82 +695,95 @@
         .financial-table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 8px;
-            border: 1px solid var(--border-color);
+            font-size: 8.5px;
+            border: 1.2px solid #94a3b8;
             border-radius: 3px;
             overflow: hidden;
         }
         .financial-table th {
             background: #f1f5f9;
             color: var(--primary);
-            padding: 2.8px 4px;
+            padding: 2px 4px;
             font-weight: 900;
             text-align: center;
-            border: 1px solid var(--border-color);
-            font-size: 7.2px;
+            border: 1px solid #cbd5e1;
+            font-size: 7.8px;
+        }
+        .financial-table th .en-th {
+            font-family: 'Inter', sans-serif;
+            font-size: 7.5px;
+            font-weight: 900;
+            color: #003b66;
+            display: block;
+            direction: ltr;
         }
         .financial-table td {
-            padding: 3px 4px;
+            padding: 2.5px 4px;
             text-align: center;
             font-weight: 900;
-            border: 1px solid var(--border-color);
-            font-size: 8.5px;
+            border: 1px solid #cbd5e1;
+            font-size: 9px;
+            color: #0f172a;
         }
         .financial-total-words {
             background: #fff;
-            padding: 2.5px 5px;
-            font-size: 7.5px;
+            padding: 2px 5px;
+            font-size: 7.8px;
             font-weight: 800;
             color: var(--primary);
             border: 1px dashed #93c5fd;
             border-radius: 3px;
-            margin-top: 2.5px;
+            margin-top: 2px;
             text-align: right;
         }
 
         .signature-box {
-            border: 1px solid var(--border-color);
+            border: 1.2px solid #94a3b8;
             border-radius: 3px;
             background: #fafafa;
-            padding: 3px 5px;
+            padding: 2.5px 5px;
             text-align: center;
             display: flex;
             flex-direction: column;
             justify-content: space-between;
-            min-height: 54px;
+            min-height: 50px;
         }
         .signature-title {
-            font-size: 7.5px;
+            font-size: 8px;
             font-weight: 900;
             color: var(--primary);
-            border-bottom: 1px solid #e2e8f0;
-            padding-bottom: 2px;
+            border-bottom: 1px solid #cbd5e1;
+            padding-bottom: 1.5px;
         }
         .signature-stamp-area {
             flex: 1;
             display: flex;
             align-items: center;
             justify-content: center;
-            color: #94a3b8;
-            font-size: 7px;
+            color: #64748b;
+            font-size: 7.5px;
             font-style: italic;
+            font-weight: 700;
         }
         .signature-name {
-            font-size: 6.8px;
-            color: var(--text-muted);
-            font-weight: 700;
+            font-family: 'Inter', sans-serif;
+            font-size: 7.8px;
+            color: #003b66;
+            font-weight: 800;
+            direction: ltr;
         }
 
         /* 9. Footer Strip */
         .print-footer-area {
             border-top: 1.5px solid var(--primary);
-            padding-top: 3px;
+            padding-top: 2.5px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            font-size: 7.2px;
-            color: var(--text-muted);
+            font-size: 7.8px;
+            color: #1e293b;
             background: #fff;
+            font-weight: 700;
         }
         .footer-left {
             font-weight: 900;
@@ -693,12 +794,15 @@
         }
         .footer-center {
             text-align: center;
-            font-weight: 600;
+            font-weight: 700;
+            color: #334155;
         }
         .footer-right {
             text-align: left;
             direction: ltr;
-            font-weight: 600;
+            font-weight: 800;
+            font-family: 'Inter', sans-serif;
+            color: #003b66;
         }
 
         /* Print Media Styles */
@@ -707,18 +811,22 @@
                 background: #fff !important;
                 padding: 0 !important;
                 margin: 0 !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
             }
-            .action-bar {
+            .action-bar, .no-print {
                 display: none !important;
             }
             .page-sheet {
                 box-shadow: none !important;
                 margin: 0 !important;
-                padding: 3mm 4mm !important;
+                padding: 2.5mm 4.5mm !important;
                 width: 100% !important;
-                height: 289mm !important;
-                max-height: 289mm !important;
+                height: 290mm !important;
+                max-height: 290mm !important;
                 border: none !important;
+                page-break-after: avoid !important;
+                page-break-inside: avoid !important;
             }
         }
     </style>
@@ -730,7 +838,7 @@
     <!-- Floating Minimalist Action Bar (Print & Close only) -->
     <div class="action-bar no-print">
         <button class="action-btn action-btn-primary" onclick="window.print()">
-            🖨️ طباعة الوثيقة (Print)
+            🖨️ طباعة الوثيقة (Print Policy)
         </button>
         <button class="action-btn" onclick="window.close()" style="background: #ef4444; color: #fff;">
             ✕ إغلاق
@@ -742,7 +850,7 @@
 
         <!-- 1. Header Section (Company, Clean Logo, QR Verification) -->
         <div class="print-header-area">
-            <!-- Company Logo Only (Globe SVG removed per user request) -->
+            <!-- Company Logo Only -->
             <div class="header-logo-left">
                 <img src="{{ asset('img/logo.png') }}" alt="Logo" onerror="this.style.display='none'">
             </div>
@@ -759,7 +867,7 @@
                 <div class="qr-text">
                     امسح للتحقق<br>
                     من صحة الوثيقة<br>
-                    <strong>Scan to verify<br>the policy</strong>
+                    <strong style="color: #003b66;">Scan to verify<br>the policy</strong>
                 </div>
                 <div class="qr-box" id="qrcode"></div>
             </div>
@@ -807,23 +915,33 @@
         <!-- 4. Insured & Trip Details Card -->
         <div class="section-box">
             <div class="section-header">
-                <span>👤 بيانات المؤمن له / تفاصيل الرحلة &nbsp;|&nbsp; Insured / Trip Details</span>
-                <span style="font-size: 7.8px; opacity: 0.95;">نوع التأمين: {{ $document->insurance_type }}</span>
+                <span>👤 بيانات المؤمن له / تفاصيل الرحلة &nbsp;|&nbsp; <span class="en-sub">Insured & Trip Details</span></span>
+                <span style="font-size: 8.5px; font-weight: 800; color: #003b66;">نوع التأمين: {{ $document->insurance_type }}</span>
             </div>
             <div class="details-grid">
                 <!-- Col 1 -->
                 <div>
                     <div class="detail-row">
                         <span class="detail-label">اسم المؤمن له <span class="en">Insured Full Name</span></span>
-                        <span class="detail-value rtl-val">{{ $mainPassenger->name_ar ?? '' }} {{ $mainPassenger->name_en ? ' / ' . $mainPassenger->name_en : '' }}</span>
+                        <span class="detail-value rtl-val">
+                            {{ $mainPassenger->name_ar ?? '' }}
+                            @if(!empty($mainPassenger->name_en))
+                                <span class="en-name">/ {{ strtoupper($mainPassenger->name_en) }}</span>
+                            @endif
+                        </span>
                     </div>
                     <div class="detail-row">
                         <span class="detail-label">الجنسية <span class="en">Nationality</span></span>
-                        <span class="detail-value rtl-val">{{ $mainPassenger->nationality ?? 'ليبي' }}</span>
+                        <span class="detail-value rtl-val">
+                            {{ $mainPassenger->nationality ?? 'ليبي' }}
+                            <span class="en-name" style="font-size: 8.5px;">/ {{ strtoupper($mainPassenger->nationality ?? 'Libyan') }}</span>
+                        </span>
                     </div>
                     <div class="detail-row">
                         <span class="detail-label">رقم جواز السفر <span class="en">Passport Number</span></span>
-                        <span class="detail-value">{{ $mainPassenger->passport_number ?? '-' }}</span>
+                        <span class="detail-value" style="font-size: 10.5px; font-weight: 900; letter-spacing: 0.8px; color: #003b66;">
+                            {{ $mainPassenger->passport_number ?? '-' }}
+                        </span>
                     </div>
                     <div class="detail-row">
                         <span class="detail-label">جهة الاتصال في الطوارئ <span class="en">Emergency Contact</span></span>
@@ -847,9 +965,9 @@
                     </div>
                     <div class="detail-row">
                         <span class="detail-label">مدة وسريان الوثيقة <span class="en">Policy Validity & Area</span></span>
-                        <span class="detail-value rtl-val">
-                            {{ $durationDays > 0 ? $durationDays . ' يوم' : ($document->duration ?? '-') }}
-                            {{ $document->geographic_area ? ' (' . $document->geographic_area . ')' : '' }}
+                        <span class="detail-value rtl-val" style="font-weight: 900; color: #003b66;">
+                            {{ $durationDays > 0 ? $durationDays . ' يوم (' . $durationDays . ' Days)' : ($document->duration ?? '-') }}
+                            {{ $document->geographic_area ? ' - ' . $document->geographic_area : '' }}
                         </span>
                     </div>
                 </div>
@@ -860,20 +978,25 @@
             <table class="family-table">
                 <thead>
                     <tr>
-                        <th style="width: 25px; text-align: center;">م</th>
-                        <th>اسم المرافق / Family Member</th>
+                        <th style="width: 25px; text-align: center;">م / No</th>
+                        <th>اسم المرافق / Family Member Name</th>
                         <th style="text-align: center;">صلة القرابة / Relation</th>
-                        <th style="text-align: center;">رقم الجواز / Passport</th>
+                        <th style="text-align: center;">رقم الجواز / Passport No.</th>
                         <th style="text-align: center;">تاريخ الميلاد / Birth Date</th>
                     </tr>
                 </thead>
                 <tbody>
                     @foreach($familyMembers as $idx => $member)
                     <tr>
-                        <td style="text-align: center; font-weight: 800;">{{ $idx + 1 }}</td>
-                        <td>{{ $member->name_ar }} {{ $member->name_en ? ' / ' . $member->name_en : '' }}</td>
+                        <td style="text-align: center; font-weight: 900; color: #003b66;">{{ $idx + 1 }}</td>
+                        <td>
+                            {{ $member->name_ar }}
+                            @if(!empty($member->name_en))
+                                <span style="font-family: 'Inter', sans-serif; font-weight: 900; color: #003b66;">/ {{ strtoupper($member->name_en) }}</span>
+                            @endif
+                        </td>
                         <td style="text-align: center;">{{ $member->relation ?? 'مرافق' }}</td>
-                        <td style="text-align: center; direction: ltr;">{{ $member->passport_number ?? '-' }}</td>
+                        <td style="text-align: center; direction: ltr; font-weight: 900; color: #003b66;">{{ $member->passport_number ?? '-' }}</td>
                         <td style="text-align: center;">{{ $member->birth_date ? \Carbon\Carbon::parse($member->birth_date)->format('Y/m/d') : '-' }}</td>
                     </tr>
                     @endforeach
@@ -885,16 +1008,16 @@
         <!-- 5. Travel Insurance Benefits Table (منافع تأمين المسافرين) -->
         <div class="benefits-card">
             <div class="benefits-card-header">
-                <span class="title">🛡️ منافع تأمين المسافرين &nbsp;|&nbsp; Travel Insurance Benefits</span>
+                <span class="title">🛡️ منافع تأمين المسافرين &nbsp;|&nbsp; <span class="en-sub">Travel Insurance Benefits</span></span>
                 <span class="limit-badge">حد التغطية الطبية: 50,000 USD (46,000 EUR) | Medical Coverage Limit</span>
             </div>
             <table class="benefits-table">
                 <thead>
                     <tr>
-                        <th class="col-num">م / No</th>
-                        <th class="col-benefit">المنفعة بالعربية / Benefit in English</th>
-                        <th class="col-limit">حد التغطية / Limit</th>
-                        <th class="col-notes">ملاحظات / Notes</th>
+                        <th class="col-num">م<br><span class="en-col">No.</span></th>
+                        <th class="col-benefit">المنفعة بالعربية / <span class="en-col" style="display:inline;">Benefit in English</span></th>
+                        <th class="col-limit">حد التغطية<br><span class="en-col">Limit of Coverage</span></th>
+                        <th class="col-notes">ملاحظات<br><span class="en-col">Remarks</span></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -902,120 +1025,129 @@
                         <td class="col-num">1</td>
                         <td class="col-benefit">
                             <span class="ar">المصروفات الطبية والاستشفاء في الخارج</span>
-                            <span class="en">Medical expenses and hospitalization abroad</span>
+                            <span class="en">Medical Expenses & Hospitalization Abroad</span>
                         </td>
-                        <td class="col-limit">50,000 USD</td>
+                        <td class="col-limit" style="font-size: 10px; font-weight: 900; color: #003b66;">50,000 USD</td>
                         <td class="col-notes">
-                            <span class="ar">ضمن الحد الطبي</span>
-                            <span class="en">Within medical limit</span>
+                            <span class="ar">شامل العلاج الطارئ</span>
+                            <span class="en">Emergency Inpatient/Outpatient</span>
                         </td>
                     </tr>
                     <tr>
                         <td class="col-num">2</td>
                         <td class="col-benefit">
                             <span class="ar">علاج كوفيد-19</span>
-                            <span class="en">COVID-19 Treatment</span>
+                            <span class="en">COVID-19 Treatment & Hospitalization</span>
                         </td>
-                        <td class="col-limit">ضمن الحد الطبي / Within limit</td>
+                        <td class="col-limit">
+                            <span class="ar" style="font-size: 7.8px;">ضمن الحد الطبي</span>
+                            <span class="en" style="font-family: 'Inter', sans-serif; font-size: 8.5px; font-weight: 900; color: #003b66; display: block;">Within Medical Limit</span>
+                        </td>
                         <td class="col-notes">
                             <span class="ar">ضمن الحد الطبي</span>
-                            <span class="en">Within medical limit</span>
+                            <span class="en">Within Medical Limit</span>
                         </td>
                     </tr>
                     <tr>
                         <td class="col-num">3</td>
                         <td class="col-benefit">
                             <span class="ar">الإقامة بالمستشفى</span>
-                            <span class="en">Hospitalization</span>
+                            <span class="en">Hospital Confinement / Room & Board</span>
                         </td>
-                        <td class="col-limit">ضمن الحد الطبي / Within limit</td>
+                        <td class="col-limit">
+                            <span class="ar" style="font-size: 7.8px;">ضمن الحد الطبي</span>
+                            <span class="en" style="font-family: 'Inter', sans-serif; font-size: 8.5px; font-weight: 900; color: #003b66; display: block;">Within Medical Limit</span>
+                        </td>
                         <td class="col-notes">
                             <span class="ar">ضمن الحد الطبي</span>
-                            <span class="en">Within medical limit</span>
+                            <span class="en">Within Medical Limit</span>
                         </td>
                     </tr>
                     <tr>
                         <td class="col-num">4</td>
                         <td class="col-benefit">
                             <span class="ar">العمليات الجراحية بسبب حادث</span>
-                            <span class="en">Surgical operations in cases of accidents</span>
+                            <span class="en">Emergency Surgery Due to Accident</span>
                         </td>
-                        <td class="col-limit">3,000 USD*</td>
+                        <td class="col-limit" style="font-weight: 900; color: #003b66;">3,000 USD*</td>
                         <td class="col-notes">
-                            <span class="ar">بعد موافقة شركة المساعدة</span>
-                            <span class="en">After approval of assistance company</span>
+                            <span class="ar">بموافقة شركة المساعدة</span>
+                            <span class="en">With Prior Approval</span>
                         </td>
                     </tr>
                     <tr>
                         <td class="col-num">5</td>
                         <td class="col-benefit">
-                            <span class="ar">إعادة الترحيل في حالة الوفاة</span>
+                            <span class="ar">إعادة الجثمان في حالة الوفاة</span>
                             <span class="en">Repatriation of Mortal Remains</span>
                         </td>
-                        <td class="col-limit">3,000 USD</td>
+                        <td class="col-limit" style="font-weight: 900; color: #003b66;">3,000 USD</td>
                         <td class="col-notes">
                             <span class="ar">حسب الإجراءات المعتمدة</span>
-                            <span class="en">According to approved procedures</span>
+                            <span class="en">Approved Repatriation</span>
                         </td>
                     </tr>
                     <tr>
                         <td class="col-num">6</td>
                         <td class="col-benefit">
                             <span class="ar">علاج الأسنان الطارئ</span>
-                            <span class="en">Emergency Dental Treatment</span>
+                            <span class="en">Emergency Dental Care (Pain Relief)</span>
                         </td>
-                        <td class="col-limit">500 USD</td>
+                        <td class="col-limit" style="font-weight: 900; color: #003b66;">500 USD</td>
                         <td class="col-notes">
                             <span class="ar">حسب الجدول الطبي</span>
-                            <span class="en">According to medical table</span>
+                            <span class="en">Emergency Relief Only</span>
                         </td>
                     </tr>
                     <tr>
                         <td class="col-num">7</td>
                         <td class="col-benefit">
-                            <span class="ar">النقل بسيارة الإسعاف</span>
-                            <span class="en">Emergency Ambulance</span>
+                            <span class="ar">النقل الطبي والإسعاف الطارئ</span>
+                            <span class="en">Emergency Medical Transportation / Ambulance</span>
                         </td>
-                        <td class="col-limit">ضمن الحد الطبي / Within limit</td>
+                        <td class="col-limit">
+                            <span class="ar" style="font-size: 7.8px;">ضمن الحد الطبي</span>
+                            <span class="en" style="font-family: 'Inter', sans-serif; font-size: 8.5px; font-weight: 900; color: #003b66; display: block;">Within Medical Limit</span>
+                        </td>
                         <td class="col-notes">
-                            <span class="ar">حسب الشروط والأحكام</span>
-                            <span class="en">According to terms and conditions</span>
+                            <span class="ar">حسب الشروط</span>
+                            <span class="en">Standard Policy Terms</span>
                         </td>
                     </tr>
                     <tr>
                         <td class="col-num">8</td>
                         <td class="col-benefit">
-                            <span class="ar">فقدان أو تأخير الأمتعة</span>
-                            <span class="en">Baggage Loss or Delay</span>
+                            <span class="ar">فقدان أو تأخير الأمتعة المسجلة</span>
+                            <span class="en">Checked Baggage Loss or Delay</span>
                         </td>
-                        <td class="col-limit">500 USD</td>
+                        <td class="col-limit" style="font-weight: 900; color: #003b66;">500 USD</td>
                         <td class="col-notes">
-                            <span class="ar">لكل 24 ساعة</span>
-                            <span class="en">Per 24 hours</span>
+                            <span class="ar">لكل 24 ساعة تأخير</span>
+                            <span class="en">Per 24h of Delay</span>
                         </td>
                     </tr>
                     <tr>
                         <td class="col-num">9</td>
                         <td class="col-benefit">
-                            <span class="ar">تأخير الرحلة</span>
-                            <span class="en">Travel Delay</span>
+                            <span class="ar">تأخير إقلاع الرحلة الجوية</span>
+                            <span class="en">Flight / Travel Delay</span>
                         </td>
-                        <td class="col-limit">150 USD</td>
+                        <td class="col-limit" style="font-weight: 900; color: #003b66;">150 USD</td>
                         <td class="col-notes">
-                            <span class="ar">بعد تقديم المستندات المطلوبة</span>
-                            <span class="en">After providing required documents</span>
+                            <span class="ar">بموجب إثبات من الناقل</span>
+                            <span class="en">Airline Report Required</span>
                         </td>
                     </tr>
                     <tr>
                         <td class="col-num">10</td>
                         <td class="col-benefit">
-                            <span class="ar">فقدان وثائق السفر</span>
-                            <span class="en">Loss of Travel Documents</span>
+                            <span class="ar">فقدان وثائق السفر الرسمية</span>
+                            <span class="en">Loss of Passport & Travel Documents</span>
                         </td>
-                        <td class="col-limit">100 USD</td>
+                        <td class="col-limit" style="font-weight: 900; color: #003b66;">100 USD</td>
                         <td class="col-notes">
-                            <span class="ar">بعد تقديم المستندات المطلوبة</span>
-                            <span class="en">After providing required documents</span>
+                            <span class="ar">تكاليف الاستخراج البديل</span>
+                            <span class="en">Replacement Costs</span>
                         </td>
                     </tr>
                 </tbody>
@@ -1027,44 +1159,45 @@
             <!-- Card 1: Conditions & Exclusions -->
             <div class="info-card">
                 <div class="info-card-header">
-                    <span>📋 الشروط والاستثناءات | Conditions & Exclusions</span>
+                    <span>📋 الشروط والاستثناءات</span>
+                    <span class="en-h">Conditions & Exclusions</span>
                 </div>
                 <div class="info-card-body">
                     <ul class="conditions-list">
                         <li>
                             <span class="num">1.</span>
-                            <span class="ar-cond">التأمين لا يغطي الأمراض المزمنة غير المستقرة السابقة للسفر.</span>
+                            <span class="ar-cond">التأمين لا يغطي الأمراض المزمنة السابقة للسفر.</span>
                             <span class="en-cond">Pre-existing chronic illnesses not covered.</span>
                         </li>
                         <li>
                             <span class="num">2.</span>
-                            <span class="ar-cond">لا يغطي الإقامة بالمستشفى للمراقبة فقط بدون علاج.</span>
-                            <span class="en-cond">Hospital stays for observation only excluded.</span>
+                            <span class="ar-cond">لا يغطي الإقامة للمراقبة فقط بدون علاج طبي.</span>
+                            <span class="en-cond">Hospital stay for observation only is excluded.</span>
                         </li>
                         <li>
                             <span class="num">3.</span>
-                            <span class="ar-cond">لا يغطي العلاج التجميلي أو الاختبارات الطبية بدون مرض.</span>
-                            <span class="en-cond">Cosmetic treatment/tests without illness not covered.</span>
+                            <span class="ar-cond">لا يغطي العمليات التجميلية أو الفحوصات الروتينية.</span>
+                            <span class="en-cond">Cosmetic/routine checkups strictly excluded.</span>
                         </li>
                         <li>
                             <span class="num">4.</span>
-                            <span class="ar-cond">الأمراض الخطيرة (سرطان، سكري، قلب، ضغط) إذا عولجت آخر 3 شهور مستثناة.</span>
-                            <span class="en-cond">Serious illnesses if treated in last 3 months excluded.</span>
+                            <span class="ar-cond">الأمراض المستعصية المعالجة بآخر 3 شهور مستثناة.</span>
+                            <span class="en-cond">Critical diseases treated in last 3 months excluded.</span>
                         </li>
                         <li>
                             <span class="num">5.</span>
-                            <span class="ar-cond">يجب إبلاغ شركة المساعدة فوراً في الطوارئ وإلا تُخلى المسؤولية.</span>
-                            <span class="en-cond">Must notify assistance company ASAP in emergencies.</span>
+                            <span class="ar-cond">يجب إخطار مركز المساعدة فوراً في الطوارئ.</span>
+                            <span class="en-cond">Assistance center must be notified immediately.</span>
                         </li>
                         <li>
                             <span class="num">6.</span>
-                            <span class="ar-cond">تغطية كوفيد-19 مشمولة ضمن الوثيقة.</span>
-                            <span class="en-cond">COVID-19 coverage included.</span>
+                            <span class="ar-cond">تغطية كوفيد-19 مشمولة بالكامل ضمن الوثيقة.</span>
+                            <span class="en-cond">COVID-19 coverage fully included under policy.</span>
                         </li>
                         <li>
                             <span class="num">7.</span>
-                            <span class="ar-cond">الوثيقة تعتبر لاغية بمجرد حصول المؤمن له على الإقامة.</span>
-                            <span class="en-cond">Policy null & void upon insured obtaining residency.</span>
+                            <span class="ar-cond">تُلغى الوثيقة تلقائياً بمجرد الحصول على إقامة بالخارج.</span>
+                            <span class="en-cond">Policy voids upon obtaining foreign residency.</span>
                         </li>
                     </ul>
                 </div>
@@ -1073,21 +1206,24 @@
             <!-- Card 2: Additional Exclusions & Health Declaration -->
             <div class="info-card">
                 <div class="info-card-header">
-                    <span>⚠️ الاستثناءات الإضافية والإقرار | Additional & Health</span>
+                    <span>⚠️ الاستثناءات والإقرار</span>
+                    <span class="en-h">Exclusions & Declaration</span>
                 </div>
                 <div class="info-card-body">
                     <ul class="bullet-list">
-                        <li>الأمراض السابقة للمصادقة (Pre-existing conditions).</li>
-                        <li>الحروب، الكوارث الطبيعية، الإرهاب (War, terrorism).</li>
-                        <li>الرياضات الخطرة والأنشطة الخطرة (Dangerous sports).</li>
-                        <li>العمليات الجراحية الاختيارية (Elective surgeries).</li>
-                        <li>العلاج في بلد المنشأ (Treatment in home country).</li>
+                        <li>الأمراض السابقة / Pre-existing medical conditions</li>
+                        <li>الحروب والنزاعات والإرهاب / War, civil unrest, terrorism</li>
+                        <li>الرياضات الخطرة والمغامرات / Hazardous sports & activities</li>
+                        <li>العمليات الاختيارية / Elective surgeries & treatments</li>
+                        <li>العلاج في بلد المنشأ / Treatments in country of origin</li>
                     </ul>
                     <div class="declaration-box">
-                        <strong>إقرار وتعهد صحي | Health Declaration:</strong><br>
-                        أقر بأنني أستوفي كافة الشروط الصحية المطلوبة، ولا أعاني من أي مرض سابق يتعارض مع الوثيقة، ولم أخفِ أي معلومات طبية، وأي إخلال يلغي الوثيقة ويسقط أي مطالبات مستقبلية.
-                        <div style="font-size: 6px; color: #64748b; direction: ltr; text-align: left; margin-top: 1px;">
-                            I confirm I have no pre-existing conditions affecting this policy. Any concealment voids coverage.
+                        <strong>إقرار صحي | Health Declaration:</strong>
+                        <div style="font-size: 7px; color: #1e293b; line-height: 1.15;">
+                            أقر بأنني لائق صحياً ولا أعاني من أي مرض يتعارض مع شروط السفر، وأي إخفاء يلغي الوثيقة.
+                        </div>
+                        <div class="en-decl">
+                            I declare being medically fit without undeclared pre-existing conditions. Concealment voids coverage.
                         </div>
                     </div>
                 </div>
@@ -1096,30 +1232,33 @@
             <!-- Card 3: Important Info & 24/7 Assistance Center -->
             <div class="info-card">
                 <div class="info-card-header">
-                    <span>ℹ️ معلومات هامة والمساعدة | Assistance 24/7</span>
+                    <span>ℹ️ المساعدة الدولية 24/7</span>
+                    <span class="en-h">24/7 International Assistance</span>
                 </div>
                 <div class="info-card-body">
-                    <div style="font-size: 7px; color: #334155; margin-bottom: 2px;">
-                        في حالات الطوارئ: يرجى الاتصال بمركز المساعدة 24/7<br>
-                        <span style="font-size: 6.2px; color: #64748b; direction: ltr; display: block;">For emergency, please contact assistance center 24/7:</span>
+                    <div style="font-size: 7.5px; color: #1e293b; margin-bottom: 2px; font-weight: 700;">
+                        في حالات الطوارئ بالخارج، اتصل فوراً:
+                        <span style="font-family: 'Inter', sans-serif; font-size: 7.2px; color: #003b66; font-weight: 800; direction: ltr; display: block;">
+                            For emergencies abroad, contact 24/7:
+                        </span>
                     </div>
 
                     <div class="emergency-pill">
                         <span class="emergency-phone">+218 920926066</span>
-                        <span class="pill-sub">مركز المساعدة على مدار الساعة / 24/7 Assistance</span>
+                        <span class="pill-sub">مركز المساعدة على مدار الساعة | 24/7 Emergency Line</span>
                     </div>
 
                     <div class="assistance-contact-item">
-                        <span style="font-weight: 800;">المعيد / Reinsurer:</span>
-                        <span style="font-weight: 800; color: var(--primary);">دار الصحة لإدارة النفقات</span>
+                        <span style="font-weight: 800;">شركة المساعدة / TPA:</span>
+                        <span style="font-weight: 900; color: #003b66;">دار الصحة / Dar Al-Sihha</span>
                     </div>
                     <div class="assistance-contact-item">
-                        <span style="font-weight: 800;">هاتف إضافي:</span>
-                        <span style="direction: ltr; font-weight: 800;">+49 1573 2333331</span>
+                        <span style="font-weight: 800;">هاتف أوروبا / Europe Line:</span>
+                        <span style="font-family: 'Inter', sans-serif; direction: ltr; font-weight: 900; color: #003b66;">+49 1573 2333331</span>
                     </div>
                     <div class="assistance-contact-item">
-                        <span style="font-weight: 800;">البريد الإلكتروني:</span>
-                        <span style="direction: ltr; font-weight: 800; font-size: 6.5px;">travel@mli.ly / info@tpa.ly</span>
+                        <span style="font-weight: 800;">البريد / E-mail:</span>
+                        <span style="font-family: 'Inter', sans-serif; direction: ltr; font-weight: 800; font-size: 7.8px; color: #003b66;">travel@mli.ly / info@tpa.ly</span>
                     </div>
                 </div>
             </div>
@@ -1127,12 +1266,12 @@
 
         <!-- 7. Network Liability Notice Banner -->
         <div class="network-notice">
-            <div>
+            <div style="font-weight: 700; color: #1e293b;">
                 <strong>المعيد: دار الصحة لإدارة النفقات الطبية (Dar Al-Sihha TPA)</strong> |
-                يتم تغطية الحالات الطارئة فقط إذا تم العلاج عبر شبكة معيد التأمين. شركة المدار الليبي للتأمين غير مسؤولة عن التكاليف المتكبدة خارج هذه الشبكة.
+                تُغطى الحالات الطارئة فقط عبر شبكة المعيد المعتمدة. الشركة غير مسؤولة عن النفقات خارج الشبكة دون إذن مسبق.
             </div>
-            <div style="font-size: 6.5px; color: #475569; direction: ltr; text-align: left; max-width: 38%;">
-                Emergency cases covered ONLY if treated within reinsurer’s network. Al-Madar Libyan Insurance Co. not liable outside network.
+            <div class="en-net">
+                Emergency covered ONLY within reinsurer network. Al-Madar Insurance is not liable for costs outside network without prior authorization.
             </div>
         </div>
 
@@ -1143,13 +1282,13 @@
                 <table class="financial-table">
                     <thead>
                         <tr>
-                            <th>صافي القسط<br><span style="font-size: 6px;">Premium</span></th>
+                            <th>صافي القسط<span class="en-th">Net Premium</span></th>
                             @if($document->family_members_premium > 0)
-                            <th>قسط المرافقين<br><span style="font-size: 6px;">Family</span></th>
+                            <th>قسط المرافقين<span class="en-th">Family Add-on</span></th>
                             @endif
-                            <th>رسم الإصدار<br><span style="font-size: 6px;">Issue Fee</span></th>
-                            <th>الدمغة<br><span style="font-size: 6px;">Stamp</span></th>
-                            <th style="background: #f1f5f9; color: var(--primary); font-weight: 900;">الإجمالي د.ل<br><span style="font-size: 6px; color: var(--primary);">Total LYD</span></th>
+                            <th>رسم الإصدار<span class="en-th">Issue Fee</span></th>
+                            <th>الدمغة<span class="en-th">Stamp Fee</span></th>
+                            <th style="background: #f1f5f9; color: var(--primary); font-weight: 900;">الإجمالي د.ل<span class="en-th" style="color: var(--primary);">Total LYD</span></th>
                         </tr>
                     </thead>
                     <tbody>
@@ -1160,7 +1299,7 @@
                             @endif
                             <td>{{ number_format($document->issue_fees ?? 0, 2) }}</td>
                             <td>{{ number_format($document->stamp ?? 0, 2) }}</td>
-                            <td style="color: var(--primary); font-size: 9.5px; font-weight: 900;">
+                            <td style="color: var(--primary); font-size: 10.5px; font-weight: 900;">
                                 {{ number_format($document->total, 2) }}
                             </td>
                         </tr>
@@ -1177,7 +1316,7 @@
                 <div class="signature-stamp-area">
                     (ختم وتوقيع الشركة المعتمد)
                 </div>
-                <div class="signature-name">Authorized Signature & Stamp</div>
+                <div class="signature-name">Authorized Signature & Official Stamp</div>
             </div>
 
             <!-- Signature 2: Insured Signature -->
@@ -1194,13 +1333,13 @@
         <div class="print-footer-area">
             <div class="footer-left">
                 <span>✈ معاً في كل وجهة</span>
-                <span style="font-size: 6.5px; color: #64748b; font-weight: 700;">| Together In Every Destination</span>
+                <span style="font-family: 'Inter', sans-serif; font-size: 7.8px; color: #003b66; font-weight: 800;">| Together In Every Destination</span>
             </div>
             <div class="footer-center">
-                طرابلس - صلاح الدين - بجانب كوبري صلاح الدين | Tripoli - Salah Eddin - Next to Salah Eddin Bridge
+                طرابلس - صلاح الدين - بجانب كوبري صلاح الدين | Tripoli - Salah Eddin - Libya
             </div>
             <div class="footer-right">
-                www.mli.ly | info@mli.ly | 092003356 / 0920526066
+                www.mli.ly | travel@mli.ly | 092003356 / 0920526066
             </div>
         </div>
 
@@ -1216,14 +1355,14 @@
             if (typeof QRCode !== 'undefined') {
                 new QRCode(qrContainer, {
                     text: qrText,
-                    width: 60,
-                    height: 60,
+                    width: 58,
+                    height: 58,
                     colorDark: "#003b66",
                     colorLight: "#ffffff",
                     correctLevel: QRCode.CorrectLevel.M
                 });
             } else {
-                qrContainer.innerHTML = '<img src="https://api.qrserver.com/v1/create-qr-code/?size=60x60&data=' + encodeURIComponent(qrText) + '" style="width:60px;height:60px;" alt="QR">';
+                qrContainer.innerHTML = '<img src="https://api.qrserver.com/v1/create-qr-code/?size=58x58&data=' + encodeURIComponent(qrText) + '" style="width:58px;height:58px;" alt="QR">';
             }
         })();
     </script>

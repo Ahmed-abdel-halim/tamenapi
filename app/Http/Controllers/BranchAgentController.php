@@ -2112,6 +2112,52 @@ class BranchAgentController extends Controller
             // جلب إجمالي المقبوضات للوكيل عبر كل الزمن
             $paymentVouchersAllTime = \App\Helpers\AgentPaymentHelper::getTotalPaid((int)$branchAgentId);
 
+            // حساب الوثائق الملغية ورسوم الإلغاء المستحقة على الوكيل في هذه الفترة
+            $canceledDocsCount = 0;
+            $cancellationFees = 0.0;
+            $documentTables = [
+                'insurance_documents'                     => 'تأمين السيارات',
+                'international_insurance_documents'       => 'تأمين السيارات دولي',
+                'travel_insurance_documents'              => 'تأمين المسافرين',
+                'resident_insurance_documents'            => 'تأمين الوافدين',
+                'marine_structure_insurance_documents'    => 'تأمين الهياكل البحرية',
+                'professional_liability_insurance_documents' => 'تأمين المسؤولية المهنية',
+                'personal_accident_insurance_documents'   => 'تأمين الحوادث الشخصيه',
+            ];
+
+            foreach ($documentTables as $tableName => $docType) {
+                if (!DB::getSchemaBuilder()->hasTable($tableName)) continue;
+                $dateCol = DB::getSchemaBuilder()->hasColumn($tableName, 'issue_date') ? 'issue_date' : 'created_at';
+                
+                $cQuery = DB::table($tableName)->where('branch_agent_id', $branchAgentId);
+                if ($type === 'range' && $fromDate && $toDate) {
+                    $cQuery->whereDate($dateCol, '>=', $fromDate)->whereDate($dateCol, '<=', $toDate);
+                } elseif ($type === 'monthly' && $year && $month) {
+                    $cQuery->whereYear($dateCol, $year)->whereMonth($dateCol, $month);
+                }
+
+                $hasIsCanceled = DB::getSchemaBuilder()->hasColumn($tableName, 'is_canceled');
+                $hasStatus = DB::getSchemaBuilder()->hasColumn($tableName, 'status');
+
+                $cQuery->where(function($q) use ($hasIsCanceled, $hasStatus) {
+                    if ($hasIsCanceled) {
+                        $q->where('is_canceled', 1)->orWhere('is_canceled', true);
+                    }
+                    if ($hasStatus) {
+                        $q->orWhere('status', 'ملغية');
+                    }
+                });
+
+                $cCount = $cQuery->count();
+                if ($cCount > 0) {
+                    $feePerDoc = \App\Http\Controllers\FinancialStatisticsController::getCancellationFeeForDoc($tableName, $docType);
+                    $canceledDocsCount += $cCount;
+                    $cancellationFees += ($cCount * $feePerDoc);
+                }
+            }
+
+            $totalDueCompany = $totalCompanyAmount + $cancellationFees;
+
             return response()->json([
                 'success' => true,
                 'branch_agent' => [
@@ -2122,9 +2168,12 @@ class BranchAgentController extends Controller
                 ],
                 'documents' => $documents,
                 'summary' => [
-                    'total_agent_amount' => $totalAmount,
-                    'total_company_amount' => $totalCompanyAmount,
-                    'due_amount' => $totalCompanyAmount, // القيمة المستحقة = القيمة للشركة
+                    'total_agent_amount' => round($totalAmount, 2),
+                    'total_company_sales_amount' => round($totalCompanyAmount, 2),
+                    'cancellation_fees' => round($cancellationFees, 2),
+                    'canceled_docs_count' => $canceledDocsCount,
+                    'total_company_amount' => round($totalDueCompany, 2),
+                    'due_amount' => round($totalDueCompany, 2), // القيمة المستحقة = حصة الشركة من المبيعات + رسوم الوثائق الملغية
                     'paid_vouchers_amount' => $paymentVouchersMonth, // إجمالي الإيصالات الصادرة في هذا الشهر
                     'total_vouchers_all_time' => $paymentVouchersAllTime, // إجمالي الإيصالات عبر كل الزمن
                 ],
@@ -3502,13 +3551,58 @@ class BranchAgentController extends Controller
             $processDocuments($professionalLiabilityInsuranceDocuments, 'تأمين المسؤولية المهنية');
             $processDocuments($personalAccidentInsuranceDocuments, 'تأمين الحوادث الشخصيه');
 
+            // حساب الوثائق الملغية ورسوم الإلغاء المستحقة على الوكيل في هذه الفترة
+            $canceledDocsCount = 0;
+            $cancellationFees = 0.0;
+            $documentTables = [
+                'insurance_documents'                     => 'تأمين السيارات',
+                'international_insurance_documents'       => 'تأمين السيارات دولي',
+                'travel_insurance_documents'              => 'تأمين المسافرين',
+                'resident_insurance_documents'            => 'تأمين الوافدين',
+                'marine_structure_insurance_documents'    => 'تأمين الهياكل البحرية',
+                'professional_liability_insurance_documents' => 'تأمين المسؤولية المهنية',
+                'personal_accident_insurance_documents'   => 'تأمين الحوادث الشخصيه',
+            ];
+
+            foreach ($documentTables as $tableName => $docType) {
+                if (!DB::getSchemaBuilder()->hasTable($tableName)) continue;
+                $dateCol = DB::getSchemaBuilder()->hasColumn($tableName, 'issue_date') ? 'issue_date' : 'created_at';
+                
+                $cQuery = DB::table($tableName)->where('branch_agent_id', $id);
+                if ($type === 'range' && $fromDate && $toDate) {
+                    $cQuery->whereDate($dateCol, '>=', $fromDate)->whereDate($dateCol, '<=', $toDate);
+                } elseif ($type === 'monthly' && $year && $month) {
+                    $cQuery->whereYear($dateCol, $year)->whereMonth($dateCol, $month);
+                }
+
+                $hasIsCanceled = DB::getSchemaBuilder()->hasColumn($tableName, 'is_canceled');
+                $hasStatus = DB::getSchemaBuilder()->hasColumn($tableName, 'status');
+
+                $cQuery->where(function($q) use ($hasIsCanceled, $hasStatus) {
+                    if ($hasIsCanceled) {
+                        $q->where('is_canceled', 1)->orWhere('is_canceled', true);
+                    }
+                    if ($hasStatus) {
+                        $q->orWhere('status', 'ملغية');
+                    }
+                });
+
+                $cCount = $cQuery->count();
+                if ($cCount > 0) {
+                    $feePerDoc = \App\Http\Controllers\FinancialStatisticsController::getCancellationFeeForDoc($tableName, $docType);
+                    $canceledDocsCount += $cCount;
+                    $cancellationFees += ($cCount * $feePerDoc);
+                }
+            }
+
+            $totalCompanyDue = $totalCompanyAmount + $cancellationFees;
             $companyPercentage = $grandTotal > 0 ? ($totalCompanyAmount / $grandTotal) * 100 : 0;
             $agentPercentage = $grandTotal > 0 ? ($totalAmount / $grandTotal) * 100 : 0;
 
             return view('branches-agents.revenue-report', compact(
                 'branchAgent', 'type', 'year', 'month', 'fromDate', 'toDate',
                 'documentsByCategory', 'totalCompanyAmount', 'totalAmount', 'grandTotal',
-                'companyPercentage', 'agentPercentage'
+                'companyPercentage', 'agentPercentage', 'cancellationFees', 'canceledDocsCount', 'totalCompanyDue'
             ));
         } catch (\Exception $e) {
             return response('<html><body><h1>حدث خطأ أثناء إنشاء التقرير</h1><p>' . (config('app.debug') ? htmlspecialchars($e->getMessage()) : '') . '</p></body></html>', 500)

@@ -379,6 +379,24 @@
                         <nobr>{{ number_format($grandTotal, 3) }}</nobr>
                     </td>
                 </tr>
+                @if(isset($cancellationFees) && $cancellationFees > 0)
+                <tr style="vertical-align:top; background: #fffbeb;">
+                    <td colspan="2" style="height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;font-weight:bold;color:#b45309;">
+                        <nobr>رسوم وثائق ملغية (مستحقة على الوكيل)</nobr>
+                    </td>
+                    <td colspan="3" style="height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;font-weight:bold;color:#b45309;">
+                        <nobr>{{ number_format($cancellationFees, 3) }} د.ل ({{ $canceledDocsCount ?? 0 }} وثيقة ملغية - تدفع نهاية الشهر)</nobr>
+                    </td>
+                </tr>
+                <tr style="vertical-align:top; background: #eff6ff;">
+                    <td colspan="2" style="height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;font-weight:bold;color:#0369a1;">
+                        <nobr>إجمالي المستحق للشركة (شامل رسوم الإلغاء)</nobr>
+                    </td>
+                    <td colspan="3" style="height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;font-weight:bold;color:#0369a1;">
+                        <nobr>{{ number_format($totalCompanyDue ?? ($totalCompanyAmount + $cancellationFees), 3) }} د.ل</nobr>
+                    </td>
+                </tr>
+                @endif
             </table>
         </div>
 

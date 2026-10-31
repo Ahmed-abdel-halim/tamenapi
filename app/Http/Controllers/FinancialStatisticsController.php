@@ -479,6 +479,7 @@ class FinancialStatisticsController extends Controller
                     'agent_share'    => 0.0,
                     'company_share'  => 0.0,
                     'percentage'     => 0.0,
+                    'pct_counts'     => [],
                 ];
                 $cursor->addMonth();
             }
@@ -556,6 +557,7 @@ class FinancialStatisticsController extends Controller
                                 'agent_share'    => 0.0,
                                 'company_share'  => 0.0,
                                 'percentage'     => 0.0,
+                                'pct_counts'     => [],
                             ];
                             ksort($months);
                         } else {
@@ -608,8 +610,12 @@ class FinancialStatisticsController extends Controller
                         $months[$monthKey]['company_share'] += $companyAmount;
                     }
 
-                    // Store last resolved percentage for display
-                    if ($months[$monthKey]['document_count'] === 1) {
+                    // Track percentage frequency to determine the dominant percentage for display
+                    if ($pct > 0) {
+                        $pctKey = (string)round($pct, 2);
+                        $months[$monthKey]['pct_counts'][$pctKey] = ($months[$monthKey]['pct_counts'][$pctKey] ?? 0) + 1;
+                    }
+                    if ($months[$monthKey]['document_count'] === 1 || $months[$monthKey]['percentage'] == 0) {
                         $months[$monthKey]['percentage'] = $pct;
                     }
                 }
@@ -646,6 +652,13 @@ class FinancialStatisticsController extends Controller
             foreach ($months as $mk => $m) {
                 $closure = $existingClosures->get($mk);
 
+                // Resolve dominant percentage for the month (if multiple rates exist, show the dominant one)
+                $monthPct = (float)($m['percentage'] ?? 0.0);
+                if (!empty($m['pct_counts'])) {
+                    arsort($m['pct_counts']);
+                    $monthPct = (float)array_key_first($m['pct_counts']);
+                }
+
                 $agentShare   = round($m['agent_share'], 2);
                 $companyShare = round($m['company_share'], 2);
                 $dueAmount    = $companyShare;
@@ -668,7 +681,7 @@ class FinancialStatisticsController extends Controller
                     'month_key'       => $mk,
                     'from_date'       => $m['from_date'],
                     'to_date'         => $m['to_date'],
-                    'percentage'      => round($m['percentage'], 2),
+                    'percentage'      => round($monthPct, 2),
                     'document_count'  => $m['document_count'],
                     'active_count'    => $m['active_count'],
                     'expired_count'   => $m['expired_count'],

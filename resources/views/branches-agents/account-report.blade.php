@@ -408,6 +408,16 @@
                         <nobr>{{ number_format($dueAmount, 3) }}</nobr>
                     </td>
                 </tr>
+                @if(isset($cancellationFees) && $cancellationFees > 0)
+                <tr style="vertical-align:top; background: #fffbeb;">
+                    <td colspan="1" style="width:120px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;font-weight:bold;color:#b45309;">
+                        <nobr>رسوم وثائق ملغية</nobr>
+                    </td>
+                    <td colspan="3" style="width:360px;height:12px;line-height:11px;direction:rtl;text-align:center;vertical-align:middle;font-weight:bold;color:#b45309;">
+                        <nobr>{{ number_format($cancellationFees, 3) }} د.ل ({{ $canceledDocsCount ?? 0 }} وثيقة ملغية - مستحقة على الوكيل وتدفع نهاية الشهر)</nobr>
+                    </td>
+                </tr>
+                @endif
             </table>
         </div>
 

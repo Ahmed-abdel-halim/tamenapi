@@ -477,6 +477,7 @@ class FinancialStatisticsController extends Controller
                     'cancellation_fees' => 0.0,
                     'total_sales'    => 0.0,
                     'agent_share'    => 0.0,
+                    'company_sales_share' => 0.0,
                     'company_share'  => 0.0,
                     'percentage'     => 0.0,
                     'pct_counts'     => [],
@@ -553,8 +554,10 @@ class FinancialStatisticsController extends Controller
                                 'active_count'   => 0,
                                 'expired_count'  => 0,
                                 'canceled_count' => 0,
+                                'cancellation_fees' => 0.0,
                                 'total_sales'    => 0.0,
                                 'agent_share'    => 0.0,
+                                'company_sales_share' => 0.0,
                                 'company_share'  => 0.0,
                                 'percentage'     => 0.0,
                                 'pct_counts'     => [],
@@ -605,9 +608,10 @@ class FinancialStatisticsController extends Controller
                             $months[$monthKey]['active_count']++;
                         }
 
-                        $months[$monthKey]['total_sales']   += $total;
-                        $months[$monthKey]['agent_share']   += $agentAmount;
-                        $months[$monthKey]['company_share'] += $companyAmount;
+                        $months[$monthKey]['total_sales']          += $total;
+                        $months[$monthKey]['agent_share']          += $agentAmount;
+                        $months[$monthKey]['company_sales_share']   = ($months[$monthKey]['company_sales_share'] ?? 0.0) + $companyAmount;
+                        $months[$monthKey]['company_share']        += $companyAmount;
                     }
 
                     // Track percentage frequency to determine the dominant percentage for display
@@ -659,9 +663,11 @@ class FinancialStatisticsController extends Controller
                     $monthPct = (float)array_key_first($m['pct_counts']);
                 }
 
-                $agentShare   = round($m['agent_share'], 2);
-                $companyShare = round($m['company_share'], 2);
-                $dueAmount    = $companyShare;
+                $agentShare        = round($m['agent_share'], 2);
+                $cancellationFees  = round($m['cancellation_fees'] ?? 0.0, 2);
+                $companySalesShare = round($m['company_sales_share'] ?? max(0, $m['company_share'] - $cancellationFees), 2);
+                $companyShare      = round($companySalesShare + $cancellationFees, 2);
+                $dueAmount         = $companyShare;
 
                 // Use combined payments for this month (fallback to closure paid_amount)
                 if (isset($paymentsByMonth[$mk])) {
@@ -674,41 +680,44 @@ class FinancialStatisticsController extends Controller
                 $closureId = $closure ? $closure->id : null;
 
                 $rows[] = [
-                    'closure_id'      => $closureId,
-                    'year'            => $m['year'],
-                    'month'           => $m['month'],
-                    'month_label'     => $m['month_label'],
-                    'month_key'       => $mk,
-                    'from_date'       => $m['from_date'],
-                    'to_date'         => $m['to_date'],
-                    'percentage'      => round($monthPct, 2),
-                    'document_count'  => $m['document_count'],
-                    'active_count'    => $m['active_count'],
-                    'expired_count'   => $m['expired_count'],
-                    'canceled_count'  => $m['canceled_count'],
-                    'cancellation_fees' => round($m['cancellation_fees'] ?? 0.0, 2),
-                    'total_sales'     => round($m['total_sales'], 2),
-                    'agent_share'     => $agentShare,
-                    'company_share'   => $companyShare,
-                    'carried_balance' => round($carriedBalance, 2),
-                    'paid_amount'     => round($paidAmount, 2),
-                    'remaining'       => $remaining,
-                    'notes'           => $closure->notes ?? null,
-                    'is_audited'      => $closure ? (bool)($closure->is_audited ?? false) : false,
+                    'closure_id'          => $closureId,
+                    'year'                => $m['year'],
+                    'month'               => $m['month'],
+                    'month_label'         => $m['month_label'],
+                    'month_key'           => $mk,
+                    'from_date'           => $m['from_date'],
+                    'to_date'             => $m['to_date'],
+                    'percentage'          => round($monthPct, 2),
+                    'document_count'      => $m['document_count'],
+                    'active_count'        => $m['active_count'],
+                    'expired_count'       => $m['expired_count'],
+                    'canceled_count'      => $m['canceled_count'],
+                    'cancellation_fees'   => $cancellationFees,
+                    'total_sales'         => round($m['total_sales'], 2),
+                    'agent_share'         => $agentShare,
+                    'company_sales_share' => $companySalesShare,
+                    'company_share'       => $companyShare,
+                    'due_amount'          => $dueAmount,
+                    'carried_balance'     => round($carriedBalance, 2),
+                    'paid_amount'         => round($paidAmount, 2),
+                    'remaining'           => $remaining,
+                    'notes'               => $closure->notes ?? null,
+                    'is_audited'          => $closure ? (bool)($closure->is_audited ?? false) : false,
                 ];
 
                 $carriedBalance = $remaining > 0 ? $remaining : 0.0;
 
-                $grandTotalSales        += $m['total_sales'];
-                $grandTotalDocs         += $m['document_count'];
-                $grandTotalActiveDocs   += $m['active_count'];
-                $grandTotalExpiredDocs  += $m['expired_count'];
-                $grandTotalCanceledDocs += $m['canceled_count'];
-                $grandTotalCancellationFees = ($grandTotalCancellationFees ?? 0.0) + ($m['cancellation_fees'] ?? 0.0);
-                $grandTotalAgentShare   += $agentShare;
-                $grandTotalCompanyShare += $companyShare;
-                $grandTotalPaid         += $paidAmount;
-                $grandTotalRemaining    = $carriedBalance;
+                $grandTotalSales             += $m['total_sales'];
+                $grandTotalDocs              += $m['document_count'];
+                $grandTotalActiveDocs        += $m['active_count'];
+                $grandTotalExpiredDocs       += $m['expired_count'];
+                $grandTotalCanceledDocs      += $m['canceled_count'];
+                $grandTotalCancellationFees   = ($grandTotalCancellationFees ?? 0.0) + $cancellationFees;
+                $grandTotalAgentShare        += $agentShare;
+                $grandTotalCompanySalesShare  = ($grandTotalCompanySalesShare ?? 0.0) + $companySalesShare;
+                $grandTotalCompanyShare      += $companyShare;
+                $grandTotalPaid              += $paidAmount;
+                $grandTotalRemaining         = $carriedBalance;
             }
 
             return response()->json([
@@ -728,16 +737,19 @@ class FinancialStatisticsController extends Controller
                 ],
                 'months' => array_values($rows),
                 'summary' => [
-                    'total_months'        => count($rows),
-                    'total_documents'     => $grandTotalDocs,
-                    'active_documents'    => $grandTotalActiveDocs,
-                    'expired_documents'   => $grandTotalExpiredDocs,
-                    'canceled_documents'  => $grandTotalCanceledDocs,
-                    'total_sales'         => round($grandTotalSales, 2),
-                    'total_agent_share'   => round($grandTotalAgentShare, 2),
-                    'total_company_share' => round($grandTotalCompanyShare, 2),
-                    'total_paid'          => round($grandTotalPaid, 2),
-                    'total_remaining'     => round($grandTotalRemaining, 2),
+                    'total_months'              => count($rows),
+                    'total_documents'           => $grandTotalDocs,
+                    'active_documents'          => $grandTotalActiveDocs,
+                    'expired_documents'         => $grandTotalExpiredDocs,
+                    'canceled_documents'        => $grandTotalCanceledDocs,
+                    'total_sales'               => round($grandTotalSales, 2),
+                    'total_agent_share'         => round($grandTotalAgentShare, 2),
+                    'total_company_sales_share' => round($grandTotalCompanySalesShare ?? 0.0, 2),
+                    'total_cancellation_fees'   => round($grandTotalCancellationFees ?? 0.0, 2),
+                    'total_company_share'       => round($grandTotalCompanyShare, 2),
+                    'total_due_company'         => round($grandTotalCompanyShare, 2),
+                    'total_paid'                => round($grandTotalPaid, 2),
+                    'total_remaining'           => round($grandTotalRemaining, 2),
                 ],
             ]);
         } catch (\Exception $e) {
@@ -1652,9 +1664,10 @@ class FinancialStatisticsController extends Controller
 
                     // Canceled documents DO NOT add to revenue or company/agent shares!
                     if (!$isCanceled) {
-                        $totalSales        += $total;
-                        $totalAgentShare   += $agentAmount;
-                        $totalCompanyShare += $companyAmount;
+                        $totalSales             += $total;
+                        $totalAgentShare        += $agentAmount;
+                        $totalCompanySalesShare = ($totalCompanySalesShare ?? 0.0) + $companyAmount;
+                        $totalCompanyShare      += $companyAmount;
                     }
 
                     $documentsList[] = [
@@ -1689,25 +1702,16 @@ class FinancialStatisticsController extends Controller
                 'success'   => true,
                 'documents' => $documentsList,
                 'summary'   => [
-                    'total_documents'     => count($documentsList),
-                    'active_documents'    => $activeCount,
-                    'expired_documents'   => $expiredCount,
-                    'canceled_documents'  => $canceledCount,
-                    'total_sales'         => round($totalSales, 2),
-                    'total_agent_share'   => round($totalAgentShare, 2),
-                    'total_company_share' => round($totalCompanyShare, 2),
+                    'total_documents'           => count($documentsList),
+                    'active_documents'          => $activeCount,
+                    'expired_documents'         => $expiredCount,
+                    'canceled_documents'        => $canceledCount,
+                    'total_cancellation_fees'   => round($totalCancellationFees ?? 0.0, 2),
+                    'total_sales'               => round($totalSales, 2),
+                    'total_agent_share'         => round($totalAgentShare, 2),
+                    'total_company_sales_share' => round($totalCompanySalesShare ?? 0.0, 2),
+                    'total_company_share'       => round($totalCompanyShare, 2),
                 ],
-            ]);
-
-            return response()->json([
-                'success'   => true,
-                'documents' => $documentsList,
-                'summary'   => [
-                    'total_documents'     => count($documentsList),
-                    'total_sales'         => round($totalSales, 2),
-                    'total_agent_share'   => round($totalAgentShare, 2),
-                    'total_company_share' => round($totalCompanyShare, 2),
-                ]
             ]);
 
         } catch (\Exception $e) {

@@ -1527,12 +1527,52 @@ class BranchAgentController extends Controller
             }
             $companyPercentage = 100 - $agentPercentage;
             
+            // حساب رسوم الوثائق الملغية لنهاية التقرير (المستحقة على الوكيل وتدفع نهاية الشهر)
+            $canceledDocsCount = 0;
+            $cancellationFees = 0.0;
+            $checkTables = [
+                'insurance_documents' => 'compulsory',
+                'international_insurance_documents' => 'international',
+                'travel_insurance_documents' => 'travel',
+                'resident_insurance_documents' => 'resident',
+                'marine_structure_insurance_documents' => 'marine',
+                'professional_liability_insurance_documents' => 'medical',
+                'personal_accident_insurance_documents' => 'personal_accident',
+                'school_student_insurance_documents' => 'school_student',
+                'cash_in_transit_insurance_documents' => 'cash_in_transit',
+                'cargo_insurance_documents' => 'cargo',
+            ];
+            $schema = DB::getSchemaBuilder();
+            foreach ($checkTables as $cTable => $cType) {
+                if (!$schema->hasTable($cTable) || !$schema->hasColumn($cTable, 'branch_agent_id')) continue;
+                $dateCol = $schema->hasColumn($cTable, 'issue_date') ? 'issue_date' : ($schema->hasColumn($cTable, 'start_date') ? 'start_date' : 'created_at');
+                $cQuery = DB::table($cTable)->where('branch_agent_id', $id);
+                if ($type === 'range' && $fromDate && $toDate) {
+                    $cQuery->whereDate($dateCol, '>=', $fromDate)->whereDate($dateCol, '<=', $toDate);
+                } elseif ($type === 'monthly' && $year && $month) {
+                    $cQuery->whereYear($dateCol, $year)->whereMonth($dateCol, $month);
+                }
+                $cQuery->where(function($q) use ($schema, $cTable) {
+                    if ($schema->hasColumn($cTable, 'is_canceled')) {
+                        $q->where('is_canceled', true)->orWhere('is_canceled', 1);
+                    }
+                    if ($schema->hasColumn($cTable, 'status')) {
+                        $q->orWhereIn(DB::raw('LOWER(status)'), ['ملغية', 'ملغيه', 'canceled', 'cancelled']);
+                    }
+                });
+                $cDocs = $cQuery->get();
+                foreach ($cDocs as $cd) {
+                    $canceledDocsCount++;
+                    $cancellationFees += \App\Http\Controllers\FinancialStatisticsController::getCancellationFeeForDoc($cTable, $cType);
+                }
+            }
+
             // حساب المبالغ المتبقية والمدفوعة والمستحقة
-            // القيمة المستحقة دائماً = القيمة للشركة (المبلغ الأصلي المستحق)
-            $dueAmount = $totalCompanyAmount;
+            // القيمة المستحقة للشركة = حصة الشركة من المبيعات + رسوم الوثائق الملغية
+            $dueAmount = $totalCompanyAmount + $cancellationFees;
             
             // القيم الافتراضية
-            $remainingAmount = $totalCompanyAmount; // المتبقي = القيمة للشركة (افتراضي)
+            $remainingAmount = $dueAmount; // المتبقي = القيمة المستحقة (افتراضي)
             $paidAmount = 0; // المدفوع (افتراضي)
             
             if (($type === 'monthly' && $year && $month) || ($type === 'range' && $fromDate && $toDate)) {
@@ -1581,7 +1621,10 @@ class BranchAgentController extends Controller
                 'toDate' => $toDate,
                 'documentsByCategory' => $documentsByCategory,
                 'totalAmount' => $totalAmount,
-                'totalCompanyAmount' => $totalCompanyAmount,
+                'totalCompanySalesAmount' => $totalCompanyAmount,
+                'cancellationFees' => $cancellationFees,
+                'canceledDocsCount' => $canceledDocsCount,
+                'totalCompanyAmount' => $totalCompanyAmount + $cancellationFees,
                 'grandTotal' => $grandTotal,
                 'companyPercentage' => $companyPercentage,
                 'agentPercentage' => $agentPercentage,
@@ -3039,8 +3082,49 @@ class BranchAgentController extends Controller
             $companyPercentage = $grandTotal > 0 ? ($totalCompanyAmount / $grandTotal) * 100 : 0;
             $agentPercentage = $grandTotal > 0 ? ($totalAmount / $grandTotal) * 100 : 0;
 
+            // حساب رسوم الوثائق الملغية لنهاية التقرير (المستحقة على الوكيل وتدفع نهاية الشهر)
+            $canceledDocsCount = 0;
+            $cancellationFees = 0.0;
+            $checkTables = [
+                'insurance_documents' => 'compulsory',
+                'international_insurance_documents' => 'international',
+                'travel_insurance_documents' => 'travel',
+                'resident_insurance_documents' => 'resident',
+                'marine_structure_insurance_documents' => 'marine',
+                'professional_liability_insurance_documents' => 'medical',
+                'personal_accident_insurance_documents' => 'personal_accident',
+                'school_student_insurance_documents' => 'school_student',
+                'cash_in_transit_insurance_documents' => 'cash_in_transit',
+                'cargo_insurance_documents' => 'cargo',
+            ];
+            $schema = DB::getSchemaBuilder();
+            foreach ($checkTables as $cTable => $cType) {
+                if (!$schema->hasTable($cTable) || !$schema->hasColumn($cTable, 'branch_agent_id')) continue;
+                $dateCol = $schema->hasColumn($cTable, 'issue_date') ? 'issue_date' : ($schema->hasColumn($cTable, 'start_date') ? 'start_date' : 'created_at');
+                $cQuery = DB::table($cTable)->where('branch_agent_id', $id);
+                if ($type === 'range' && $fromDate && $toDate) {
+                    $cQuery->whereDate($dateCol, '>=', $fromDate)->whereDate($dateCol, '<=', $toDate);
+                } elseif ($year && $month) {
+                    $cQuery->whereYear($dateCol, $year)->whereMonth($dateCol, $month);
+                }
+                $cQuery->where(function($q) use ($schema, $cTable) {
+                    if ($schema->hasColumn($cTable, 'is_canceled')) {
+                        $q->where('is_canceled', true)->orWhere('is_canceled', 1);
+                    }
+                    if ($schema->hasColumn($cTable, 'status')) {
+                        $q->orWhereIn(DB::raw('LOWER(status)'), ['ملغية', 'ملغيه', 'canceled', 'cancelled']);
+                    }
+                });
+                $cDocs = $cQuery->get();
+                foreach ($cDocs as $cd) {
+                    $canceledDocsCount++;
+                    $cancellationFees += \App\Http\Controllers\FinancialStatisticsController::getCancellationFeeForDoc($cTable, $cType);
+                }
+            }
+
             // حساب المبالغ المتبقية والمدفوعة والمستحقة
-            $dueAmount = $totalCompanyAmount;
+            // القيمة المستحقة للشركة = حصة الشركة من المبيعات + رسوم الوثائق الملغية
+            $dueAmount = $totalCompanyAmount + $cancellationFees;
             
             // جلب مقبوضات الفترة الرسمية
             $paymentVouchersTotal = \App\Helpers\AgentPaymentHelper::getPaidForPeriod(
@@ -3079,7 +3163,10 @@ class BranchAgentController extends Controller
                 'type' => $type,
                 'documentsByCategory' => $documentsByCategory,
                 'totalAmount' => $totalAmount,
-                'totalCompanyAmount' => $totalCompanyAmount,
+                'totalCompanySalesAmount' => $totalCompanyAmount,
+                'cancellationFees' => $cancellationFees,
+                'canceledDocsCount' => $canceledDocsCount,
+                'totalCompanyAmount' => $totalCompanyAmount + $cancellationFees,
                 'grandTotal' => $grandTotal,
                 'companyPercentage' => $companyPercentage,
                 'agentPercentage' => $agentPercentage,

@@ -49,7 +49,7 @@ class BranchAgentController extends Controller
             $isAdmin = (bool)($authUser?->is_admin ?? false);
 
             $branchId = null;
-            if ($isBranchAdmin && !$isAdmin && $authUser?->branch_id) {
+            if (!$isAdmin && $authUser?->branch_id) {
                 $branchId = (string)$authUser->branch_id;
             } elseif ($request->filled('branch_id')) {
                 $branchId = (string)$request->input('branch_id');
@@ -57,9 +57,13 @@ class BranchAgentController extends Controller
                 $branchId = (string)$request->header('X-Branch-Id');
             }
 
+            if ($branchId === 'all') {
+                $branchId = null;
+            }
+
             $cacheKey = 'branches_agents_index_' . ($isLight ? 'light_' : 'full_') . ($status ?? 'all') . ($branchId ? "_branch_$branchId" : '_all');
 
-            $branchesAgents = Cache::remember($cacheKey, 120, function () use ($isLight, $status, $branchId) {
+            $branchesAgents = Cache::remember($cacheKey, 60, function () use ($isLight, $status, $branchId) {
                 $query = BranchAgent::query();
 
                 if ($status) {
@@ -70,7 +74,15 @@ class BranchAgentController extends Controller
                     if ($branchId === 'none') {
                         $query->whereNull('branch_id');
                     } else {
-                        $query->where('branch_id', $branchId);
+                        $isMain = $this->isMainBranch((int)$branchId);
+                        if ($isMain) {
+                            $query->where(function ($q) use ($branchId) {
+                                $q->where('branch_id', $branchId)
+                                  ->orWhereNull('branch_id');
+                            });
+                        } else {
+                            $query->where('branch_id', $branchId);
+                        }
                     }
                 }
 
@@ -2119,7 +2131,7 @@ class BranchAgentController extends Controller
             }
 
             $selectedBranchId = $this->getResolvedBranchId($request);
-            $branchAgentIds = $selectedBranchId ? BranchAgent::where('branch_id', $selectedBranchId)->pluck('id')->toArray() : [];
+            $branchAgentIds = $selectedBranchId ? $this->getBranchAgentIds($selectedBranchId) : [];
 
             $applyCanceledFilter = function ($query) {
                 return $query->where(function ($q) {
@@ -2133,8 +2145,13 @@ class BranchAgentController extends Controller
                 if ($branchAgentId) {
                     $query->where('branch_agent_id', $branchAgentId);
                 } elseif ($selectedBranchId) {
-                    $query->where(function ($q) use ($selectedBranchId, $branchAgentIds) {
-                        $q->where('branch_id', $selectedBranchId);
+                    $isMain = $this->isMainBranch($selectedBranchId);
+                    $query->where(function ($q) use ($selectedBranchId, $branchAgentIds, $isMain) {
+                        if ($isMain) {
+                            $q->where('branch_id', $selectedBranchId)->orWhereNull('branch_id');
+                        } else {
+                            $q->where('branch_id', $selectedBranchId);
+                        }
                         if (!empty($branchAgentIds)) {
                             $q->orWhereIn('branch_agent_id', $branchAgentIds);
                         }
@@ -2267,14 +2284,19 @@ class BranchAgentController extends Controller
             }
 
             $selectedBranchId = $this->getResolvedBranchId($request);
-            $branchAgentIds = $selectedBranchId ? BranchAgent::where('branch_id', $selectedBranchId)->pluck('id')->toArray() : [];
+            $branchAgentIds = $selectedBranchId ? $this->getBranchAgentIds($selectedBranchId) : [];
 
             $applyScope = function ($query) use ($branchAgentId, $selectedBranchId, $branchAgentIds) {
                 if ($branchAgentId) {
                     $query->where('branch_agent_id', $branchAgentId);
                 } elseif ($selectedBranchId) {
-                    $query->where(function ($q) use ($selectedBranchId, $branchAgentIds) {
-                        $q->where('branch_id', $selectedBranchId);
+                    $isMain = $this->isMainBranch($selectedBranchId);
+                    $query->where(function ($q) use ($selectedBranchId, $branchAgentIds, $isMain) {
+                        if ($isMain) {
+                            $q->where('branch_id', $selectedBranchId)->orWhereNull('branch_id');
+                        } else {
+                            $q->where('branch_id', $selectedBranchId);
+                        }
                         if (!empty($branchAgentIds)) {
                             $q->orWhereIn('branch_agent_id', $branchAgentIds);
                         }
@@ -3588,12 +3610,18 @@ class BranchAgentController extends Controller
             }
 
             $selectedBranchId = $this->getResolvedBranchId($request);
-            $branchAgentIds = $selectedBranchId ? BranchAgent::where('branch_id', $selectedBranchId)->pluck('id')->toArray() : [];
+            $branchAgentIds = $selectedBranchId ? $this->getBranchAgentIds($selectedBranchId) : [];
 
             // جلب الوكلاء مرة واحدة وتخزين نسبهم في الذاكرة لتجنب استعلامات N+1
             $agentsQuery = BranchAgent::select('id', 'document_percentages', 'branch_id');
             if ($selectedBranchId) {
-                $agentsQuery->where('branch_id', $selectedBranchId);
+                if ($this->isMainBranch($selectedBranchId)) {
+                    $agentsQuery->where(function ($q) use ($selectedBranchId) {
+                        $q->where('branch_id', $selectedBranchId)->orWhereNull('branch_id');
+                    });
+                } else {
+                    $agentsQuery->where('branch_id', $selectedBranchId);
+                }
             }
             $agents = $agentsQuery->get()->keyBy('id');
 
@@ -3609,8 +3637,13 @@ class BranchAgentController extends Controller
             if (DB::getSchemaBuilder()->hasTable('insurance_documents')) {
                 $insQuery = DB::table('insurance_documents');
                 if ($selectedBranchId) {
-                    $insQuery->where(function ($q) use ($selectedBranchId, $branchAgentIds) {
-                        $q->where('branch_id', $selectedBranchId);
+                    $isMain = $this->isMainBranch($selectedBranchId);
+                    $insQuery->where(function ($q) use ($selectedBranchId, $branchAgentIds, $isMain) {
+                        if ($isMain) {
+                            $q->where('branch_id', $selectedBranchId)->orWhereNull('branch_id');
+                        } else {
+                            $q->where('branch_id', $selectedBranchId);
+                        }
                         if (!empty($branchAgentIds)) {
                             $q->orWhereIn('branch_agent_id', $branchAgentIds);
                         }
@@ -3691,17 +3724,28 @@ class BranchAgentController extends Controller
 
                 $tableQuery = DB::table($tableName);
                 if ($selectedBranchId) {
+                    $isMain = $this->isMainBranch($selectedBranchId);
                     $hasBranchIdCol = $schema->hasColumn($tableName, 'branch_id');
                     $hasAgentCol = $schema->hasColumn($tableName, 'branch_agent_id');
                     if ($hasBranchIdCol && $hasAgentCol) {
-                        $tableQuery->where(function ($q) use ($selectedBranchId, $branchAgentIds) {
-                            $q->where('branch_id', $selectedBranchId);
+                        $tableQuery->where(function ($q) use ($selectedBranchId, $branchAgentIds, $isMain) {
+                            if ($isMain) {
+                                $q->where('branch_id', $selectedBranchId)->orWhereNull('branch_id');
+                            } else {
+                                $q->where('branch_id', $selectedBranchId);
+                            }
                             if (!empty($branchAgentIds)) {
                                 $q->orWhereIn('branch_agent_id', $branchAgentIds);
                             }
                         });
                     } elseif ($hasBranchIdCol) {
-                        $tableQuery->where('branch_id', $selectedBranchId);
+                        if ($isMain) {
+                            $tableQuery->where(function ($q) use ($selectedBranchId) {
+                                $q->where('branch_id', $selectedBranchId)->orWhereNull('branch_id');
+                            });
+                        } else {
+                            $tableQuery->where('branch_id', $selectedBranchId);
+                        }
                     } elseif ($hasAgentCol) {
                         if (!empty($branchAgentIds)) {
                             $tableQuery->whereIn('branch_agent_id', $branchAgentIds);
@@ -3743,8 +3787,13 @@ class BranchAgentController extends Controller
             // المدفوع للشركة = مجموع كافة المقبوضات وإيصالات القبض الرسمية
             $voucherQuery = DB::table('payment_vouchers');
             if ($selectedBranchId) {
-                $voucherQuery->where(function ($q) use ($selectedBranchId, $branchAgentIds) {
-                    $q->where('branch_id', $selectedBranchId);
+                $isMain = $this->isMainBranch($selectedBranchId);
+                $voucherQuery->where(function ($q) use ($selectedBranchId, $branchAgentIds, $isMain) {
+                    if ($isMain) {
+                        $q->where('branch_id', $selectedBranchId)->orWhereNull('branch_id');
+                    } else {
+                        $q->where('branch_id', $selectedBranchId);
+                    }
                     if (!empty($branchAgentIds)) {
                         $q->orWhereIn('branch_agent_id', $branchAgentIds);
                     }
@@ -3764,8 +3813,13 @@ class BranchAgentController extends Controller
                 $closureQuery = DB::table('monthly_account_closures')
                     ->where('paid_amount', '>', 0);
                 if ($selectedBranchId) {
-                    $closureQuery->where(function ($q) use ($selectedBranchId, $branchAgentIds) {
-                        $q->where('branch_id', $selectedBranchId);
+                    $isMain = $this->isMainBranch($selectedBranchId);
+                    $closureQuery->where(function ($q) use ($selectedBranchId, $branchAgentIds, $isMain) {
+                        if ($isMain) {
+                            $q->where('branch_id', $selectedBranchId)->orWhereNull('branch_id');
+                        } else {
+                            $q->where('branch_id', $selectedBranchId);
+                        }
                         if (!empty($branchAgentIds)) {
                             $q->orWhereIn('branch_agent_id', $branchAgentIds);
                         }

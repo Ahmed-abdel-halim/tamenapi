@@ -25,6 +25,28 @@ class FinancialStatisticsController extends Controller
     public function getStatistics(Request $request)
     {
         $branchId = $this->getResolvedBranchId($request);
+        $branchAgentIds = $this->getBranchAgentIds($branchId);
+
+        $applyDocBranchFilter = function ($q, $tableName) use ($branchId, $branchAgentIds) {
+            if (!$branchId) return $q;
+            $schema = DB::getSchemaBuilder();
+            $hasBranch = $schema->hasColumn($tableName, 'branch_id');
+            $hasAgent = $schema->hasColumn($tableName, 'branch_agent_id');
+
+            return $q->where(function ($sub) use ($branchId, $branchAgentIds, $hasBranch, $hasAgent) {
+                if ($hasBranch) {
+                    if ($this->isMainBranch($branchId)) {
+                        $sub->where('branch_id', $branchId)->orWhereNull('branch_id');
+                    } else {
+                        $sub->where('branch_id', $branchId);
+                    }
+                }
+                if ($hasAgent && !empty($branchAgentIds)) {
+                    $sub->orWhereIn('branch_agent_id', $branchAgentIds);
+                }
+            });
+        };
+
         // Define all insurance tables
         $insuranceTables = [
             'insurance_documents',
@@ -41,10 +63,8 @@ class FinancialStatisticsController extends Controller
         foreach ($insuranceTables as $table) {
             if (DB::getSchemaBuilder()->hasColumn($table, 'total')) {
                 $tQuery = DB::table($table);
-                if ($branchId) {
-                    $tQuery->where('branch_id', $branchId);
-                }
-                $totalRevenue += $tQuery->sum('total');
+                $applyDocBranchFilter($tQuery, $table);
+                $totalRevenue += (float)$tQuery->sum('total');
             }
         }
 
@@ -55,7 +75,7 @@ class FinancialStatisticsController extends Controller
             if ($branchId) {
                 $userSalQ->where('branch_id', $branchId);
             }
-            $totalSalaries = $userSalQ->sum('salary');
+            $totalSalaries = (float)$userSalQ->sum('salary');
         }
 
         // 3. Fixed Expenses
@@ -65,7 +85,7 @@ class FinancialStatisticsController extends Controller
             if ($branchId) {
                 $expQ->where('branch_id', $branchId);
             }
-            $totalExpenses = $expQ->sum('amount');
+            $totalExpenses = (float)$expQ->sum('amount');
         }
 
         // 4. Net Profit (Simple calculation)
@@ -84,22 +104,26 @@ class FinancialStatisticsController extends Controller
             if ($hasTotal && $hasCreatedAt) {
                 $cmQ = DB::table($table)->whereMonth('created_at', $currentMonth);
                 $lmQ = DB::table($table)->whereMonth('created_at', $lastMonth);
-                if ($branchId) {
-                    $cmQ->where('branch_id', $branchId);
-                    $lmQ->where('branch_id', $branchId);
-                }
-                $currentMonthRevenue += $cmQ->sum('total');
-                $lastMonthRevenue += $lmQ->sum('total');
+                $applyDocBranchFilter($cmQ, $table);
+                $applyDocBranchFilter($lmQ, $table);
+                $currentMonthRevenue += (float)$cmQ->sum('total');
+                $lastMonthRevenue += (float)$lmQ->sum('total');
             }
         }
 
         $growthRate = ($lastMonthRevenue > 0) ? (($currentMonthRevenue - $lastMonthRevenue) / $lastMonthRevenue) * 100 : 0;
 
-        // 6. Canceled Documents (Assuming status exists, default fallback if column not present)
+        // 6. Canceled Documents
         $canceledDocs = 0;
         foreach ($insuranceTables as $table) {
             if (DB::getSchemaBuilder()->hasColumn($table, 'status')) {
-                $canceledDocs += DB::table($table)->where('status', 'canceled')->count();
+                $cQ = DB::table($table)->where(function ($q) {
+                    $q->where('status', 'canceled')
+                      ->orWhere('status', 'ملغية')
+                      ->orWhere('status', 'ملغيه');
+                });
+                $applyDocBranchFilter($cQ, $table);
+                $canceledDocs += $cQ->count();
             }
         }
 
@@ -108,41 +132,66 @@ class FinancialStatisticsController extends Controller
         $totalStamp = 0;
         $totalSupervision = 0;
         foreach ($insuranceTables as $table) {
-            if (DB::getSchemaBuilder()->hasColumn($table, 'tax')) {
-                $totalTax += DB::table($table)->sum('tax');
+            $schema = DB::getSchemaBuilder();
+            if ($schema->hasColumn($table, 'tax')) {
+                $taxQ = DB::table($table);
+                $applyDocBranchFilter($taxQ, $table);
+                $totalTax += (float)$taxQ->sum('tax');
             }
-            if (DB::getSchemaBuilder()->hasColumn($table, 'stamp')) {
-                $totalStamp += DB::table($table)->sum('stamp');
+            if ($schema->hasColumn($table, 'stamp')) {
+                $stampQ = DB::table($table);
+                $applyDocBranchFilter($stampQ, $table);
+                $totalStamp += (float)$stampQ->sum('stamp');
             }
-            if (DB::getSchemaBuilder()->hasColumn($table, 'supervision_fees')) {
-                $totalSupervision += DB::table($table)->sum('supervision_fees');
+            if ($schema->hasColumn($table, 'supervision_fees')) {
+                $supQ = DB::table($table);
+                $applyDocBranchFilter($supQ, $table);
+                $totalSupervision += (float)$supQ->sum('supervision_fees');
             }
         }
 
         // 8. Insurance Categories Breakdown
+        $countTable = function ($tbl) use ($applyDocBranchFilter) {
+            if (!DB::getSchemaBuilder()->hasTable($tbl)) return 0;
+            $q = DB::table($tbl);
+            $applyDocBranchFilter($q, $tbl);
+            return (int)$q->count();
+        };
+
         $categoriesData = [
-            ['name' => 'تأمين سيارات', 'value' => (int) DB::table('insurance_documents')->count(), 'color' => '#139625'],
-            ['name' => 'تأمين دولي', 'value' => (int) DB::table('international_insurance_documents')->count(), 'color' => '#014cb1'],
-            ['name' => 'تأمين مسافرين', 'value' => (int) DB::table('travel_insurance_documents')->count(), 'color' => '#f59e0b'],
-            ['name' => 'تأمين وفود', 'value' => (int) DB::table('resident_insurance_documents')->count(), 'color' => '#8b5cf6'],
-            ['name' => 'أخرى', 'value' => (int) (DB::table('marine_structure_insurance_documents')->count() + DB::table('professional_liability_insurance_documents')->count() + DB::table('personal_accident_insurance_documents')->count()), 'color' => '#64748b'],
+            ['name' => 'تأمين سيارات',   'value' => $countTable('insurance_documents'), 'color' => '#139625'],
+            ['name' => 'تأمين دولي',     'value' => $countTable('international_insurance_documents'), 'color' => '#014cb1'],
+            ['name' => 'تأمين مسافرين',  'value' => $countTable('travel_insurance_documents'), 'color' => '#f59e0b'],
+            ['name' => 'تأمين وفود',     'value' => $countTable('resident_insurance_documents'), 'color' => '#8b5cf6'],
+            ['name' => 'أخرى',           'value' => $countTable('marine_structure_insurance_documents') + $countTable('professional_liability_insurance_documents') + $countTable('personal_accident_insurance_documents'), 'color' => '#64748b'],
         ];
 
         // 9. Top Agents Performance
         $agentStats = [];
         foreach ($insuranceTables as $table) {
             if (DB::getSchemaBuilder()->hasColumn($table, 'branch_agent_id')) {
-                $results = DB::table($table)
+                $query = DB::table($table)
                     ->join('branches_agents', $table . '.branch_agent_id', '=', 'branches_agents.id')
-                    ->select('branches_agents.agency_name', DB::raw('SUM(total) as sales'))
-                    ->groupBy('branches_agents.agency_name')
-                    ->get();
+                    ->select('branches_agents.agency_name', DB::raw('SUM(' . $table . '.total) as sales'));
+
+                if ($branchId) {
+                    if ($this->isMainBranch($branchId)) {
+                        $query->where(function ($q) use ($branchId) {
+                            $q->where('branches_agents.branch_id', $branchId)
+                              ->orWhereNull('branches_agents.branch_id');
+                        });
+                    } else {
+                        $query->where('branches_agents.branch_id', $branchId);
+                    }
+                }
+
+                $results = $query->groupBy('branches_agents.agency_name')->get();
 
                 foreach ($results as $res) {
                     if (!isset($agentStats[$res->agency_name])) {
                         $agentStats[$res->agency_name] = 0;
                     }
-                    $agentStats[$res->agency_name] += $res->sales;
+                    $agentStats[$res->agency_name] += (float)$res->sales;
                 }
             }
         }
@@ -166,13 +215,19 @@ class FinancialStatisticsController extends Controller
             $monthRevenue = 0;
             foreach ($insuranceTables as $table) {
                 if (DB::getSchemaBuilder()->hasColumn($table, 'total') && DB::getSchemaBuilder()->hasColumn($table, 'created_at')) {
-                    $monthRevenue += DB::table($table)->whereMonth('created_at', $month)->sum('total');
+                    $mQ = DB::table($table)->whereMonth('created_at', $month);
+                    $applyDocBranchFilter($mQ, $table);
+                    $monthRevenue += (float)$mQ->sum('total');
                 }
             }
 
             $monthExpenses = 0;
             if (DB::getSchemaBuilder()->hasTable('expenses')) {
-                $monthExpenses = DB::table('expenses')->whereMonth('expense_date', $month)->sum('amount');
+                $expMonthQ = DB::table('expenses')->whereMonth('expense_date', $month);
+                if ($branchId) {
+                    $expMonthQ->where('branch_id', $branchId);
+                }
+                $monthExpenses = (float)$expMonthQ->sum('amount');
             }
 
             $chartData[] = [
@@ -185,7 +240,17 @@ class FinancialStatisticsController extends Controller
         // Calculate total actual paid amount from agents across all payment sources
         $totalPaid = 0.0;
         if (DB::getSchemaBuilder()->hasTable('branches_agents')) {
-            $agents = DB::table('branches_agents')->select('id')->get();
+            $agentsQ = DB::table('branches_agents')->select('id');
+            if ($branchId) {
+                if ($this->isMainBranch($branchId)) {
+                    $agentsQ->where(function ($q) use ($branchId) {
+                        $q->where('branch_id', $branchId)->orWhereNull('branch_id');
+                    });
+                } else {
+                    $agentsQ->where('branch_id', $branchId);
+                }
+            }
+            $agents = $agentsQ->get();
             foreach ($agents as $ag) {
                 $totalPaid += \App\Helpers\AgentPaymentHelper::getTotalPaid((int)$ag->id);
             }
@@ -216,6 +281,8 @@ class FinancialStatisticsController extends Controller
 
     public function getAllAgentsRevenue(Request $request)
     {
+        $branchId = $this->getResolvedBranchId($request);
+
         $insuranceTables = [
             'insurance_documents',
             'international_insurance_documents',
@@ -235,7 +302,18 @@ class FinancialStatisticsController extends Controller
                 $query = DB::table($table)
                     ->join('branches_agents', $table . '.branch_agent_id', '=', 'branches_agents.id')
                     ->select('branches_agents.agency_name', 'branches_agents.agent_name', DB::raw('SUM(' . $table . '.total) as sales'), DB::raw('COUNT(' . $table . '.id) as document_count'));
-                
+
+                if ($branchId) {
+                    if ($this->isMainBranch($branchId)) {
+                        $query->where(function ($q) use ($branchId) {
+                            $q->where('branches_agents.branch_id', $branchId)
+                              ->orWhereNull('branches_agents.branch_id');
+                        });
+                    } else {
+                        $query->where('branches_agents.branch_id', $branchId);
+                    }
+                }
+
                 if ($request->has('from_date') && $request->has('to_date')) {
                     $query->whereBetween($table . '.created_at', [$request->from_date . ' 00:00:00', $request->to_date . ' 23:59:59']);
                 }
@@ -251,9 +329,9 @@ class FinancialStatisticsController extends Controller
                             'document_count' => 0
                         ];
                     }
-                    $agentStats[$res->agency_name]['sales'] += $res->sales;
-                    $agentStats[$res->agency_name]['document_count'] += $res->document_count;
-                    $totalRevenue += $res->sales;
+                    $agentStats[$res->agency_name]['sales'] += (float)$res->sales;
+                    $agentStats[$res->agency_name]['document_count'] += (int)$res->document_count;
+                    $totalRevenue += (float)$res->sales;
                 }
             }
         }
@@ -1298,11 +1376,25 @@ class FinancialStatisticsController extends Controller
             $toDate = $request->get('to_date');
             $docTypeFilter = $request->get('doc_type') ?: $request->get('document_type');
 
+            $branchId = $this->getResolvedBranchId($request);
+
             // Get all active agents with their percentages
-            $agents = DB::table('branches_agents')
+            $agentsQuery = DB::table('branches_agents')
                 ->select('id', 'code', 'agency_name', 'agent_name', 'document_percentages', 'status')
-                ->where('status', 'نشط')
-                ->get();
+                ->where('status', 'نشط');
+
+            if ($branchId) {
+                if ($this->isMainBranch($branchId)) {
+                    $agentsQuery->where(function ($q) use ($branchId) {
+                        $q->where('branch_id', $branchId)
+                          ->orWhereNull('branch_id');
+                    });
+                } else {
+                    $agentsQuery->where('branch_id', $branchId);
+                }
+            }
+
+            $agents = $agentsQuery->get();
 
             $agentIds = $agents->pluck('id')->toArray();
             
@@ -1992,6 +2084,15 @@ class FinancialStatisticsController extends Controller
         @ini_set('memory_limit', '1024M');
         @set_time_limit(300);
 
+        $branchId = $this->getResolvedBranchId($request);
+        $branchAgentIds = $this->getBranchAgentIds($branchId);
+
+        $branchName = null;
+        if ($branchId) {
+            $branchObj = DB::table('branches')->where('id', $branchId)->first(['name']);
+            $branchName = $branchObj ? $branchObj->name : "فرع رقم {$branchId}";
+        }
+
         $agentId = $request->get('agent_id');
         $year = $request->get('year');
         $month = $request->get('month');
@@ -2009,7 +2110,17 @@ class FinancialStatisticsController extends Controller
         
         $branchAgents = collect();
         if ($schema->hasTable('branches_agents')) {
-            $branchAgents = DB::table('branches_agents')->get(['id', 'agency_name', 'agent_name', 'code'])->keyBy('id');
+            $baQuery = DB::table('branches_agents');
+            if ($branchId) {
+                if ($this->isMainBranch($branchId)) {
+                    $baQuery->where(function ($q) use ($branchId) {
+                        $q->where('branch_id', $branchId)->orWhereNull('branch_id');
+                    });
+                } else {
+                    $baQuery->where('branch_id', $branchId);
+                }
+            }
+            $branchAgents = $baQuery->get(['id', 'agency_name', 'agent_name', 'code', 'branch_id'])->keyBy('id');
         }
 
         $selectedAgent = null;
@@ -2152,9 +2263,22 @@ class FinancialStatisticsController extends Controller
 
             $query = DB::table($tableName);
 
-            // Agent filter
+            // Agent filter or Branch filter
             if ($selectedAgent && $hasBranchAgentCol) {
                 $query->where('branch_agent_id', $selectedAgent->id);
+            } elseif ($branchId) {
+                $query->where(function ($q) use ($branchId, $branchAgentIds, $tableName, $schema) {
+                    if ($schema->hasColumn($tableName, 'branch_id')) {
+                        if ($this->isMainBranch($branchId)) {
+                            $q->where('branch_id', $branchId)->orWhereNull('branch_id');
+                        } else {
+                            $q->where('branch_id', $branchId);
+                        }
+                    }
+                    if (!empty($branchAgentIds) && $schema->hasColumn($tableName, 'branch_agent_id')) {
+                        $q->orWhereIn('branch_agent_id', $branchAgentIds);
+                    }
+                });
             }
 
             // High-performance date range filtering using DB indexes
@@ -2343,13 +2467,17 @@ class FinancialStatisticsController extends Controller
         }
 
         // Agent Label
-        $agentLabel = $selectedAgent ? ($selectedAgent->agency_name . ' (' . ($selectedAgent->code ?? '') . ')') : 'جميع الوكلاء والفروع (الكل)';
+        $agentLabel = $selectedAgent 
+            ? ($selectedAgent->agency_name . ' (' . ($selectedAgent->code ?? '') . ')') 
+            : ($branchName ? "كافة وكلاء {$branchName}" : 'جميع الوكلاء والفروع (الكل)');
 
         return [
             'sections' => $sections,
             'grand_totals' => $grandTotals,
             'selected_agent' => $selectedAgent,
             'agent_label' => $agentLabel,
+            'branch_id' => $branchId,
+            'branch_name' => $branchName,
             'period_label' => $periodLabel,
             'year' => $year,
             'month' => $month,

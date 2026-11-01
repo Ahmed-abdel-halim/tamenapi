@@ -3493,13 +3493,11 @@ class BranchAgentController extends Controller
                     : $branchAgent->document_percentages;
             }
 
-            $getPercentage = function($category) use ($percentages) {
-                return AgentPercentageHelper::resolvePercentage($percentages, $category);
-            };
-
-            $processDocuments = function ($docs, $category) use (&$documentsByCategory, &$totalCompanyAmount, &$totalAmount, &$grandTotal, $getPercentage) {
-                $percentage = $getPercentage($category);
+            $processDocuments = function ($docs, $category) use (&$documentsByCategory, &$totalCompanyAmount, &$totalAmount, &$grandTotal, $percentages) {
                 foreach ($docs as $doc) {
+                    $docDate = $doc->issue_date ?? ($doc->created_at ?? null);
+                    $docType = $doc->insurance_type ?? $category;
+                    $percentage = AgentPercentageHelper::resolvePercentage($percentages, $docType, $docDate);
                     $total = floatval($doc->total ?? 0);
                     $premium = floatval($doc->premium ?? $total); // use premium for commission calculation if available, otherwise total
                     $agentAmount = $premium * ($percentage / 100);
@@ -3642,22 +3640,21 @@ class BranchAgentController extends Controller
             // 1. insurance_documents (تأمين السيارات بكل أنواعه)
             // ─────────────────────────────────────────
             if (DB::getSchemaBuilder()->hasTable('insurance_documents')) {
+                $schema = DB::getSchemaBuilder();
+                $selectCols = ['total', 'premium', 'insurance_type', 'end_date'];
+                if ($schema->hasColumn('insurance_documents', 'issue_date')) $selectCols[] = 'issue_date';
+                if ($schema->hasColumn('insurance_documents', 'created_at')) $selectCols[] = 'created_at';
                 $rows = DB::table('insurance_documents')
                     ->where('branch_agent_id', $id)
-                    ->select('total', 'premium', 'insurance_type', 'end_date')
+                    ->select($selectCols)
                     ->get();
 
                 $agentShare = 0;
-                $typeMap = [
-                    'تأمين إجباري سيارات'    => 'تأمين سيارات',
-                    'تأمين سيارة جمرك'        => 'تأمين سيارة جمرك',
-                    'تأمين سيارات أجنبية'     => 'تأمين سيارات أجنبية',
-                    'تأمين طرف ثالث سيارات'   => 'تأمين طرف ثالث سيارات',
-                ];
                 $today = now()->toDateString();
                 foreach ($rows as $row) {
-                    $pctKey = $typeMap[$row->insurance_type ?? ''] ?? 'تأمين سيارات';
-                    $pct    = $documentPercentages[$pctKey] ?? 0;
+                    $docType = $row->insurance_type ?? 'تأمين إجباري سيارات';
+                    $docDate = $row->issue_date ?? $row->created_at ?? null;
+                    $pct     = AgentPercentageHelper::resolvePercentage($documentPercentages, $docType, $docDate);
                     $agentShare += ($row->premium ?? 0) * ($pct / 100);
                     if ($row->end_date && $row->end_date < $today) $expiredCount++; else $activeCount++;
                 }

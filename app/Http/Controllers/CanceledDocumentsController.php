@@ -20,6 +20,8 @@ use Carbon\Carbon;
 
 class CanceledDocumentsController extends Controller
 {
+    use \App\Traits\HandlesBranchScope;
+
     /**
      * خريطة أنواع الوثائق إلى الـ Models
      */

@@ -27,7 +27,8 @@ class LifoReportController extends Controller
             'verify' => false,
             'timeout' => 30.0,
             'connect_timeout' => 10.0,
-            'proxy' => '',
+            'proxy' => env('LIFO_PROXY', ''),
+            'headers' => ['User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'],
             'curl' => [CURLOPT_IPRESOLVE => CURL_IPRESOLVE_V4],
         ]);
 
@@ -206,7 +207,8 @@ class LifoReportController extends Controller
                 'verify' => false,
                 'timeout' => 180.0,
                 'connect_timeout' => 15.0,
-                'proxy' => '',
+                'proxy' => env('LIFO_PROXY', ''),
+            'headers' => ['User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'],
                 'curl' => [CURLOPT_IPRESOLVE => CURL_IPRESOLVE_V4],
             ]);
 

@@ -564,8 +564,7 @@ class UnionSyncService
     {
         return Cache::remember('lifo_offices_adminmli', 86400, function () {
             try {
-                $response = Http::timeout(45)
-                    ->withoutVerifying()
+                $response = $this->buildHttpClient(45)
                     ->post("{$this->baseUrl}/api/offices/all", [
                         'user_name' => $this->lifoUsername,
                         'pass_word' => $this->lifoPassword,
@@ -592,8 +591,7 @@ class UnionSyncService
         return Cache::remember('lifo_cards_adminmli_all', 86400, function () {
             try {
                 Log::info('UnionSyncService: Cache expired. Fetching 90k+ cards list from Union API...');
-                $response = Http::timeout(300)
-                    ->withoutVerifying()
+                $response = $this->buildHttpClient(300)
                     ->post("{$this->baseUrl}/api/cards/all", [
                         'user_name' => $this->lifoUsername,
                         'pass_word' => $this->lifoPassword,
@@ -626,7 +624,7 @@ class UnionSyncService
             if (in_array($officeId, $largeOfficeIds)) {
                 try {
                     Log::info("UnionSyncService: Fetching large office reports for ID {$officeId} sequentially...");
-                    $response = Http::timeout(300)->withoutVerifying()->post("{$this->baseUrl}/api/report/byoffice/{$officeId}", [
+                    $response = $this->buildHttpClient(300)->post("{$this->baseUrl}/api/report/byoffice/{$officeId}", [
                         'user_name' => $this->lifoUsername,
                         'pass_word' => $this->lifoPassword,
                     ]);
@@ -655,7 +653,7 @@ class UnionSyncService
         // 2. Fetch company head office reports
         try {
             Log::info("UnionSyncService: Fetching company head office reports...");
-            $response = Http::timeout(180)->withoutVerifying()->post("{$this->baseUrl}/api/report/all", [
+            $response = $this->buildHttpClient(180)->post("{$this->baseUrl}/api/report/all", [
                 'user_name' => $this->lifoUsername,
                 'pass_word' => $this->lifoPassword,
             ]);
@@ -826,4 +824,27 @@ class UnionSyncService
 
         return $trimmed;
     }
+
+    /**
+     * Build HTTP client with realistic headers and optional proxy support.
+     */
+    protected function buildHttpClient(int $timeout = 60)
+    {
+        $options = [
+            'force_ip_resolve' => 'v4',
+        ];
+        $proxy = env('LIFO_PROXY', '');
+        if (!empty($proxy)) {
+            $options['proxy'] = $proxy;
+        }
+
+        return Http::timeout($timeout)
+            ->withoutVerifying()
+            ->withHeaders([
+                'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+                'Accept' => 'application/json, text/plain, */*',
+            ])
+            ->withOptions($options);
+    }
+
 }

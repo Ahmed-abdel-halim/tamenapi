@@ -481,6 +481,7 @@ class FinancialStatisticsController extends Controller
                     'company_share'  => 0.0,
                     'percentage'     => 0.0,
                     'pct_counts'     => [],
+                    'type_breakdown' => [],
                 ];
                 $cursor->addMonth();
             }
@@ -561,6 +562,7 @@ class FinancialStatisticsController extends Controller
                                 'company_share'  => 0.0,
                                 'percentage'     => 0.0,
                                 'pct_counts'     => [],
+                                'type_breakdown' => [],
                             ];
                             ksort($months);
                         } else {
@@ -576,6 +578,21 @@ class FinancialStatisticsController extends Controller
                     $agentAmount  = $premium * ($pct / 100);
                     $companyAmount = $total - $agentAmount;
 
+                    // Group by type for percentage clarity
+                    $typeKey = $rawDocType;
+                    if (!isset($months[$monthKey]['type_breakdown'][$typeKey])) {
+                        $months[$monthKey]['type_breakdown'][$typeKey] = [
+                            'type_label'     => $typeKey,
+                            'percentage'     => round($pct, 2),
+                            'document_count' => 0,
+                            'active_count'   => 0,
+                            'canceled_count' => 0,
+                            'sales'          => 0.0,
+                            'agent_share'    => 0.0,
+                        ];
+                    }
+                    $months[$monthKey]['type_breakdown'][$typeKey]['document_count']++;
+
                     // Check cancellation status
                     $isCanceled = false;
                     if (isset($doc->is_canceled) && $doc->is_canceled) {
@@ -590,6 +607,7 @@ class FinancialStatisticsController extends Controller
 
                     if ($isCanceled) {
                         $months[$monthKey]['canceled_count']++;
+                        $months[$monthKey]['type_breakdown'][$typeKey]['canceled_count']++;
                         $cancelFee = self::getCancellationFeeForDoc($tableName, $rawDocType);
                         $months[$monthKey]['cancellation_fees'] = ($months[$monthKey]['cancellation_fees'] ?? 0.0) + $cancelFee;
                         // Add cancellation fee to company share!
@@ -607,6 +625,10 @@ class FinancialStatisticsController extends Controller
                         } else {
                             $months[$monthKey]['active_count']++;
                         }
+
+                        $months[$monthKey]['type_breakdown'][$typeKey]['active_count']++;
+                        $months[$monthKey]['type_breakdown'][$typeKey]['sales'] += $total;
+                        $months[$monthKey]['type_breakdown'][$typeKey]['agent_share'] += $agentAmount;
 
                         $months[$monthKey]['total_sales']          += $total;
                         $months[$monthKey]['agent_share']          += $agentAmount;
@@ -663,6 +685,39 @@ class FinancialStatisticsController extends Controller
                     $monthPct = (float)array_key_first($m['pct_counts']);
                 }
 
+                // Breakdown of percentages and insurance types
+                $typesBreakdown = array_values($m['type_breakdown'] ?? []);
+                usort($typesBreakdown, function($a, $b) {
+                    return $b['sales'] <=> $a['sales'];
+                });
+
+                $uniquePercentages = [];
+                $percentageDetails = [];
+                foreach ($typesBreakdown as &$tb) {
+                    $tb['percentage'] = round($tb['percentage'], 2);
+                    $tb['sales'] = round($tb['sales'], 2);
+                    $tb['agent_share'] = round($tb['agent_share'], 2);
+                    $pVal = (float)$tb['percentage'];
+                    if (!in_array($pVal, $uniquePercentages)) {
+                        $uniquePercentages[] = $pVal;
+                    }
+                    $percentageDetails[] = "{$tb['type_label']}: {$tb['percentage']}% ({$tb['document_count']} وثيقة)";
+                }
+                unset($tb);
+
+                $isMultiplePercentages = count($uniquePercentages) > 1;
+                
+                $percentageLabel = $monthPct > 0 ? "{$monthPct}%" : "—";
+                if ($isMultiplePercentages) {
+                    sort($uniquePercentages);
+                    $minP = reset($uniquePercentages);
+                    $maxP = end($uniquePercentages);
+                    $percentageLabel = "متعددة ({$minP}% - {$maxP}%)";
+                }
+
+                $percentageSummaryText = !empty($percentageDetails) ? implode(' | ', $percentageDetails) : $percentageLabel;
+                $effectivePercentage = $m['total_sales'] > 0 ? round(($m['agent_share'] / $m['total_sales']) * 100, 1) : $monthPct;
+
                 $agentShare        = round($m['agent_share'], 2);
                 $cancellationFees  = round($m['cancellation_fees'] ?? 0.0, 2);
                 $companySalesShare = round($m['company_sales_share'] ?? max(0, $m['company_share'] - $cancellationFees), 2);
@@ -680,15 +735,21 @@ class FinancialStatisticsController extends Controller
                 $closureId = $closure ? $closure->id : null;
 
                 $rows[] = [
-                    'closure_id'          => $closureId,
-                    'year'                => $m['year'],
-                    'month'               => $m['month'],
-                    'month_label'         => $m['month_label'],
-                    'month_key'           => $mk,
-                    'from_date'           => $m['from_date'],
-                    'to_date'             => $m['to_date'],
-                    'percentage'          => round($monthPct, 2),
-                    'document_count'      => $m['document_count'],
+                    'closure_id'              => $closureId,
+                    'year'                    => $m['year'],
+                    'month'                   => $m['month'],
+                    'month_label'             => $m['month_label'],
+                    'month_key'               => $mk,
+                    'from_date'               => $m['from_date'],
+                    'to_date'                 => $m['to_date'],
+                    'percentage'              => round($monthPct, 2),
+                    'is_multiple_percentages' => $isMultiplePercentages,
+                    'percentage_label'        => $percentageLabel,
+                    'percentage_summary_text' => $percentageSummaryText,
+                    'types_breakdown'         => $typesBreakdown,
+                    'unique_percentages'      => $uniquePercentages,
+                    'effective_percentage'    => $effectivePercentage,
+                    'document_count'          => $m['document_count'],
                     'active_count'        => $m['active_count'],
                     'expired_count'       => $m['expired_count'],
                     'canceled_count'      => $m['canceled_count'],

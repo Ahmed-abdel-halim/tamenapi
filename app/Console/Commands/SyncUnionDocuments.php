@@ -26,9 +26,12 @@ class SyncUnionDocuments extends Command
             $stats = $syncService->sync();
 
             // Save result to Cache
+            $hasErrors = !empty($stats['errors']);
+            $isCompleteFailure = $hasErrors && ($stats['created'] == 0 && $stats['updated'] == 0);
+
             Cache::put('union_sync_status', [
-                'status'  => 'completed',
-                'message' => 'تمت المزامنة بنجاح',
+                'status'  => $isCompleteFailure ? 'failed' : 'completed',
+                'message' => $isCompleteFailure ? ('فشلت المزامنة: ' . implode(' | ', $stats['errors'])) : 'تمت المزامنة بنجاح',
                 'created' => $stats['created'],
                 'updated' => $stats['updated'],
                 'failed'  => $stats['failed'],

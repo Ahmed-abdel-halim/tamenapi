@@ -562,25 +562,37 @@ class UnionSyncService
      */
     protected function fetchOffices(): array
     {
-        return Cache::remember('lifo_offices_adminmli', 86400, function () {
-            try {
-                $response = $this->buildHttpClient(45)
-                    ->post("{$this->baseUrl}/api/offices/all", [
-                        'user_name' => $this->lifoUsername,
-                        'pass_word' => $this->lifoPassword,
-                    ]);
+        $cached = Cache::get('lifo_offices_adminmli');
+        if (!empty($cached) && is_array($cached)) {
+            return $cached;
+        }
 
-                if ($response->successful()) {
-                    $data = $response->json();
-                    if (isset($data['code']) && $data['code'] === 1 && is_array($data['data'])) {
-                        return $data['data'];
-                    }
+        try {
+            $response = $this->buildHttpClient(45)
+                ->post("{$this->baseUrl}/api/offices/all", [
+                    'user_name' => $this->lifoUsername,
+                    'pass_word' => $this->lifoPassword,
+                ]);
+
+            if ($response->successful()) {
+                $data = $response->json();
+                if (isset($data['code']) && $data['code'] === 1 && is_array($data['data'])) {
+                    Cache::put('lifo_offices_adminmli', $data['data'], 86400);
+                    return $data['data'];
                 }
-            } catch (\Exception $e) {
-                Log::error('UnionSyncService: fetchOffices failed. Error: ' . $e->getMessage());
+            } else {
+                $body = trim(substr($response->body(), 0, 150));
+                $status = $response->status();
+                if ($status === 403 || str_contains($body, '1006')) {
+                    throw new \Exception("تم حظر IP السيرفر من خادم الاتحاد (Cloudflare Error 1006). يرجى مخاطبة الاتحاد لفك الحظر عن الـ IP.");
+                }
+                throw new \Exception("خادم الاتحاد رفض الاتصال (HTTP {$status}): {$body}");
             }
-            return [];
-        });
+        } catch (\Exception $e) {
+            Log::error('UnionSyncService: fetchOffices failed. Error: ' . $e->getMessage());
+            throw $e;
+        }
+        return [];
     }
 
     /**
@@ -588,26 +600,38 @@ class UnionSyncService
      */
     protected function fetchCards(): array
     {
-        return Cache::remember('lifo_cards_adminmli_all', 86400, function () {
-            try {
-                Log::info('UnionSyncService: Cache expired. Fetching 90k+ cards list from Union API...');
-                $response = $this->buildHttpClient(300)
-                    ->post("{$this->baseUrl}/api/cards/all", [
-                        'user_name' => $this->lifoUsername,
-                        'pass_word' => $this->lifoPassword,
-                    ]);
+        $cached = Cache::get('lifo_cards_adminmli_all');
+        if (!empty($cached) && is_array($cached)) {
+            return $cached;
+        }
 
-                if ($response->successful()) {
-                    $data = $response->json();
-                    if (isset($data['code']) && $data['code'] === 1 && is_array($data['data'])) {
-                        return $data['data'];
-                    }
+        try {
+            Log::info('UnionSyncService: Fetching cards list from Union API...');
+            $response = $this->buildHttpClient(300)
+                ->post("{$this->baseUrl}/api/cards/all", [
+                    'user_name' => $this->lifoUsername,
+                    'pass_word' => $this->lifoPassword,
+                ]);
+
+            if ($response->successful()) {
+                $data = $response->json();
+                if (isset($data['code']) && $data['code'] === 1 && is_array($data['data'])) {
+                    Cache::put('lifo_cards_adminmli_all', $data['data'], 86400);
+                    return $data['data'];
                 }
-            } catch (\Exception $e) {
-                Log::error('UnionSyncService: fetchCards failed. Error: ' . $e->getMessage());
+            } else {
+                $body = trim(substr($response->body(), 0, 150));
+                $status = $response->status();
+                if ($status === 403 || str_contains($body, '1006')) {
+                    throw new \Exception("تم حظر IP السيرفر من خادم الاتحاد (Cloudflare Error 1006). يرجى مخاطبة الاتحاد لفك الحظر عن الـ IP.");
+                }
+                throw new \Exception("خادم الاتحاد رفض الاتصال (HTTP {$status}): {$body}");
             }
-            return [];
-        });
+        } catch (\Exception $e) {
+            Log::error('UnionSyncService: fetchCards failed. Error: ' . $e->getMessage());
+            throw $e;
+        }
+        return [];
     }
 
     /**

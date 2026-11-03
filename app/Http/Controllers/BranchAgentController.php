@@ -981,10 +981,14 @@ class BranchAgentController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy($id)
+    public function destroy(Request $request, $id)
     {
+        $request = $request ?? request();
         // التحقق من أن المستخدم أدمن
-        $user = auth()->user() ?? auth('sanctum')->user();
+        $user = auth()->user() ?? auth('sanctum')->user() ?? $request->user();
+        if (!$user && $request->header('X-User-Id')) {
+            $user = \App\Models\User::find($request->header('X-User-Id'));
+        }
         if (!$user || !$user->is_admin) {
             return response()->json(['message' => 'غير مصرح لك بإجراء هذا الحذف. الأدمن فقط من يمكنه الحذف.'], 403);
         }
@@ -992,7 +996,7 @@ class BranchAgentController extends Controller
         DB::beginTransaction();
         try {
             $branchAgent = BranchAgent::findOrFail($id);
-            $authUser = $request->user();
+            $authUser = auth('sanctum')->user() ?? auth()->user() ?? $request->user();
             if (!$authUser && $request->header('X-User-Id')) {
                 $authUser = \App\Models\User::find($request->header('X-User-Id'));
             }
@@ -3312,11 +3316,12 @@ class BranchAgentController extends Controller
     /**
      * Toggle block status for the agent's user.
      */
-    public function toggleBlock($id)
+    public function toggleBlock(Request $request, $id)
     {
         try {
+            $request = $request ?? request();
             $branchAgent = BranchAgent::findOrFail($id);
-            $authUser = $request->user();
+            $authUser = auth('sanctum')->user() ?? auth()->user() ?? $request->user();
             if (!$authUser && $request->header('X-User-Id')) {
                 $authUser = \App\Models\User::find($request->header('X-User-Id'));
             }
@@ -3333,15 +3338,18 @@ class BranchAgentController extends Controller
             }
 
             $user = User::findOrFail($branchAgent->user_id);
-            $user->is_blocked = !$user->is_blocked;
-            if ($user->is_blocked) {
+            $newBlockedState = !$user->is_blocked;
+            $user->is_blocked = $newBlockedState;
+            $user->is_active = !$newBlockedState;
+            if ($newBlockedState) {
                 $user->tokens()->delete();
             }
             $user->save();
 
             return response()->json([
                 'success' => true,
-                'is_blocked' => $user->is_blocked,
+                'is_blocked' => (bool)$user->is_blocked,
+                'is_active' => (bool)$user->is_active,
                 'message' => $user->is_blocked ? 'تم حظر الوكيل بنجاح' : 'تم إلغاء حظر الوكيل بنجاح'
             ]);
         } catch (\Exception $e) {
@@ -3355,11 +3363,12 @@ class BranchAgentController extends Controller
     /**
      * Toggle show_on_landing status for the agent.
      */
-    public function toggleShowOnLanding($id)
+    public function toggleShowOnLanding(Request $request, $id)
     {
         try {
+            $request = $request ?? request();
             $branchAgent = BranchAgent::findOrFail($id);
-            $authUser = $request->user();
+            $authUser = auth('sanctum')->user() ?? auth()->user() ?? $request->user();
             if (!$authUser && $request->header('X-User-Id')) {
                 $authUser = \App\Models\User::find($request->header('X-User-Id'));
             }
